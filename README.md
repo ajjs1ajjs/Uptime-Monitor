@@ -117,8 +117,8 @@ docker run -d -p 8080:8080 -v uptime-data:/data \
 | **Request Timeout** | 60 сек |
 | **SSL Check Interval** | 6 годин |
 | **SSL Notification** | ≤7 днів до закінчення |
-| **Down Failures Threshold** | 1 |
-| **Up Success Threshold** | 1 |
+| **Down Failures Threshold** | 3 (потрібно 3 помилки для алерту) |
+| **Up Success Threshold** | 2 (потрібно 2 успіхи для відновлення) |
 
 ---
 
