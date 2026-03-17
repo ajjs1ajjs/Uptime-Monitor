@@ -1,0 +1,20 @@
+Package: uptime-monitor
+Version: 1.0.0
+Section: web
+Priority: optional
+Architecture: all
+Depends: python3 (>= 3.10), python3-pip, python3-venv, sqlite3
+Maintainer: Yaroslav Andreichuk <yaroslav.andreichuk@gmail.com>
+Homepage: https://github.com/ajjs1ajjs/Uptime-Monitor-APP
+Description: Website uptime monitoring service
+ Uptime Monitor is a FastAPI-based service for monitoring
+ website availability with notifications via Telegram,
+ Email, Slack, Discord, and more.
+ .
+ Features:
+  - Monitor multiple websites
+  - SSL certificate expiration tracking
+  - Multi-channel notifications
+  - Web-based dashboard
+  - REST API
+  - Systemd service integration

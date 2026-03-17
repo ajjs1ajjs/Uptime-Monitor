@@ -1,0 +1,194 @@
+UPTIME MONITOR - ДОДАВАННЯ АВТЕНТИФІКАЦІЇ
+========================================
+
+У цьому посібнику показано, як додати захист логіном/паролем до Uptime Monitor.
+
+
+ОСОБЛИВОСТІ:
+=========
+✅ Сторінка входу з авторизацією на основі сесії
+✅ Хешування пароля (SHA-256)
+✅ Сеансові файли cookie (термін дії 7 днів)
+✅ Захищена інформаційна панель (переспрямовує на вхід, якщо не пройшов автентифікацію)
+✅ Функція виходу
+✅ Користувач за замовчуванням: admin / admin123
+✅ Легко додати більше користувачів
+
+
+ШВИДКЕ НАЛАШТУВАННЯ (5 хвилин):
+=========================
+
+Крок 1. Замініть вміст main_service.py
+----------------------------------------------
+Відкрийте main_service.py і замініть його версією, яка включає auth.
+
+Авторизована версія додає:
+1. Імпортуйте auth_module у верхній частині
+2. Захистіть маршрут приладової панелі
+3. Додайте кнопки входу/виходу до інтерфейсу
+4. Ініціалізуйте таблиці авторизації під час запуску
+
+
+Крок 2. Оновіть main_service.py
+----------------------------------
+Додайте це в ТОП main_service.py (після імпорту):
+
+```python
+# Додаємо авторизацію
+from auth_module import init_auth_tables, add_auth_routes, require_auth
+
+# Ініціалізуємо таблиці авторизації
+init_auth_tables()
+```
+
+Потім додайте це ПІСЛЯ створення програми:
+```python
+# Додаємо роути авторизації
+add_auth_routes(app)
+```
+
+І захистіть маршрут приладової панелі:
+змінити:
+@app.get("/", response_class=HTMLResponse)
+async def dashboard():
+
+до:
+@app.get("/", response_class=HTMLResponse)
+інформаційна панель async def (запит: запит):
+    # Перевіряємо сесію
+    з auth_module імпорт validate_session
+    session_id = request.cookies.get('session_id')
+    користувач = validate_session(session_id)
+    якщо не користувач:
+        з fastapi.responses імпорт RedirectResponse
+        return RedirectResponse(url='/login', status_code=302)
+    
+# ... решта коду інформаційної панелі
+```
+
+
+Step 3: Add logout button to dashboard HTML
+-------------------------------------------
+In the dashboard HTML (in main_service.py), add this to the header:
+
+```html
+<div class="header">
+    <div class="logo"><div class="logo-icon">⚡</div><span>Монітор безвідмовної роботи</span></div>
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <span style="color: var(--text-secondary);">адміністратор</span>
+        <a href="/logout" style="color: var(--danger); text-decoration: none; font-weight: 600;">🚪 Вийти</a>
+    </div>
+</div>
+```
+
+
+Step 4: Restart the service
+---------------------------
+```cmd
+nssm перезапустіть UptimeMonitor
+```
+
+Or if running manually:
+```cmd
+Ctrl+C
+python main_service.py
+```
+
+
+ACCESS:
+=======
+1. Open http://localhost:8080
+2. You'll be redirected to login page
+3. Enter: admin / admin123
+4. Click "Sign In"
+5. You're in!
+
+
+CHANGING DEFAULT PASSWORD:
+==========================
+Option 1 - Direct database:
+1. Stop the service
+2. Open sites.db in any SQLite editor
+3. Update users table:
+   UPDATE users SET password_hash = '<new_hash>' WHERE username = 'admin';
+   (Hash = SHA256 of password)
+
+Option 2 - Add user management page (advanced):
+Create a page to change password in web interface.
+
+
+ADDING MORE USERS:
+==================
+Run this SQL in sites.db:
+```sql
+INSERT INTO користувачів (username, password_hash, is_admin, created_at) 
+VALUES ('newuser', '<sha256_hash>', 0, datetime('now'));
+```
+
+Generate hash:
+```пітон
+імпорт хешлібу
+print(hashlib.sha256('password'.encode()).hexdigest())
+```
+
+
+SECURITY NOTES:
+===============
+⚠️ Change default password immediately after first login!
+⚠️ Use HTTPS in production (SSL certificate)
+⚠️ Sessions expire after 7 days
+⚠️ Passwords stored as SHA-256 hashes (not plain text)
+⚠️ Session cookies are HttpOnly (protected from XSS)
+
+
+TROUBLESHOOTING:
+===============
+Can't login:
+- Check sites.db has users table
+- Verify password hash is correct
+- Clear browser cookies and try again
+
+Forgot password:
+- Delete sites.db and restart (loses all data!)
+- Or manually update password_hash in database
+
+Session expires too fast:
+- Edit auth_module.py, change timedelta(days=7)
+
+
+FILES CREATED:
+=============
+- auth_module.py - Authentication logic
+- This file - Instructions
+
+
+ALTERNATIVE: Basic HTTP Auth (Simpler)
+======================================
+If you want simpler auth without database:
+
+```пітон
+з fastapi.security імпорт HTTPBasic, HTTPBasicCredentials
+із секретів імпорт compare_digest
+
+безпека = HTTPBasic()
+
+@app.get("/")
+async def dashboard(облікові дані: HTTPBasicCredentials = Depends(security)):
+    correct_username = compare_digest(credentials.username, "admin")
+    correct_password = compare_digest(credentials.password, "admin123")
+    
+якщо ні (правильне_ім'я_користувача та правильний_пароль):
+        підняти HTTPException(
+            status_code=статус.HTTP_401_UNAUTHORIZED,
+            detail="Неправильне ім'я користувача або пароль",
+            headers={"WWW-Authenticate": "Базовий"},
+        )
+    # ... показати інформаційну панель
+```
+
+Це показує рідне спливаюче вікно для входу у веб-переглядачі замість спеціальної сторінки.
+
+
+---
+Потрібна допомога? Перегляньте коментарі auth_module.py для отримання додаткової інформації.
+

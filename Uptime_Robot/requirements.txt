@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+aiohttp
+pydantic
+pywin32
+python-multipart
+bcrypt
+jinja2

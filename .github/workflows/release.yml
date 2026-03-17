@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Get version
+        id: ver
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      
+      - name: Create tarball
+        run: |
+          cd Uptime_Robot
+          tar -czvf ../uptime-monitor-${{ steps.ver.outputs.VERSION }}.tar.gz \
+            --exclude='*.pyc' \
+            --exclude='__pycache__' \
+            --exclude='*.db' \
+            --exclude='*.log' \
+            --exclude='UptimeMonitor_EXE' \
+            main.py main_service.py auth_module.py config.py database.py logger.py \
+            models.py notifications.py monitoring.py ssl_checker.py \
+            templates/ static/ requirements.txt
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: |
+            # Uptime Monitor ${{ steps.ver.outputs.VERSION }}
+            
+            ## Installation
+            
+            ### Linux (CURL)
+            ```
+            curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/install.sh | sudo bash
+            ```
+            
+            ## Default Credentials
+            - Username: admin
+            - Password: admin
+            
+            **Please change password after first login!**
+          files: uptime-monitor-*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

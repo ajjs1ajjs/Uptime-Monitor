@@ -1,0 +1,40 @@
+# Віртуальне середовище
+.venv/
+Lib/
+Scripts/
+pyvenv.cfg
+.env
+
+# Тимчасові файли Python
+__pycache__/
+*.py[cod]
+null
+# Складання та дистрибутиви
+build/
+dist/
+*.spec
+
+# Налаштування IDE
+.idea/
+.vscode/
+.opencode/
+Project.code-workspace
+
+# Бази даних та архіви
+*.db
+*.zip
+*.rar
+port.txt
+
+# Тестові файли
+cookies*.txt
+c3.txt
+c4.txt
+c5.txt
+
+# Логи
+*.log
+
+# Бінарні файли
+UptimeMonitor.exe
+get-pip.pyUptime_Robot/venv/

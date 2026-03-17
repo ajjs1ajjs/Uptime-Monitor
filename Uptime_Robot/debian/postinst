@@ -1,0 +1,80 @@
+#!/bin/bash
+set -e
+
+# Post-installation script for uptime-monitor
+
+APP_NAME="uptime-monitor"
+INSTALL_DIR="/opt/${APP_NAME}"
+CONFIG_DIR="/etc/${APP_NAME}"
+DATA_DIR="/var/lib/${APP_NAME}"
+LOG_DIR="/var/log/${APP_NAME}"
+USER="${APP_NAME}"
+
+echo "Setting up ${APP_NAME}..."
+
+# Create user if not exists
+if ! id -u ${USER} > /dev/null 2>&1; then
+    echo "Creating system user: ${USER}"
+    useradd -r -s /bin/false -d "${DATA_DIR}" ${USER}
+fi
+
+# Create directories
+mkdir -p "${CONFIG_DIR}"
+mkdir -p "${DATA_DIR}"
+mkdir -p "${LOG_DIR}"
+
+# Set permissions
+chown -R ${USER}:${USER} "${CONFIG_DIR}"
+chown -R ${USER}:${USER} "${DATA_DIR}"
+chown -R ${USER}:${USER} "${LOG_DIR}"
+chown -R ${USER}:${USER} "${INSTALL_DIR}"
+
+# Create default config if not exists
+if [ ! -f "${CONFIG_DIR}/config.json" ]; then
+    cat > "${CONFIG_DIR}/config.json" << EOF
+{
+    "server": {"port": 8080, "host": "auto", "domain": "auto"},
+    "data_dir": "${DATA_DIR}",
+    "log_dir": "${LOG_DIR}",
+    "check_interval": 60
+}
+EOF
+    chown ${USER}:${USER} "${CONFIG_DIR}/config.json"
+fi
+
+# Install Python dependencies
+echo "Installing Python dependencies..."
+cd "${INSTALL_DIR}"
+if [ -f "requirements.txt" ]; then
+    pip3 install -r requirements.txt --break-system-packages 2>/dev/null || \
+    pip3 install -r requirements.txt
+fi
+
+# Setup systemd
+echo "Setting up systemd service..."
+systemctl daemon-reload
+systemctl enable ${APP_NAME}
+
+# Prompt for email notification setup
+echo ""
+echo "=================================="
+echo " ${APP_NAME^} Installation Complete"
+echo "=================================="
+echo ""
+echo "Default credentials:"
+echo "  Username: admin"
+echo "  Password: admin"
+echo "  (Please change these after first login!)"
+echo ""
+echo "To start the service:"
+echo "  sudo systemctl start ${APP_NAME}"
+echo ""
+echo "To view logs:"
+echo "  sudo journalctl -u ${APP_NAME} -f"
+echo ""
+echo "To configure email notifications:"
+echo "  Edit: ${CONFIG_DIR}/config.json"
+echo "  Then: sudo systemctl restart ${APP_NAME}"
+echo ""
+
+exit 0

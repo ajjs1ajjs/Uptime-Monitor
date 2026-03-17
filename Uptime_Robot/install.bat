@@ -1,0 +1,99 @@
+@echo off
+setlocal enabledelayedexpansion
+
+echo ========================================
+echo   Uptime Monitor - Installation
+echo ========================================
+echo.
+
+net session >nul 2>&1
+if not %errorlevel%==0 (
+    echo ERROR: Run this script as Administrator.
+    pause
+    exit /b 1
+)
+
+python --version >nul 2>&1
+if not %errorlevel%==0 (
+    echo ERROR: Python is not installed or not in PATH.
+    pause
+    exit /b 1
+)
+
+set /p PORT="Enter port (default 8080): "
+if "%PORT%"=="" set PORT=8080
+
+echo.
+echo Installing Uptime Monitor on port %PORT%...
+echo.
+
+cd /d "%~dp0"
+
+echo Installing Python dependencies...
+python -m pip install -r requirements.txt
+if not %errorlevel%==0 (
+    echo ERROR: Failed to install dependencies.
+    pause
+    exit /b 1
+)
+
+echo Installing pywin32 to system site-packages...
+python -m pip install --upgrade --force-reinstall --no-user pywin32
+if not %errorlevel%==0 (
+    echo ERROR: Failed to install pywin32 in system site-packages.
+    pause
+    exit /b 1
+)
+
+echo Verifying pywin32 service modules...
+python -c "import servicemanager, win32serviceutil; print(servicemanager.__file__)"
+if not %errorlevel%==0 (
+    echo ERROR: pywin32 modules are not available for service runtime.
+    pause
+    exit /b 1
+)
+
+echo Preparing pywin32 runtime files...
+python -c "import os,sys,shutil,glob,site; ver=f'{sys.version_info.major}{sys.version_info.minor}'; candidates=[]; [candidates.extend(glob.glob(os.path.join(p,'pywin32_system32'))) for p in site.getsitepackages()+[site.getusersitepackages()]]; src=next((d for d in candidates if os.path.isdir(d)), None); assert src, 'pywin32_system32 not found'; dst=sys.base_prefix; files=[f'pythoncom{ver}.dll', f'pywintypes{ver}.dll']; [print('exists:', os.path.join(dst,f)) if os.path.exists(os.path.join(dst,f)) else (shutil.copy2(os.path.join(src,f), os.path.join(dst,f)), print('copied:', os.path.join(dst,f))) for f in files if os.path.exists(os.path.join(src,f))]; print('pywin32 runtime check complete:', dst)"
+if not %errorlevel%==0 (
+    echo ERROR: Failed to prepare pywin32 runtime files.
+    pause
+    exit /b 1
+)
+
+echo Saving port to config...
+python -c "import config_manager as c; c.init_paths(); cfg=c.load_config(); cfg.setdefault('server', {})['port']=%PORT%; c.save_config(cfg)"
+if not %errorlevel%==0 (
+    echo ERROR: Failed to update config.
+    pause
+    exit /b 1
+)
+
+echo Installing Windows service...
+python main_service.py install
+if not %errorlevel%==0 (
+    echo ERROR: Service installation failed.
+    pause
+    exit /b 1
+)
+
+sc config UptimeMonitor start= auto
+net start UptimeMonitor
+
+echo.
+echo ========================================
+echo   Installation complete!
+echo ========================================
+echo.
+echo Service: UptimeMonitor
+echo Port: %PORT%
+echo.
+echo To manage service:
+echo   net stop UptimeMonitor
+echo   net start UptimeMonitor
+echo   sc delete UptimeMonitor
+echo.
+echo To access: http://localhost:%PORT%
+echo.
+
+pause

@@ -1,0 +1,33 @@
+#!/bin/bash
+set -e
+
+# Pre-removal script for uptime-monitor
+
+APP_NAME="uptime-monitor"
+USER="${APP_NAME}"
+
+case "$1" in
+    remove|upgrade|deconfigure)
+        # Stop the service
+        if systemctl is-active --quiet ${APP_NAME}; then
+            echo "Stopping ${APP_NAME} service..."
+            systemctl stop ${APP_NAME}
+        fi
+        
+        # Disable the service
+        if systemctl is-enabled --quiet ${APP_NAME} 2>/dev/null; then
+            echo "Disabling ${APP_NAME} service..."
+            systemctl disable ${APP_NAME}
+        fi
+        ;;
+    
+    failed-upgrade|abort-install|abort-upgrade|disappear)
+        # Nothing to do
+        ;;
+    
+    *)
+        echo "prerm called with unknown argument: $1"
+        ;;
+esac
+
+exit 0

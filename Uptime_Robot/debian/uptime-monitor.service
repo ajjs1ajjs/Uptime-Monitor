@@ -1,0 +1,27 @@
+[Unit]
+Description=Uptime Monitor Service
+Documentation=https://github.com/ajjs1ajjs/Uptime-Monitor-APP
+After=network.target
+
+[Service]
+Type=simple
+User=uptime-monitor
+Group=uptime-monitor
+WorkingDirectory=/opt/uptime-monitor
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+Environment="CONFIG_PATH=/etc/uptime-monitor/config.json"
+ExecStart=/usr/bin/python3 /opt/uptime-monitor/main.py
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/uptime-monitor/uptime-monitor.log
+StandardError=append:/var/log/uptime-monitor/uptime-monitor.error.log
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/uptime-monitor /var/log/uptime-monitor /etc/uptime-monitor
+
+[Install]
+WantedBy=multi-user.target
