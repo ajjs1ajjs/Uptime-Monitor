@@ -10,20 +10,20 @@
 
 ```bash
 # 1. Видалити стару папку З СУДОМ
-sudo rm -rf /tmp/Uptime-Monitor-APP-main
+sudo rm -rf /tmp/Uptime-Monitor-main
 
 # 2. Завантажити ZIP заново (якщо видалений)
 cd /tmp
-wget https://github.com/ajjs1ajjs/Uptime-Monitor-APP/archive/refs/heads/main.zip -O uptime_update.zip
+wget https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -O uptime_update.zip
 
 # 3. Розпакувати З СУДОМ
 sudo unzip -o uptime_update.zip
 
 # 4. Скопіювати файли
-sudo cp -r /tmp/Uptime-Monitor-APP-main/Uptime_Robot/* /opt/uptime-monitor/
+sudo cp -r /tmp/Uptime-Monitor-main/Uptime_Robot/* /opt/uptime-monitor/
 
 # 5. Прибрати тимчасові файли З СУДОМ
-sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-APP-main
+sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-main
 
 # 6. Запустити службу
 sudo systemctl start uptime-monitor
@@ -66,13 +66,13 @@ UnZip 6.00 of 20 April 2009, by Debian.
 
 ```bash
 cd /tmp
-wget https://github.com/ajjs1ajjs/Uptime-Monitor-APP/archive/refs/heads/main.zip -O uptime_update.zip
+wget https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -O uptime_update.zip
 
 # КРИТИЧНО: Використовуйте sudo для всіх операцій!
-sudo rm -rf /tmp/Uptime-Monitor-APP-main
+sudo rm -rf /tmp/Uptime-Monitor-main
 sudo unzip -o uptime_update.zip
-sudo cp -r /tmp/Uptime-Monitor-APP-main/Uptime_Robot/* /opt/uptime-monitor/
-sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-APP-main
+sudo cp -r /tmp/Uptime-Monitor-main/Uptime_Robot/* /opt/uptime-monitor/
+sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-main
 sudo systemctl restart uptime-monitor
 ```
 
@@ -99,17 +99,17 @@ sudo /opt/uptime-monitor/scripts/backup-system.sh --status
 
 # 5. Завантажити оновлення
 cd /tmp
-wget https://github.com/ajjs1ajjs/Uptime-Monitor-APP/archive/refs/heads/main.zip -O uptime_update.zip
+wget https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -O uptime_update.zip
 
 # 6. Розпакувати З СУДОМ
-sudo rm -rf /tmp/Uptime-Monitor-APP-main
+sudo rm -rf /tmp/Uptime-Monitor-main
 sudo unzip -o uptime_update.zip
 
 # 7. Скопіювати файли
-sudo cp -r /tmp/Uptime-Monitor-APP-main/Uptime_Robot/* /opt/uptime-monitor/
+sudo cp -r /tmp/Uptime-Monitor-main/Uptime_Robot/* /opt/uptime-monitor/
 
 # 8. Прибрати тимчасові файли З СУДОМ
-sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-APP-main
+sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-main
 
 # 9. Запустити службу
 sudo systemctl daemon-reload
@@ -170,7 +170,7 @@ fi
 ```bash
 # Завантажити скрипт
 cd /tmp
-wget https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/docs/UPDATE_SCRIPT_SAFE.sh
+wget https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/docs/UPDATE_SCRIPT_SAFE.sh
 
 # Зробити виконуваним
 chmod +x UPDATE_SCRIPT_SAFE.sh
@@ -184,7 +184,7 @@ sudo ./UPDATE_SCRIPT_SAFE.sh
 ```bash
 # Завантажити скрипт
 cd /tmp
-wget https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/docs/UPDATE_SCRIPT_FAST.sh
+wget https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/docs/UPDATE_SCRIPT_FAST.sh
 
 # Зробити виконуваним
 chmod +x UPDATE_SCRIPT_FAST.sh
@@ -265,11 +265,11 @@ sudo apt install -y unzip && \
 sudo systemctl stop uptime-monitor && \
 sudo /opt/uptime-monitor/scripts/backup-system.sh --dest /backup/uptime-monitor/ --type on-change --verify && \
 cd /tmp && \
-sudo rm -rf /tmp/Uptime-Monitor-APP-main && \
-wget -q https://github.com/ajjs1ajjs/Uptime-Monitor-APP/archive/refs/heads/main.zip -O uptime_update.zip && \
+sudo rm -rf /tmp/Uptime-Monitor-main && \
+wget -q https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -O uptime_update.zip && \
 sudo unzip -o uptime_update.zip && \
-sudo cp -r /tmp/Uptime-Monitor-APP-main/Uptime_Robot/* /opt/uptime-monitor/ && \
-sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-APP-main && \
+sudo cp -r /tmp/Uptime-Monitor-main/Uptime_Robot/* /opt/uptime-monitor/ && \
+sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-main && \
 sudo systemctl start uptime-monitor && \
 sudo systemctl status uptime-monitor
 ```

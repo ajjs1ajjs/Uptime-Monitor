@@ -64,19 +64,19 @@ else
     fi
 
     cd /tmp
-    wget https://github.com/ajjs1ajjs/Uptime-Monitor-APP/archive/refs/heads/main.zip -O uptime_update.zip
+    wget https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -O uptime_update.zip
     
     # КРИТИЧНО: Видалити стару папку з sudo
-    sudo rm -rf /tmp/Uptime-Monitor-APP-main
+    sudo rm -rf /tmp/Uptime-Monitor-main
     
     # КРИТИЧНО: Розпакувати з sudo
     sudo unzip -o uptime_update.zip
     
     # Скопіювати файли
-    sudo cp -r /tmp/Uptime-Monitor-APP-main/Uptime_Robot/* /opt/uptime-monitor/
+    sudo cp -r /tmp/Uptime-Monitor-main/Uptime_Robot/* /opt/uptime-monitor/
     
     # Прибрати тимчасові файли
-    sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-APP-main
+    sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-main
 fi
 
 # 4. Start service

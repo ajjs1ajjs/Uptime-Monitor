@@ -58,7 +58,7 @@ print_header "📦 Крок 1: Встановлення"
 
 if [ ! -d "/opt/uptime-monitor" ]; then
     echo "Встановлення Uptime Monitor..."
-    curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/install.sh | sudo bash
+    curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
     check_error "Встановлення не вдалось"
     echo -e "${GREEN}✅ Встановлено${NC}"
 else

@@ -22,7 +22,7 @@
 ### **Крок 1: Встановіть на новому сервері**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 ```
 
 ### **Крок 2: Скопіюйте 3 файли**
@@ -104,7 +104,7 @@ scp user@OLD_SERVER_IP:/tmp/uptime-backup.tar.gz ~/
 ssh -i your-key.pem ubuntu@YOUR_EC2_IP
 
 # Встановіть Uptime Monitor
-curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 ```
 
 ### **Крок 4: Скопіюйте дані**
@@ -162,7 +162,7 @@ az vm open-port \
 ssh azureuser@YOUR_AZURE_IP
 
 # Встановіть
-curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 ```
 
 ### **Крок 4: Скопіюйте дані**
@@ -254,7 +254,7 @@ echo ""
 # 1. Встановлення
 echo "📦 Встановлення..."
 if [ ! -d "/opt/uptime-monitor" ]; then
-    curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/install.sh | sudo bash
+    curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 else
     echo "✅ Вже встановлено"
 fi
@@ -482,7 +482,7 @@ scp user@OLD_IP:/var/lib/uptime-monitor/sites.db /var/lib/uptime-monitor/
 
 ```bash
 # Встановити
-curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 
 # Зупинити службу
 sudo systemctl stop uptime-monitor

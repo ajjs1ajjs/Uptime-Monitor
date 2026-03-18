@@ -5,7 +5,7 @@ Priority: optional
 Architecture: all
 Depends: python3 (>= 3.10), python3-pip, python3-venv, sqlite3
 Maintainer: Yaroslav Andreichuk <yaroslav.andreichuk@gmail.com>
-Homepage: https://github.com/ajjs1ajjs/Uptime-Monitor-APP
+Homepage: https://github.com/ajjs1ajjs/Uptime-Monitor
 Description: Website uptime monitoring service
  Uptime Monitor is a FastAPI-based service for monitoring
  website availability with notifications via Telegram,

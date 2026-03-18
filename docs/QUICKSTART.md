@@ -5,7 +5,7 @@
 ## 1. Встановлення (1 хвилина)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 ```
 
 ## 2. Перевірка статусу (30 секунд)

@@ -30,14 +30,14 @@ sudo /opt/uptime-monitor/scripts/backup-system.sh \
 
 ```bash
 cd /tmp
-wget https://github.com/ajjs1ajjs/Uptime-Monitor-APP/archive/refs/heads/main.zip -O uptime_update.zip
+wget https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -O uptime_update.zip
 ```
 
 ### Крок 4: **Видалити стару папку** (якщо є)
 
 ```bash
 # КРИТИЧНО: Видалити З СУДОМ!
-sudo rm -rf /tmp/Uptime-Monitor-APP-main
+sudo rm -rf /tmp/Uptime-Monitor-main
 ```
 
 ### Крок 5: Розпакувати З СУДОМ
@@ -50,14 +50,14 @@ sudo unzip -o uptime_update.zip
 ### Крок 6: Скопіювати файли
 
 ```bash
-sudo cp -r /tmp/Uptime-Monitor-APP-main/Uptime_Robot/* /opt/uptime-monitor/
+sudo cp -r /tmp/Uptime-Monitor-main/Uptime_Robot/* /opt/uptime-monitor/
 ```
 
 ### Крок 7: Прибрати тимчасові файли
 
 ```bash
 # КРИТИЧНО: Прибрати З СУДОМ!
-sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-APP-main
+sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-main
 ```
 
 ### Крок 8: Запустити службу
@@ -88,11 +88,11 @@ sudo journalctl -u uptime-monitor -n 30 --no-pager
 sudo systemctl stop uptime-monitor && \
 sudo /opt/uptime-monitor/scripts/backup-system.sh --dest /backup/uptime-monitor/ --type on-change --verify && \
 cd /tmp && \
-sudo rm -rf /tmp/Uptime-Monitor-APP-main && \
-wget https://github.com/ajjs1ajjs/Uptime-Monitor-APP/archive/refs/heads/main.zip -O uptime_update.zip && \
+sudo rm -rf /tmp/Uptime-Monitor-main && \
+wget https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -O uptime_update.zip && \
 sudo unzip -o uptime_update.zip && \
-sudo cp -r /tmp/Uptime-Monitor-APP-main/Uptime_Robot/* /opt/uptime-monitor/ && \
-sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-APP-main && \
+sudo cp -r /tmp/Uptime-Monitor-main/Uptime_Robot/* /opt/uptime-monitor/ && \
+sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-main && \
 sudo systemctl start uptime-monitor && \
 sudo systemctl status uptime-monitor && \
 curl -fsS http://localhost:8080 && echo "HTTP OK" || echo "HTTP FAIL"
@@ -142,16 +142,16 @@ fi
 
 ```bash
 # Видалити стару папку З СУДОМ
-sudo rm -rf /tmp/Uptime-Monitor-APP-main
+sudo rm -rf /tmp/Uptime-Monitor-main
 
 # Розпакувати З СУДОМ
 sudo unzip -o uptime_update.zip
 
 # Скопіювати З СУДОМ
-sudo cp -r /tmp/Uptime-Monitor-APP-main/Uptime_Robot/* /opt/uptime-monitor/
+sudo cp -r /tmp/Uptime-Monitor-main/Uptime_Robot/* /opt/uptime-monitor/
 
 # Прибрати З СУДОМ
-sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-APP-main
+sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-main
 ```
 
 ---
@@ -284,11 +284,11 @@ python3 -m json.tool /etc/uptime-monitor/config.json
 # Все в одному з бекапом
 sudo systemctl stop uptime-monitor && \
 sudo /opt/uptime-monitor/scripts/backup-system.sh --dest /backup/uptime-monitor/ --type on-change --verify && \
-cd /tmp && sudo rm -rf /tmp/Uptime-Monitor-APP-main && \
-wget https://github.com/ajjs1ajjs/Uptime-Monitor-APP/archive/refs/heads/main.zip -O uptime_update.zip && \
+cd /tmp && sudo rm -rf /tmp/Uptime-Monitor-main && \
+wget https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -O uptime_update.zip && \
 sudo unzip -o uptime_update.zip && \
-sudo cp -r /tmp/Uptime-Monitor-APP-main/Uptime_Robot/* /opt/uptime-monitor/ && \
-sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-APP-main && \
+sudo cp -r /tmp/Uptime-Monitor-main/Uptime_Robot/* /opt/uptime-monitor/ && \
+sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-main && \
 sudo systemctl start uptime-monitor && \
 sleep 5 && \
 sudo systemctl status uptime-monitor && \

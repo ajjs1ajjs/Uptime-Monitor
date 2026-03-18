@@ -11,7 +11,7 @@
 **Рішення:** **ЗАВЖДИ** використовуйте `sudo` для всіх операцій з ZIP!
 
 ```bash
-sudo rm -rf /tmp/Uptime-Monitor-APP-main    # Видалити стару папку
+sudo rm -rf /tmp/Uptime-Monitor-main    # Видалити стару папку
 sudo unzip -o uptime_update.zip             # Розпакувати
 sudo cp -r ...                              # Скопіювати
 sudo rm -rf ...                             # Прибрати
@@ -56,7 +56,7 @@ sudo apt update && sudo apt install -y unzip
 
 ```bash
 cd /tmp
-wget https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/docs/UPDATE_SCRIPT_SAFE.sh
+wget https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/docs/UPDATE_SCRIPT_SAFE.sh
 chmod +x UPDATE_SCRIPT_SAFE.sh
 sudo ./UPDATE_SCRIPT_SAFE.sh
 ```
@@ -74,7 +74,7 @@ sudo ./UPDATE_SCRIPT_SAFE.sh
 
 ```bash
 cd /tmp
-wget https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/docs/UPDATE_SCRIPT_FAST.sh
+wget https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/docs/UPDATE_SCRIPT_FAST.sh
 chmod +x UPDATE_SCRIPT_FAST.sh
 sudo ./UPDATE_SCRIPT_FAST.sh
 ```
@@ -185,11 +185,11 @@ sudo apt install -y unzip && \
 sudo systemctl stop uptime-monitor && \
 sudo /opt/uptime-monitor/scripts/backup-system.sh --dest /backup/uptime-monitor/ --type on-change --verify && \
 cd /tmp && \
-sudo rm -rf /tmp/Uptime-Monitor-APP-main && \
-wget -q https://github.com/ajjs1ajjs/Uptime-Monitor-APP/archive/refs/heads/main.zip -O uptime_update.zip && \
+sudo rm -rf /tmp/Uptime-Monitor-main && \
+wget -q https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -O uptime_update.zip && \
 sudo unzip -o uptime_update.zip && \
-sudo cp -r /tmp/Uptime-Monitor-APP-main/Uptime_Robot/* /opt/uptime-monitor/ && \
-sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-APP-main && \
+sudo cp -r /tmp/Uptime-Monitor-main/Uptime_Robot/* /opt/uptime-monitor/ && \
+sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-main && \
 sudo systemctl start uptime-monitor && \
 sudo systemctl status uptime-monitor
 ```

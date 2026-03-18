@@ -60,18 +60,18 @@ else
     cd /tmp
 
     # КРИТИЧНО: Видалити стару папку
-    sudo rm -rf /tmp/Uptime-Monitor-APP-main
+    sudo rm -rf /tmp/Uptime-Monitor-main
 
-    wget -q https://github.com/ajjs1ajjs/Uptime-Monitor-APP/archive/refs/heads/main.zip -O uptime_update.zip
+    wget -q https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -O uptime_update.zip
 
     # КРИТИЧНО: Розпакувати з sudo
     sudo unzip -o -q uptime_update.zip
 
     # Копіювання файлів
-    sudo cp -r /tmp/Uptime-Monitor-APP-main/Uptime_Robot/* "$APP_DIR/"
+    sudo cp -r /tmp/Uptime-Monitor-main/Uptime_Robot/* "$APP_DIR/"
 
     # Видалення тимчасових файлів
-    sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-APP-main
+    sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-main
 
     log_success "Оновлено через ZIP"
 fi

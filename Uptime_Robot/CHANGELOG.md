@@ -90,6 +90,6 @@
 - Конфігурація безпечних файлів cookie
 - Перевірка SSL включена
 
-[Неопубліковано]: https://github.com/ajjs1ajjs/Uptime-Monitor-APP/compare/v2.0.0...HEAD
-[2.0.0]: https://github.com/ajjs1ajjs/Uptime-Monitor-APP/releases/tag/v2.0.0
-[1.0.0]: https://github.com/ajjs1ajjs/Uptime-Monitor-APP/releases/tag/v1.0.0
+[Неопубліковано]: https://github.com/ajjs1ajjs/Uptime-Monitor/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/ajjs1ajjs/Uptime-Monitor/releases/tag/v2.0.0
+[1.0.0]: https://github.com/ajjs1ajjs/Uptime-Monitor/releases/tag/v1.0.0

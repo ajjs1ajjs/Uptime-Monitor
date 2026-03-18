@@ -10,7 +10,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # Configuration
-GITHUB_REPO="ajjs1ajjs/Uptime-Monitor-APP"
+GITHUB_REPO="ajjs1ajjs/Uptime-Monitor"
 INSTALL_DIR="/opt/uptime-monitor"
 CONFIG_DIR="/etc/uptime-monitor"
 DATA_DIR="/var/lib/uptime-monitor"

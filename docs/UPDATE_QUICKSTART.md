@@ -7,7 +7,7 @@
 **Рішення:** **ЗАВЖДИ** використовуйте `sudo` для всіх операцій з ZIP!
 
 ```bash
-sudo rm -rf /tmp/Uptime-Monitor-APP-main    # Видалити стару папку
+sudo rm -rf /tmp/Uptime-Monitor-main    # Видалити стару папку
 sudo unzip -o uptime_update.zip             # Розпакувати
 sudo cp -r ...                              # Скопіювати
 sudo rm -rf ...                             # Прибрати
@@ -44,17 +44,17 @@ sudo /opt/uptime-monitor/scripts/backup-system.sh \
 
 # 3. Завантажити оновлення
 cd /tmp
-wget https://github.com/ajjs1ajjs/Uptime-Monitor-APP/archive/refs/heads/main.zip -O uptime_update.zip
+wget https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -O uptime_update.zip
 
 # 4. Розпакувати З СУДОМ
-sudo rm -rf /tmp/Uptime-Monitor-APP-main
+sudo rm -rf /tmp/Uptime-Monitor-main
 sudo unzip -o uptime_update.zip
 
 # 5. Скопіювати файли
-sudo cp -r /tmp/Uptime-Monitor-APP-main/Uptime_Robot/* /opt/uptime-monitor/
+sudo cp -r /tmp/Uptime-Monitor-main/Uptime_Robot/* /opt/uptime-monitor/
 
 # 6. Прибрати тимчасові файли З СУДОМ
-sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-APP-main
+sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-main
 
 # 7. Запустити
 sudo systemctl daemon-reload
@@ -98,7 +98,7 @@ sudo systemctl status uptime-monitor
 
 ```bash
 cd /tmp
-wget https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/docs/UPDATE_SCRIPT_SAFE.sh
+wget https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/docs/UPDATE_SCRIPT_SAFE.sh
 chmod +x UPDATE_SCRIPT_SAFE.sh
 sudo ./UPDATE_SCRIPT_SAFE.sh
 ```
@@ -107,7 +107,7 @@ sudo ./UPDATE_SCRIPT_SAFE.sh
 
 ```bash
 cd /tmp
-wget https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/docs/UPDATE_SCRIPT_FAST.sh
+wget https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/docs/UPDATE_SCRIPT_FAST.sh
 chmod +x UPDATE_SCRIPT_FAST.sh
 sudo ./UPDATE_SCRIPT_FAST.sh
 ```

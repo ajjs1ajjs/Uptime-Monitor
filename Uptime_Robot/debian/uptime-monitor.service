@@ -1,6 +1,6 @@
 [Unit]
 Description=Uptime Monitor Service
-Documentation=https://github.com/ajjs1ajjs/Uptime-Monitor-APP
+Documentation=https://github.com/ajjs1ajjs/Uptime-Monitor
 After=network.target
 
 [Service]

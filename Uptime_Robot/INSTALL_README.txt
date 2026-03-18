@@ -14,7 +14,7 @@ UPTIME MONITOR - ВСТАНОВЛЕННЯ, РЕЗЕРВНЕ КОПІЮВАННЯ
 1) Нова інсталяція (рекомендовано)
 ------------------------------
 
-curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 
 Підтвердити:
 sudo systemctl status uptime-monitor --no-pager
@@ -39,7 +39,7 @@ sudo rm -f /etc/systemd/system/uptime-monitor.service
 sudo systemctl daemon-reload
 sudo rm -rf /opt/uptime-monitor /etc/uptime-monitor /var/lib/uptime-monitor /var/log/uptime-monitor
 
-curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 
 
 3) Резервне копіювання (обов'язково)
@@ -88,10 +88,10 @@ sudo systemctl запускає монітор безперебійної роб
 
 cd /opt/uptime-monitor
 sudo systemctl зупинити безперебійну роботу
-sudo wget -O main.py "https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/Uptime_Robot/main.py"
-sudo wget -O models.py "https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/Uptime_Robot/models.py"
-sudo wget -O monitoring.py "https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/Uptime_Robot/monitoring.py"
-sudo wget -O ui_templates.py "https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/Uptime_Robot/ui_templates.py"
+sudo wget -O main.py "https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/Uptime_Robot/main.py"
+sudo wget -O models.py "https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/Uptime_Robot/models.py"
+sudo wget -O monitoring.py "https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/Uptime_Robot/monitoring.py"
+sudo wget -O ui_templates.py "https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/Uptime_Robot/ui_templates.py"
 sudo systemctl запускає монітор безперебійної роботи
 
 Перевірити після оновлення:

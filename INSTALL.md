@@ -6,7 +6,7 @@
 
 ### 1. Встановити
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 ```
 
 ### 2. Доступ до веб-інтерфейсу
@@ -199,17 +199,17 @@ Copy-Item "$env:USERPROFILE\UptimeMonitor\config.json" "$env:USERPROFILE\UptimeM
 
 **Якщо встановлено з git clone:**
 ```powershell
-cd D:\path\to\Uptime-Monitor-APP
+cd D:\path\to\Uptime-Monitor
 git pull --ff-only origin main
 ```
 
 **Якщо встановлено з архіву ZIP:**
-1. Завантажте новий Windows ZIP із [Релізи](https://github.com/ajjs1ajjs/Uptime-Monitor-APP/releases)
+1. Завантажте новий Windows ZIP із [Релізи](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
 2. Розпакуйте/замініть файли у папці встановлення
 
 #### 3. Перевстановіть службу з оновленими файлами
 ```powershell
-cd D:\path\to\Uptime-Monitor-APP\Uptime_Robot
+cd D:\path\to\Uptime-Monitor\Uptime_Robot
 python main_service.py stop
 python main_service.py remove
 .\install.bat
@@ -227,17 +227,17 @@ netstat -ano | findstr :8080
 
 ### Встановити останню версію
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 ```
 
 ### Встановити за допомогою спеціального порту
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/install.sh | sudo bash -s -- --port 9090
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash -s -- --port 9090
 ```
 
 ### Встановити конкретну версію
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/install.sh | sudo bash -s -- --version v1.0.0
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash -s -- --version v1.0.0
 ```
 
 **Примітка.** Після встановлення сервер буде доступний за адресою `http://{SERVER_IP}:8080`, де автоматично визначається `{SERVER_IP}`.
@@ -246,8 +246,8 @@ curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/i
 
 ### Додати репозиторій
 ```bash
-curl -fsSL https://ajjs1ajjs.github.io/Uptime-Monitor-APP/KEY.gpg | sudo gpg --dearmor -o /usr/share/keyrings/uptime-monitor.gpg
-echo "deb [signed-by=/usr/share/keyrings/uptime-monitor.gpg] https://ajjs1ajjs.github.io/Uptime-Monitor-APP stable main" | sudo tee /etc/apt/sources.list.d/uptime-monitor.list
+curl -fsSL https://ajjs1ajjs.github.io/Uptime-Monitor/KEY.gpg | sudo gpg --dearmor -o /usr/share/keyrings/uptime-monitor.gpg
+echo "deb [signed-by=/usr/share/keyrings/uptime-monitor.gpg] https://ajjs1ajjs.github.io/Uptime-Monitor stable main" | sudo tee /etc/apt/sources.list.d/uptime-monitor.list
 ```
 
 ### Встановити
@@ -263,7 +263,7 @@ sudo systemctl start uptime-monitor
 ## Встановлення Windows
 
 ### Спосіб 1: Проста інсталяція (рекомендовано)
-1. Завантажте `uptime-monitor-v2.0.0-windows.zip` з [Releases](https://github.com/ajjs1ajjs/Uptime-Monitor-APP/releases)
+1. Завантажте `uptime-monitor-v2.0.0-windows.zip` з [Releases](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
 2. Витягніть у потрібне місце (наприклад, `C:\UptimeMonitor`)
 3. Відкрийте папку `Uptime_Robot`
 4. Запустіть `install.bat` від імені адміністратора
@@ -272,7 +272,7 @@ sudo systemctl start uptime-monitor
 
 ### Спосіб 2: Встановлення вручну
 ```cmd
-cd C:\path\to\Uptime-Monitor-APP\Uptime_Robot
+cd C:\path\to\Uptime-Monitor\Uptime_Robot
 python -m pip install -r requirements.txt
 python -c "import config_manager as c; c.init_paths(); cfg=c.load_config(); cfg.setdefault('server', {})['port']=8080; c.save_config(cfg)"
 python main_service.py install
@@ -281,8 +281,8 @@ net start UptimeMonitor
 
 ### Спосіб 3: Встановлення з Git (для розробки)
 ```cmd
-git clone https://github.com/ajjs1ajjs/Uptime-Monitor-APP.git
-cd Uptime-Monitor-APP\Uptime_Robot
+git clone https://github.com/ajjs1ajjs/Uptime-Monitor.git
+cd Uptime-Monitor\Uptime_Robot
 python -m pip install -r requirements.txt
 python main_service.py install
 net start UptimeMonitor
@@ -1209,6 +1209,6 @@ hostname -I
 ## Підтримка
 
 Якщо виникли проблеми та запитання, будь ласка, відкрийте випуск на GitHub:
-https://github.com/ajjs1ajjs/Uptime-Monitor-APP/issues
+https://github.com/ajjs1ajjs/Uptime-Monitor/issues
 
 

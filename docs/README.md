@@ -41,7 +41,7 @@
 
 ```bash
 # 1. Встановити
-curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 
 # 2. Створити бекап
 sudo /opt/uptime-monitor/scripts/backup-system.sh --dest /backup/uptime-monitor/
@@ -94,7 +94,7 @@ sudo journalctl -u uptime-monitor -f
 - **Веб-інтерфейс**: `http://$(hostname -I | awk '{print $1}'):8080`
 - **Безпечне оновлення (prod runbook)**: [UPDATE_INSTRUCTIONS.md](UPDATE_INSTRUCTIONS.md)
 - **Основна документація**: [../INSTALL.md](../INSTALL.md)
-- **GitHub**: https://github.com/ajjs1ajjs/Uptime-Monitor-APP
+- **GitHub**: https://github.com/ajjs1ajjs/Uptime-Monitor
 
 ---
 

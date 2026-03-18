@@ -23,7 +23,7 @@
 
 **Використання:**
 ```bash
-wget https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/docs/UPDATE_SCRIPT_SAFE.sh
+wget https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/docs/UPDATE_SCRIPT_SAFE.sh
 chmod +x UPDATE_SCRIPT_SAFE.sh
 sudo ./UPDATE_SCRIPT_SAFE.sh
 ```
@@ -41,7 +41,7 @@ sudo ./UPDATE_SCRIPT_SAFE.sh
 
 **Використання:**
 ```bash
-wget https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/docs/UPDATE_SCRIPT_FAST.sh
+wget https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/docs/UPDATE_SCRIPT_FAST.sh
 chmod +x UPDATE_SCRIPT_FAST.sh
 sudo ./UPDATE_SCRIPT_FAST.sh
 ```
@@ -159,7 +159,7 @@ fi
 
 ```bash
 # 1. Завантажити скрипт
-wget https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/docs/UPDATE_SCRIPT_SAFE.sh
+wget https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/docs/UPDATE_SCRIPT_SAFE.sh
 
 # 2. Запустити
 chmod +x UPDATE_SCRIPT_SAFE.sh
@@ -177,7 +177,7 @@ sudo ./UPDATE_SCRIPT_SAFE.sh
 
 ```bash
 # 1. Завантажити скрипт
-wget https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/docs/UPDATE_SCRIPT_FAST.sh
+wget https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/docs/UPDATE_SCRIPT_FAST.sh
 
 # 2. Запустити
 chmod +x UPDATE_SCRIPT_FAST.sh

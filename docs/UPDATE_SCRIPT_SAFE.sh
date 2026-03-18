@@ -169,7 +169,7 @@ else
     log_info "Завантаження останньої версії..."
     cd /tmp
 
-    wget -q --show-progress https://github.com/ajjs1ajjs/Uptime-Monitor-APP/archive/refs/heads/main.zip -O uptime_update.zip
+    wget -q --show-progress https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -O uptime_update.zip
 
     if [ ! -f "uptime_update.zip" ]; then
         log_error "Не вдалося завантажити ZIP"
@@ -179,16 +179,16 @@ else
     log_success "ZIP завантажено"
 
     # КРИТИЧНО: Видалити стару папку
-    sudo rm -rf /tmp/Uptime-Monitor-APP-main
+    sudo rm -rf /tmp/Uptime-Monitor-main
 
     # КРИТИЧНО: Розпакувати з sudo
     sudo unzip -o -q uptime_update.zip
 
     # Копіювання файлів
-    sudo cp -r /tmp/Uptime-Monitor-APP-main/Uptime_Robot/* "$APP_DIR/"
+    sudo cp -r /tmp/Uptime-Monitor-main/Uptime_Robot/* "$APP_DIR/"
 
     # Видалення тимчасових файлів
-    sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-APP-main
+    sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-main
 
     log_success "Оновлення через ZIP завершено"
 
