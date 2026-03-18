@@ -1,0 +1,29 @@
+# WiX Installer Build Artifacts
+
+# Build output
+*.msi
+*.msm
+*.msp
+*.pcp
+*.wixobj
+*.wixpdb
+
+# Temporary files
+temp_*.txt
+*.tmp
+build/
+dist/
+
+# Logs
+*.log
+install.log
+
+# IDE files
+.vscode/
+.idea/
+*.suo
+*.user
+
+# OS files
+Thumbs.db
+desktop.ini

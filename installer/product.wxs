@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+
+  <Product Id="*"
+           Name="Uptime Monitor"
+           Language="1033"
+           Version="2.0.0"
+           Manufacturer="Uptime Monitor Project"
+           UpgradeCode="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
+
+    <Package InstallerVersion="500"
+             Compressed="yes"
+             InstallScope="perMachine"
+             Description="Uptime Monitor - Website monitoring service" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed."
+                  AllowSameVersionUpgrades="yes" />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="ProductIcon" SourceFile="..\Uptime_Robot\icon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="ProductIcon" />
+
+    <Property Id="PORT_NUMBER" Value="8080" />
+
+    <UI>
+      <UIRef Id="WixUI_InstallDir" />
+    </UI>
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="Uptime Monitor">
+
+          <Component Id="MainExecutable" Guid="F1A2B3C4-D5E6-7890-ABCD-EF1234567801">
+            <File Source="..\Uptime_Robot\main.py" KeyPath="yes" />
+          </Component>
+
+          <Component Id="MainService" Guid="F1A2B3C4-D5E6-7890-ABCD-EF1234567802">
+            <File Source="..\Uptime_Robot\main_service.py" KeyPath="yes" />
+          </Component>
+
+          <Component Id="ConfigModule" Guid="F1A2B3C4-D5E6-7890-ABCD-EF1234567803">
+            <File Source="..\Uptime_Robot\config.py" KeyPath="yes" />
+          </Component>
+
+          <Component Id="ConfigManager" Guid="F1A2B3C4-D5E6-7890-ABCD-EF1234567804">
+            <File Source="..\Uptime_Robot\config_manager.py" KeyPath="yes" />
+          </Component>
+
+          <Component Id="DatabaseModule" Guid="F1A2B3C4-D5E6-7890-ABCD-EF1234567805">
+            <File Source="..\Uptime_Robot\database.py" KeyPath="yes" />
+          </Component>
+
+          <Component Id="MonitoringModule" Guid="F1A2B3C4-D5E6-7890-ABCD-EF1234567806">
+            <File Source="..\Uptime_Robot\monitoring.py" KeyPath="yes" />
+          </Component>
+
+          <Component Id="NotificationsModule" Guid="F1A2B3C4-D5E6-7890-ABCD-EF1234567807">
+            <File Source="..\Uptime_Robot\notifications.py" KeyPath="yes" />
+          </Component>
+
+          <Component Id="ModelsModule" Guid="F1A2B3C4-D5E6-7890-ABCD-EF1234567808">
+            <File Source="..\Uptime_Robot\models.py" KeyPath="yes" />
+          </Component>
+
+          <Component Id="AuthModule" Guid="F1A2B3C4-D5E6-7890-ABCD-EF1234567809">
+            <File Source="..\Uptime_Robot\auth_module.py" KeyPath="yes" />
+          </Component>
+
+          <Component Id="AuthCLI" Guid="F1A2B3C4-D5E6-7890-ABCD-EF123456780A">
+            <File Source="..\Uptime_Robot\auth_cli.py" KeyPath="yes" />
+          </Component>
+
+          <Component Id="LoggerModule" Guid="F1A2B3C4-D5E6-7890-ABCD-EF123456780B">
+            <File Source="..\Uptime_Robot\logger.py" KeyPath="yes" />
+          </Component>
+
+          <Component Id="SSLChecker" Guid="F1A2B3C4-D5E6-7890-ABCD-EF123456780C">
+            <File Source="..\Uptime_Robot\ssl_checker.py" KeyPath="yes" />
+          </Component>
+
+          <Component Id="UITemplates" Guid="F1A2B3C4-D5E6-7890-ABCD-EF123456780D">
+            <File Source="..\Uptime_Robot\ui_templates.py" KeyPath="yes" />
+          </Component>
+
+          <Component Id="RequirementsFile" Guid="F1A2B3C4-D5E6-7890-ABCD-EF123456780E">
+            <File Source="..\Uptime_Robot\requirements.txt" KeyPath="yes" />
+          </Component>
+
+          <Component Id="IconFile" Guid="F1A2B3C4-D5E6-7890-ABCD-EF123456780F">
+            <File Source="..\Uptime_Robot\icon.ico" KeyPath="yes" />
+          </Component>
+
+          <Component Id="EnvExample" Guid="F1A2B3C4-D5E6-7890-ABCD-EF1234567810">
+            <File Source="..\Uptime_Robot\.env.example" KeyPath="yes" />
+          </Component>
+
+          <Component Id="InstallBatch" Guid="F1A2B3C4-D5E6-7890-ABCD-EF1234567811">
+            <File Source="..\Uptime_Robot\install.bat" KeyPath="yes" />
+          </Component>
+
+          <Component Id="InstallServiceBat" Guid="F1A2B3C4-D5E6-7890-ABCD-EF1234567812">
+            <File Source="..\Uptime_Robot\install_service.bat" KeyPath="yes" />
+          </Component>
+
+          <Component Id="LicenseFile" Guid="F1A2B3C4-D5E6-7890-ABCD-EF1234567813">
+            <File Source="..\Uptime_Robot\LICENSE" KeyPath="yes" />
+          </Component>
+
+          <Component Id="ReadmeFile" Guid="F1A2B3C4-D5E6-7890-ABCD-EF1234567814">
+            <File Source="..\Uptime_Robot\README.md" KeyPath="yes" />
+          </Component>
+
+          <Component Id="ConfigJSON" Guid="F1A2B3C4-D5E6-7890-ABCD-EF1234567815">
+            <File Source="..\Uptime_Robot\config.json" KeyPath="yes" />
+          </Component>
+
+        </Directory>
+      </Directory>
+
+      <Directory Id="CommonAppDataFolder">
+        <Directory Id="UptimeDataFolder" Name="UptimeMonitor">
+
+          <Component Id="DatabaseFile" Guid="B1A2B3C4-D5E6-7890-ABCD-EF1234567820">
+            <File Source="..\Uptime_Robot\sites.db" KeyPath="yes" />
+          </Component>
+
+        </Directory>
+      </Directory>
+
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="Uptime Monitor">
+
+          <Component Id="StartMenuShortcut" Guid="D1A2B3C4-D5E6-7890-ABCD-EF1234567830">
+            <Shortcut Id="ApplicationStartShortcut"
+                      Name="Uptime Monitor"
+                      Description="Open Uptime Monitor web interface"
+                      Target="[INSTALLFOLDER]python.exe"
+                      Arguments="-m http.server [PORT_NUMBER] -d [INSTALLFOLDER]"
+                      WorkingDirectory="INSTALLFOLDER" />
+            <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
+            <RegistryValue Root="HKCU"
+                           Key="Software\UptimeMonitor"
+                           Name="installed"
+                           Type="integer"
+                           Value="1"
+                           KeyPath="yes" />
+          </Component>
+
+          <Component Id="UninstallShortcut" Guid="E1A2B3C4-D5E6-7890-ABCD-EF1234567831">
+            <Shortcut Id="UninstallShortcut"
+                      Name="Uninstall Uptime Monitor"
+                      Target="[SystemFolder]msiexec.exe"
+                      Arguments="/x [ProductCode]"
+                      Description="Uninstall Uptime Monitor" />
+            <RemoveFolder Id="UninstallShortcutFolder" On="uninstall" />
+            <RegistryValue Root="HKCU"
+                           Key="Software\UptimeMonitor"
+                           Name="uninstall"
+                           Type="integer"
+                           Value="1"
+                           KeyPath="yes" />
+          </Component>
+
+        </Directory>
+      </Directory>
+
+    </Directory>
+
+    <Feature Id="MainApplication" Title="Uptime Monitor" Level="1">
+      <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="MainService" />
+      <ComponentRef Id="ConfigModule" />
+      <ComponentRef Id="ConfigManager" />
+      <ComponentRef Id="DatabaseModule" />
+      <ComponentRef Id="MonitoringModule" />
+      <ComponentRef Id="NotificationsModule" />
+      <ComponentRef Id="ModelsModule" />
+      <ComponentRef Id="AuthModule" />
+      <ComponentRef Id="AuthCLI" />
+      <ComponentRef Id="LoggerModule" />
+      <ComponentRef Id="SSLChecker" />
+      <ComponentRef Id="UITemplates" />
+      <ComponentRef Id="RequirementsFile" />
+      <ComponentRef Id="IconFile" />
+      <ComponentRef Id="EnvExample" />
+      <ComponentRef Id="InstallBatch" />
+      <ComponentRef Id="InstallServiceBat" />
+      <ComponentRef Id="LicenseFile" />
+      <ComponentRef Id="ReadmeFile" />
+      <ComponentRef Id="ConfigJSON" />
+      <ComponentRef Id="DatabaseFile" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="UninstallShortcut" />
+    </Feature>
+
+    <!-- Custom Actions для встановлення залежностей та служби -->
+    <CustomAction Id="InstallPythonRequirements"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand="cmd /c python -m pip install -r requirements.txt --quiet"
+                  Execute="deferred"
+                  Return="check" />
+
+    <CustomAction Id="SetupUptimeService"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand="cmd /c python main_service.py install"
+                  Execute="deferred"
+                  Return="ignore" />
+
+    <CustomAction Id="StartUptimeService"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand="cmd /c net start UptimeMonitor"
+                  Execute="deferred"
+                  Return="ignore" />
+
+    <CustomAction Id="UninstallUptimeService"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand="cmd /c net stop UptimeMonitor &amp;&amp; sc delete UptimeMonitor"
+                  Execute="deferred"
+                  Return="ignore" />
+
+    <!-- Install Sequence -->
+    <InstallExecuteSequence>
+      <Custom Action="InstallPythonRequirements" After="InstallFiles">NOT Installed</Custom>
+      <Custom Action="SetupUptimeService" After="InstallPythonRequirements">NOT Installed</Custom>
+      <Custom Action="StartUptimeService" After="SetupUptimeService">NOT Installed</Custom>
+      <Custom Action="UninstallUptimeService" Before="RemoveFiles">Installed AND REMOVE="ALL"</Custom>
+    </InstallExecuteSequence>
+
+  </Product>
+</Wix>

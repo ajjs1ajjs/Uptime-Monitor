@@ -100,10 +100,35 @@ docker run -d -p 8080:8080 -v uptime-data:/data \
 ```
 
 ### Windows
+
+#### Спосіб 1: MSI інсталятор (рекомендовано)
+```cmd
+# Завантажте UptimeMonitor-2.0.0.msi з [Releases](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
+# Двічі клацніть на файл для встановлення
+# Або з командного рядка:
+msiexec /i UptimeMonitor-2.0.0.msi
+```
+
+**Переваги MSI:**
+- ✅ Професійний інсталятор
+- ✅ Автоматична установка служби
+- ✅ Підтримка тихого встановлення (`/quiet`)
+- ✅ Можливість розгортання через Group Policy
+
+#### Спосіб 2: ZIP архів
 1. Завантажте ZIP з [Releases](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
 2. Витягніть у потрібне місце
-3. Запустіть від імені адміністратора
+3. Запустіть `install.bat` від імені адміністратора
 4. Відкрийте `http://localhost:8080`
+
+#### Спосіб 3: З вихідного коду (для розробників)
+```cmd
+git clone https://github.com/ajjs1ajjs/Uptime-Monitor.git
+cd Uptime-Monitor\Uptime_Robot
+python -m pip install -r requirements.txt
+python main_service.py install
+net start UptimeMonitor
+```
 
 ---
 
