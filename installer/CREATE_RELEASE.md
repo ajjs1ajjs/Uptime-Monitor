@@ -79,8 +79,9 @@ Uptime Monitor v2.0.0 - WiX MSI Installer
 
 Перетягніть файли в область **"Attach binaries by dropping them here or selecting them"**:
 
-1. **`UptimeMonitor-2.0.0.msi`** (364 KB)
-   - Шлях: `D:\PROJECT\Uptime-Monitor\installer\UptimeMonitor-2.0.0.msi`
+1. **`UptimeMonitor-2.0.0.msi.zip`** (160 KB) ⭐ **ОСНОВНИЙ ФАЙЛ**
+   - Шлях: `D:\PROJECT\Uptime-Monitor\installer\UptimeMonitor-2.0.0.msi.zip`
+   - Містить: `UptimeMonitor-2.0.0.msi`
 
 2. **`UptimeMonitor-2.0.0-windows.zip`** (якщо є)
    - Старий ZIP для сумісності
