@@ -360,6 +360,7 @@ async def get_response_time_stats():
 async def get_incidents():
     with get_db_connection() as conn:
         c = conn.cursor()
+        # Get incidents (status changes to down/slow in last 7 days)
         c.execute("""
             SELECT
                 sh.id,
@@ -375,15 +376,60 @@ async def get_incidents():
             JOIN sites s ON sh.site_id = s.id
             WHERE sh.status IN ('down', 'slow')
             AND sh.checked_at >= datetime('now', '-7 days')
-            ORDER BY sh.checked_at DESC
-            LIMIT 50
+            ORDER BY sh.site_id, sh.checked_at DESC
+            LIMIT 100
         """)
         results = c.fetchall()
 
-    incidents = []
-    for r in results:
-        incidents.append(
-            {
+        # Calculate duration for each incident by finding consecutive status groups
+        down_times = {}
+        for site_id in set(r["site_id"] for r in results):
+            # Get all status changes for this site
+            c.execute(
+                """
+                SELECT status, checked_at
+                FROM status_history
+                WHERE site_id = ?
+                AND checked_at >= datetime('now', '-7 days')
+                ORDER BY checked_at DESC
+            """,
+                (site_id,),
+            )
+            history = c.fetchall()
+
+            prev_status = None
+            incident_start = None
+            for h in history:
+                curr_status = h["status"]
+                checked = h["checked_at"]
+
+                if curr_status in ("down", "slow"):
+                    if prev_status != curr_status:
+                        # New incident started
+                        incident_start = checked
+                    # Store the duration (will be updated if we see more of the same status)
+                    down_times[f"{site_id}_{curr_status}_{incident_start}"] = {
+                        "started_at": incident_start,
+                        "ended_at": checked if prev_status == curr_status else None,
+                    }
+                elif prev_status in ("down", "slow") and incident_start:
+                    # Incident ended
+                    key = f"{site_id}_{prev_status}_{incident_start}"
+                    if key in down_times:
+                        down_times[key]["ended_at"] = checked
+
+                prev_status = curr_status
+
+        incidents = []
+        seen_incidents = set()
+        for r in results:
+            # Skip duplicates
+            inc_key = f"{r['site_id']}_{r['status']}_{r['checked_at']}"
+            if inc_key in seen_incidents:
+                continue
+            seen_incidents.add(inc_key)
+
+            inc = {
                 "id": r["id"],
                 "site_id": r["site_id"],
                 "site_name": r["site_name"],
@@ -393,9 +439,42 @@ async def get_incidents():
                 "response_time": r["response_time"],
                 "error_message": r["error_message"],
                 "checked_at": r["checked_at"],
+                "prev_status": None,
             }
-        )
-    return incidents
+
+            # Add duration - find matching incident
+            duration_found = None
+            for key, dt in down_times.items():
+                if key.startswith(f"{r['site_id']}_{r['status']}_"):
+                    if dt["started_at"] == r["checked_at"]:
+                        start = dt["started_at"]
+                        end = dt["ended_at"] or start
+                        try:
+                            from datetime import datetime
+
+                            start_dt = datetime.fromisoformat(
+                                start.replace("Z", "+00:00")
+                            )
+                            end_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
+                            duration = end_dt - start_dt
+                            hours = duration.total_seconds() // 3600
+                            mins = (duration.total_seconds() % 3600) // 60
+                            if hours > 0:
+                                duration_found = f"{int(hours)}год {int(mins)}хв"
+                            else:
+                                duration_found = f"{int(mins)}хв"
+                        except:
+                            duration_found = None
+                        break
+
+            inc["duration"] = (
+                duration_found
+                if duration_found
+                else ("в процесі" if not down_times else None)
+            )
+            incidents.append(inc)
+
+        return incidents
 
 
 # --- Windows Service Logic ---

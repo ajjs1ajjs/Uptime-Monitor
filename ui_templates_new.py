@@ -751,6 +751,13 @@ DASHBOARD_JS = """
                         let color = '#6b7280'; // no data
                         let tooltip = 'Немає даних';
 
+                        // Calculate hour of day label for this bar (aligned with axis markers)
+                        // Bar h represents hour h:00 to h+1:00 on the 24h clock
+                        const hourLabel = h.toString().padStart(2, '0') + ':00';
+                        const nextHour = (h + 1) % 24;
+                        const nextHourLabel = nextHour.toString().padStart(2, '0') + ':00';
+                        const timeLabel = `${hourLabel} - ${nextHourLabel}`;
+
                         if (data.total > 0) {
                             const uptime = (data.up / data.total) * 100;
                             if (uptime >= 90) {
@@ -765,7 +772,7 @@ DASHBOARD_JS = """
                             }
                         }
 
-                        timelineBars += `<div style="position: absolute; left: ${x}px; width: ${barWidth}px; height: 100%; background: ${color}; border-radius: 2px; cursor: pointer;" title="${h}:00 - ${tooltip}"></div>`;
+                        timelineBars += `<div style="position: absolute; left: ${x}px; width: ${barWidth}px; height: 100%; background: ${color}; border-radius: 2px; cursor: pointer;" title="${timeLabel} - ${tooltip}"></div>`;
                     }
 
                     const statusColor = site.status === 'up' ? '#22c55e' : site.status === 'slow' ? '#eab308' : '#ef4444';
