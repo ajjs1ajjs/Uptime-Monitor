@@ -1,40 +1,212 @@
-# Віртуальне середовище
-.venv/
-Lib/
-Scripts/
-pyvenv.cfg
-.env
+# =============================================================================
+# Uptime Monitor .gitignore
+# Comprehensive ignore file for Python/FastAPI project
+# =============================================================================
 
-# Тимчасові файли Python
+# -----------------------------------------------------------------------------
+# Python
+# -----------------------------------------------------------------------------
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-null
-# Складання та дистрибутиви
+*$py.class
+*.so
+
+# C extensions
+*.c
+*.cpp
+*.o
+*.a
+*.dll
+*.lib
+*.exp
+
+# Distribution / packaging
+.Python
 build/
+develop-eggs/
 dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
 *.spec
 
-# Налаштування IDE
-.idea/
-.vscode/
-.opencode/
-Project.code-workspace
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
 
-# Бази даних та архіви
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Translations
+*.mo
+*.pot
+
+# -----------------------------------------------------------------------------
+# Virtual environments
+# -----------------------------------------------------------------------------
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+ENV.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# -----------------------------------------------------------------------------
+# IDEs
+# -----------------------------------------------------------------------------
+# JetBrains IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# VS Code
+.vscode/
+*.code-workspace
+.opencode/
+
+# PyCharm
+.idea/
+
+# -----------------------------------------------------------------------------
+# Databases & Data
+# -----------------------------------------------------------------------------
+# SQLite databases
 *.db
-*.zip
-*.rar
+*.sqlite
+*.sqlite3
+sites.db
+sites.db-journal
+sites.db-shm
+sites.db-wal
+
+# Config backups
+*.bak
+*.backup
+config.backups/
+
+# -----------------------------------------------------------------------------
+# Logs
+# -----------------------------------------------------------------------------
+*.log
+logs/
+uptime_monitor.log
+
+# -----------------------------------------------------------------------------
+# OS generated files
+# -----------------------------------------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+@eaDir/
+
+# -----------------------------------------------------------------------------
+# Project specific
+# -----------------------------------------------------------------------------
+# Test files
+cookies*.txt
+c[0-9].txt
 port.txt
 
-# Тестові файли
-cookies*.txt
-c3.txt
-c4.txt
-c5.txt
-
-# Логи
-*.log
-
-# Бінарні файли
+# Build artifacts
 UptimeMonitor.exe
-get-pip.pyUptime_Robot/venv/
+get-pip.py
+installer/build/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo
+*~
+
+# Secrets & credentials
+.secrets/
+*.key
+*.pem
+*.crt
+ssl/
+!ssl/.gitkeep
+
+# Environment variables
+.env.local
+.env.*.local
+
+# -----------------------------------------------------------------------------
+# Documentation
+# -----------------------------------------------------------------------------
+# Generated documentation
+docs/_build/
+site/
+
+# -----------------------------------------------------------------------------
+# CI/CD
+# -----------------------------------------------------------------------------
+# GitHub Actions
+.github/workflows/test-results/
+
+# -----------------------------------------------------------------------------
+# Docker
+# -----------------------------------------------------------------------------
+.dockerignore
