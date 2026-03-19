@@ -34,21 +34,11 @@
 ### Install (Linux)
 
 ```bash
-cd /opt
-sudo git clone https://github.com/ajjs1ajjs/Uptime-Monitor.git
-cd Uptime-Monitor
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 
 # Access dashboard
 http://YOUR_SERVER_IP:8080
 # Login: admin / Password: admin
-```
-
-### Docker
-
-```bash
-docker run -d -p 8080:8080 -v uptime-data:/data \
-  --name uptime-monitor \
-  ghcr.io/ajjs1ajjs/uptime-monitor:latest
 ```
 
 ### Windows
