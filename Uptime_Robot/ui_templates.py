@@ -87,11 +87,24 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         .logo {{ font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 12px; }}
         .logo-icon {{ width: 40px; height: 40px; background: linear-gradient(135deg, var(--accent), #06b6d4); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 4px 15px rgba(0, 217, 255, 0.3); }}
 
+        /* Theme Toggle */
+        .theme-toggle {{ padding: 8px 16px; background: rgba(30, 41, 59, 0.6); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; font-weight: 500; color: var(--text-secondary); transition: all 0.3s ease; display: flex; align-items: center; gap: 8px; font-size: 13px; }}
+        .theme-toggle:hover {{ border-color: var(--accent); color: var(--text-primary); background: rgba(0, 217, 255, 0.1); }}
+
         .hero-stats {{ display: flex; gap: 24px; margin: 32px; background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9)); padding: 28px 36px; border-radius: 20px; border: 1px solid rgba(148, 163, 184, 0.1); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }}
         .hero-stat {{ text-align: center; flex: 1; position: relative; padding: 0 20px; }}
         .hero-stat:not(:last-child)::after {{ content: ''; position: absolute; right: 0; top: 50%; transform: translateY(-50%); height: 50%; width: 1px; background: var(--border); }}
         .hero-stat-value {{ font-size: 42px; font-weight: 700; color: var(--accent); text-shadow: 0 0 30px rgba(0, 217, 255, 0.3); }}
         .hero-stat-label {{ color: var(--text-secondary); font-size: 13px; margin-top: 8px; text-transform: uppercase; letter-spacing: 1px; }}
+
+        /* Gauge Charts */
+        .gauge-container {{ display: flex; gap: 20px; margin: 0 32px 24px; flex-wrap: wrap; }}
+        .gauge-card {{ background: rgba(30, 41, 59, 0.6); border: 1px solid var(--border); border-radius: 15px; padding: 20px; flex: 1; min-width: 200px; text-align: center; }}
+        .gauge-card h3 {{ color: var(--text-secondary); font-size: 13px; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px; }}
+        .gauge-value {{ font-size: 32px; font-weight: 700; margin-top: 10px; }}
+        .gauge-value.up {{ color: var(--success); }}
+        .gauge-value.down {{ color: var(--danger); }}
+        .gauge-value.warning {{ color: var(--warning); }}
 
         .monitoring-types {{ display: flex; gap: 12px; margin: 0 32px 24px; flex-wrap: wrap; }}
         .monitor-type-btn {{ padding: 10px 20px; background: rgba(30, 41, 59, 0.6); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; font-weight: 500; color: var(--text-secondary); transition: all 0.3s ease; display: flex; align-items: center; gap: 8px; font-size: 13px; }}
@@ -207,6 +220,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         <div class="logo"><div class="logo-icon">⚡</div><span>Uptime Monitor</span></div>
         <div style="display: flex; align-items: center; gap: 16px;">
             <div id="lastUpdate" style="color: var(--text-secondary); font-size: 13px;"></div>
+            <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
             <a href="/status" target="_blank" class="header-btn">📄 Status</a>
             <a href="/users" class="header-btn">👥 Користувачі</a>
             <a href="/logout" class="header-btn danger">🚪 Вийти</a>
@@ -237,6 +251,25 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             <div class="hero-stat">
                 <div class="hero-stat-value" style="color: var(--warning);">0</div>
                 <div class="hero-stat-label">Інцидентів</div>
+            </div>
+        </div>
+
+        <!-- Gauge Charts -->
+        <div class="gauge-container">
+            <div class="gauge-card">
+                <h3>📊 Uptime (24h)</h3>
+                <canvas id="uptimeGauge" width="150" height="75"></canvas>
+                <div class="gauge-value up" id="uptimeValue">100%</div>
+            </div>
+            <div class="gauge-card">
+                <h3>⚡ Avg Response</h3>
+                <canvas id="responseGauge" width="150" height="75"></canvas>
+                <div class="gauge-value" id="responseValue">0ms</div>
+            </div>
+            <div class="gauge-card">
+                <h3>🔒 SSL Status</h3>
+                <canvas id="sslGauge" width="150" height="75"></canvas>
+                <div class="gauge-value" id="sslValue">OK</div>
             </div>
         </div>
 
@@ -628,6 +661,7 @@ DASHBOARD_JS = """
                 sitesData = await response.json();
                 renderMonitors();
                 updateStats();
+                updateGauges();
                 loadUptimeChart();
             } catch(e) { console.error(e); }
         }
@@ -644,6 +678,91 @@ DASHBOARD_JS = """
 
             document.getElementById('lastUpdate').innerText = 'Останнє оновлення: ' + new Date().toLocaleTimeString();
         }
+
+        // Gauge Charts
+        let gaugeCharts = {};
+
+        function createGaugeChart(canvasId, value, color) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+
+            return new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    datasets: [{
+                        data: [value, 100 - value],
+                        backgroundColor: [color, 'rgba(255,255,255,0.1)'],
+                        borderWidth: 0,
+                        circumference: 180,
+                        rotation: 270,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '75%',
+                    plugins: {
+                        tooltip: { enabled: false },
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function updateGauges() {
+            const up = sitesData.filter(s => s.status === 'up').length;
+            const total = sitesData.length || 1;
+            const uptimePercent = Math.round((up / total) * 100);
+
+            // Calculate average response time
+            const responseTimes = sitesData.filter(s => s.response_time).map(s => s.response_time);
+            const avgResponse = responseTimes.length ? Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length) : 0;
+
+            // Get SSL status
+            const sslExpiring = sslData && sslData.filter(s => s.days_until_expire <= 7).length || 0;
+
+            // Update values
+            document.getElementById('uptimeValue').textContent = uptimePercent + '%';
+            document.getElementById('responseValue').textContent = avgResponse + 'ms';
+            document.getElementById('sslValue').textContent = sslExpiring > 0 ? '⚠️ ' + sslExpiring : '✅ OK';
+
+            // Get colors
+            const uptimeColor = uptimePercent >= 99 ? '#10b981' : uptimePercent >= 95 ? '#f59e0b' : '#ef4444';
+            const responseColor = avgResponse <= 200 ? '#10b981' : avgResponse <= 500 ? '#f59e0b' : '#ef4444';
+            const sslColor = sslExpiring === 0 ? '#10b981' : '#f59e0b';
+
+            // Create or update gauges
+            if (!gaugeCharts.uptime) {
+                gaugeCharts.uptime = createGaugeChart('uptimeGauge', uptimePercent, uptimeColor);
+                gaugeCharts.response = createGaugeChart('responseGauge', Math.min(avgResponse / 5, 100), responseColor);
+                gaugeCharts.ssl = createGaugeChart('sslGauge', sslExpiring === 0 ? 100 : 50, sslColor);
+            } else {
+                gaugeCharts.uptime.data.datasets[0].data = [uptimePercent, 100 - uptimePercent];
+                gaugeCharts.uptime.data.datasets[0].backgroundColor = [uptimeColor, 'rgba(255,255,255,0.1)'];
+                gaugeCharts.uptime.update();
+
+                gaugeCharts.response.data.datasets[0].data = [Math.min(avgResponse / 5, 100), 100 - Math.min(avgResponse / 5, 100)];
+                gaugeCharts.response.data.datasets[0].backgroundColor = [responseColor, 'rgba(255,255,255,0.1)'];
+                gaugeCharts.response.update();
+
+                gaugeCharts.ssl.data.datasets[0].data = [sslExpiring === 0 ? 100 : 50, sslExpiring === 0 ? 0 : 50];
+                gaugeCharts.ssl.data.datasets[0].backgroundColor = [sslColor, 'rgba(255,255,255,0.1)'];
+                gaugeCharts.ssl.update();
+            }
+        }
+
+        // Theme Toggle
+        let isDarkTheme = localStorage.getItem('theme') !== 'light';
+
+        function toggleTheme() {
+            isDarkTheme = !isDarkTheme;
+            localStorage.setItem('theme', isDarkTheme ? 'dark' : 'light');
+            document.body.setAttribute('data-theme', isDarkTheme ? 'dark' : 'light');
+            document.getElementById('themeBtn').textContent = isDarkTheme ? '🌙' : '☀️';
+        }
+
+        // Initialize theme
+        document.body.setAttribute('data-theme', isDarkTheme ? 'dark' : 'light');
+        document.getElementById('themeBtn').textContent = isDarkTheme ? '🌙' : '☀️';
 
         async function loadUptimeChart() {
             const container = document.getElementById('uptimeChartContainer');
@@ -1449,9 +1568,7 @@ def get_notification_cards_html(config):
     return html
 
 
-def get_dashboard_html(
-    total_sites, up_sites, down_sites, notify_config_json, notification_cards
-):
+def get_dashboard_html(total_sites, up_sites, down_sites, notify_config_json, notification_cards):
     return DASHBOARD_HTML.format(
         total_sites=total_sites,
         up_sites=up_sites,

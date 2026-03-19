@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  uptime-monitor:
+    build:
+      context: ./Uptime_Robot
+      dockerfile: Dockerfile
+    container_name: uptime-monitor
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - uptime-data:/data
+      - uptime-config:/config
+      - uptime-logs:/logs
+    environment:
+      - CONFIG_PATH=/config/config.json
+      - DB_PATH=/data/sites.db
+      - LOG_DIR=/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks:
+      - uptime-network
+
+volumes:
+  uptime-data:
+    driver: local
+  uptime-config:
+    driver: local
+  uptime-logs:
+    driver: local
+
+networks:
+  uptime-network:
+    driver: bridge
