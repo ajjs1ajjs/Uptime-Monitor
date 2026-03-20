@@ -1202,9 +1202,137 @@ hostname -I
 - **Порт за замовчуванням:** 8080 (Linux і Windows)
 - **Підтримка SSL:** Так (спеціальні сертифікати, самопідписані, Let's Encrypt готові)
 - **Конфігурація:** на основі JSON з автоматичним резервним копіюванням/відкатом
-- **Інтервал перевірки:** 60 секунд
+- **Інтервал перевірки:** 60 секунд (глобальний), кожен сайт може мати власний інтервал (10с - 3600с)
 - **Файл конфігурації:** `/etc/uptime-monitor/config.json` (Linux)
 - **Каталог резервного копіювання:** `/etc/uptime-monitor/config.backups` (Linux)
+
+---
+
+## 🗑️ Повне видалення (Linux)
+
+Якщо потрібно видалити Uptime Monitor і встановити з нуля:
+
+### Швидке видалення (одна команда)
+
+```bash
+sudo systemctl stop uptime-monitor && \
+sudo systemctl disable uptime-monitor && \
+sudo rm /etc/systemd/system/uptime-monitor.service && \
+sudo systemctl daemon-reload && \
+sudo systemctl reset-failed && \
+sudo rm -rf /opt/uptime-monitor /etc/uptime-monitor /var/lib/uptime-monitor /var/log/uptime-monitor /backup/uptime-monitor && \
+sudo userdel uptime-monitor 2>/dev/null || true && \
+echo "✅ Видалення завершено!"
+```
+
+### Покрокове видалення
+
+**Крок 1: Зупинити службу**
+```bash
+sudo systemctl stop uptime-monitor
+sudo systemctl disable uptime-monitor
+```
+
+**Крок 2: Видалити службу systemd**
+```bash
+sudo rm /etc/systemd/system/uptime-monitor.service
+sudo systemctl daemon-reload
+sudo systemctl reset-failed
+```
+
+**Крок 3: Видалити директорії**
+```bash
+# Директорія додатку
+sudo rm -rf /opt/uptime-monitor
+
+# Конфігурація
+sudo rm -rf /etc/uptime-monitor
+
+# Дані (база даних)
+sudo rm -rf /var/lib/uptime-monitor
+
+# Логи
+sudo rm -rf /var/log/uptime-monitor
+
+# Резервні копії (за бажанням)
+sudo rm -rf /backup/uptime-monitor
+```
+
+**Крок 4: Видалити користувача**
+```bash
+sudo userdel uptime-monitor 2>/dev/null || echo "User already deleted"
+```
+
+**Крок 5: Видалити правила фаєрволу (якщо є)**
+```bash
+# Для UFW
+sudo ufw delete allow 8080/tcp 2>/dev/null || true
+
+# Для firewalld
+sudo firewall-cmd --permanent --remove-port=8080/tcp 2>/dev/null || true
+sudo firewall-cmd --reload 2>/dev/null || true
+```
+
+**Крок 6: Перевірити чи все видалено**
+```bash
+# Перевірка служби
+systemctl status uptime-monitor  # Має бути "Unit not found"
+
+# Перевірка процесів
+ps aux | grep uptime-monitor  # Має бути пусто
+
+# Перевірка порту
+netstat -tlnp | grep 8080  # Має бути пусто
+```
+
+### 💾 Збереження даних перед видаленням
+
+Якщо плануєте встановити з нуля і зберегти дані:
+
+```bash
+# Зберегти базу даних
+sudo cp /var/lib/uptime-monitor/sites.db ~/sites.db.backup
+
+# Зберегти конфігурацію
+sudo cp /etc/uptime-monitor/config.json ~/config.json.backup
+
+# Зберегти логи (опціонально)
+sudo tar -czf ~/uptime-logs.tar.gz /var/log/uptime-monitor/
+```
+
+Після встановлення з нуля відновіть:
+```bash
+sudo systemctl stop uptime-monitor
+sudo cp ~/sites.db.backup /var/lib/uptime-monitor/sites.db
+sudo cp ~/config.json.backup /etc/uptime-monitor/config.json
+sudo chown uptime-monitor:uptime-monitor /var/lib/uptime-monitor/sites.db
+sudo chown uptime-monitor:uptime-monitor /etc/uptime-monitor/config.json
+sudo systemctl start uptime-monitor
+```
+
+### 🔄 Чиста встановлення з нуля
+
+Після повного видалення:
+
+```bash
+# 1. Встановити залежності
+sudo apt-get update
+sudo apt-get install -y python3-pip python3-venv python3-full sqlite3 curl git
+
+# 2. Встановити Uptime Monitor
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
+
+# 3. Перевірити статус
+sudo systemctl status uptime-monitor
+
+# 4. Відкрити у браузері
+http://YOUR_SERVER_IP:8080
+# Login: admin / Password: admin
+
+# 5. Змінити пароль за замовчуванням!
+```
+
+---
 
 ## Підтримка
 
