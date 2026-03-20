@@ -86,15 +86,18 @@ def init_database(db_path: str):
         )
 
         # Migration: Add role column to users table if not exists
-        c.execute("PRAGMA table_info(users)")
-        columns = {row[1] for row in c.fetchall()}
-        if "role" not in columns:
-            c.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'admin'")
-            # Update existing users: is_admin=1 -> admin, is_admin=0 -> viewer
-            c.execute("UPDATE users SET role = 'admin' WHERE is_admin = 1")
-            c.execute(
-                "UPDATE users SET role = 'viewer' WHERE is_admin = 0 OR is_admin IS NULL"
-            )
+        # First check if users table exists
+        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+        users_table_exists = c.fetchone() is not None
+
+        if users_table_exists:
+            c.execute("PRAGMA table_info(users)")
+            columns = {row[1] for row in c.fetchall()}
+            if "role" not in columns:
+                c.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'admin'")
+                # Update existing users: is_admin=1 -> admin, is_admin=0 -> viewer
+                c.execute("UPDATE users SET role = 'admin' WHERE is_admin = 1")
+                c.execute("UPDATE users SET role = 'viewer' WHERE is_admin = 0 OR is_admin IS NULL")
 
         conn.commit()
 
@@ -204,9 +207,7 @@ def add_status_history(
         )
 
         # Очищення старих записів (старші за 30 днів)
-        c.execute(
-            "DELETE FROM status_history WHERE checked_at < datetime('now', '-30 days')"
-        )
+        c.execute("DELETE FROM status_history WHERE checked_at < datetime('now', '-30 days')")
 
         conn.commit()
 
