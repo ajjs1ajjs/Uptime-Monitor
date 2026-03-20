@@ -99,9 +99,7 @@ async def add_cache_control(request: Request, call_next):
         "/change-password",
         "/forgot-password",
     ]:
-        response.headers["Cache-Control"] = (
-            "no-store, no-cache, must-revalidate, max-age=0"
-        )
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
     return response
@@ -186,6 +184,7 @@ class SiteCreate(BaseModel):
 class SiteUpdate(BaseModel):
     name: Optional[str] = None
     url: Optional[str] = None
+    check_interval: Optional[int] = None
     notify_methods: Optional[List[str]] = None
     is_active: Optional[bool] = None
 
@@ -358,9 +357,7 @@ async def public_status_page(request: Request):
         </div>"""
 
     overall_status_class = "up" if down_count == 0 else "down"
-    overall_status_text = (
-        "All systems operational" if down_count == 0 else "Some issues detected"
-    )
+    overall_status_text = "All systems operational" if down_count == 0 else "Some issues detected"
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     return HTMLResponse(
@@ -380,16 +377,12 @@ async def public_status_page(request: Request):
 
 
 @app.get("/login", response_class=HTMLResponse)
-async def login_page(
-    request: Request, error: str = None, user: dict = Depends(get_current_user)
-):
+async def login_page(request: Request, error: str = None, user: dict = Depends(get_current_user)):
     if user:
         return RedirectResponse(url="/", status_code=302)
 
     error_html = f'<div class="error">{error}</div>' if error else ""
-    warning_html = (
-        '<div class="warning">WARNING: Change password after first login!</div>'
-    )
+    warning_html = '<div class="warning">WARNING: Change password after first login!</div>'
     return HTMLResponse(
         content=auth_module.LOGIN_HTML.format(
             error_message=error_html, warning_message=warning_html
@@ -408,17 +401,13 @@ async def login(username: str = Form(...), password: str = Form(...)):
         user = c.fetchone()
 
     if not user or not auth_module.verify_password(password, user["password_hash"]):
-        return RedirectResponse(
-            url="/login?error=Invalid username or password", status_code=302
-        )
+        return RedirectResponse(url="/login?error=Invalid username or password", status_code=302)
 
     session_id = auth_module.create_session(user["id"], DB_PATH)
     response = RedirectResponse(
         url="/change-password" if user["must_change_password"] else "/", status_code=302
     )
-    response.set_cookie(
-        key="session_id", value=session_id, httponly=True, max_age=604800
-    )
+    response.set_cookie(key="session_id", value=session_id, httponly=True, max_age=604800)
     return response
 
 
@@ -439,9 +428,7 @@ async def change_password_page(
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     error_html = f'<div class="error">{error}</div>' if error else ""
-    return HTMLResponse(
-        content=ui_templates.CHANGE_PASSWORD_HTML.format(error_message=error_html)
-    )
+    return HTMLResponse(content=ui_templates.CHANGE_PASSWORD_HTML.format(error_message=error_html))
 
 
 @app.post("/change-password")
@@ -460,9 +447,7 @@ async def change_password(
         )
 
     if len(new_password) < 6:
-        return RedirectResponse(
-            url="/change-password?error=Minimum 6 characters", status_code=302
-        )
+        return RedirectResponse(url="/change-password?error=Minimum 6 characters", status_code=302)
 
     with get_db_connection() as conn:
         c = conn.cursor()
@@ -479,9 +464,7 @@ async def change_password(
     if auth_module.change_password(user["user_id"], new_password, DB_PATH):
         return RedirectResponse(url="/?message=Password updated", status_code=302)
     else:
-        return RedirectResponse(
-            url="/change-password?error=Update failed", status_code=302
-        )
+        return RedirectResponse(url="/change-password?error=Update failed", status_code=302)
 
 
 @app.get("/forgot-password", response_class=HTMLResponse)
@@ -502,16 +485,12 @@ async def forgot_password_action(username: str = Form(...)):
         c.execute("SELECT id FROM users WHERE username = ?", (username,))
         user = c.fetchone()
         if not user:
-            return RedirectResponse(
-                url="/forgot-password?error=User not found", status_code=302
-            )
+            return RedirectResponse(url="/forgot-password?error=User not found", status_code=302)
 
         # Reset to "admin"
         auth_module.change_password(user["id"], "admin", DB_PATH)
         # Force change on next login
-        c.execute(
-            "UPDATE users SET must_change_password = 1 WHERE id = ?", (user["id"],)
-        )
+        c.execute("UPDATE users SET must_change_password = 1 WHERE id = ?", (user["id"],))
         conn.commit()
 
     return RedirectResponse(
@@ -542,9 +521,7 @@ async def get_sites(user: dict = Depends(require_viewer_or_higher)):
                 (site["id"],),
             )
             stats = c.fetchone()
-            uptime = (
-                (stats["up_count"] / stats["total"] * 100) if stats["total"] > 0 else 0
-            )
+            uptime = (stats["up_count"] / stats["total"] * 100) if stats["total"] > 0 else 0
             result.append(
                 {
                     **dict(site),
@@ -624,18 +601,14 @@ async def add_site(site: SiteCreate, user: dict = Depends(require_admin)):
     )
     if m_type == "ssl" or url.lower().startswith("https://"):
         asyncio.create_task(
-            monitoring.check_site_certificate(
-                site_id, url, site.notify_methods, NOTIFY_SETTINGS
-            )
+            monitoring.check_site_certificate(site_id, url, site.notify_methods, NOTIFY_SETTINGS)
         )
 
     return {"id": site_id, "message": "Site added"}
 
 
 @app.put("/api/sites/{site_id}")
-async def update_site(
-    site_id: int, site: SiteUpdate, user: dict = Depends(require_admin)
-):
+async def update_site(site_id: int, site: SiteUpdate, user: dict = Depends(require_admin)):
     if not user:
         raise HTTPException(status_code=401)
     with get_db_connection() as conn:
@@ -656,8 +629,9 @@ async def update_site(
             if site.url is not None
             else existing["url"]
         )
-        is_active = (
-            site.is_active if site.is_active is not None else existing["is_active"]
+        is_active = site.is_active if site.is_active is not None else existing["is_active"]
+        check_interval = (
+            site.check_interval if site.check_interval is not None else existing["check_interval"]
         )
         notify_methods = (
             json.dumps(site.notify_methods)
@@ -666,8 +640,8 @@ async def update_site(
         )
 
         c.execute(
-            "UPDATE sites SET name = ?, url = ?, is_active = ?, notify_methods = ? WHERE id = ?",
-            (name, url, is_active, notify_methods, site_id),
+            "UPDATE sites SET name = ?, url = ?, check_interval = ?, is_active = ?, notify_methods = ? WHERE id = ?",
+            (name, url, check_interval, is_active, notify_methods, site_id),
         )
         conn.commit()
     return {"message": "Updated"}
@@ -837,9 +811,7 @@ async def get_incidents(user: dict = Depends(require_viewer_or_higher)):
                         try:
                             from datetime import datetime
 
-                            start_dt = datetime.fromisoformat(
-                                start.replace("Z", "+00:00")
-                            )
+                            start_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
                             end_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
                             duration = end_dt - start_dt
                             hours = duration.total_seconds() // 3600
@@ -853,9 +825,7 @@ async def get_incidents(user: dict = Depends(require_viewer_or_higher)):
                         break
 
             inc["duration"] = (
-                duration_found
-                if duration_found
-                else ("в процесі" if not down_times else None)
+                duration_found if duration_found else ("в процесі" if not down_times else None)
             )
             incidents.append(inc)
 
@@ -863,9 +833,7 @@ async def get_incidents(user: dict = Depends(require_viewer_or_higher)):
 
 
 @app.post("/api/notify-settings")
-async def save_notify(
-    settings: NotifySettingsModel, user: dict = Depends(require_admin)
-):
+async def save_notify(settings: NotifySettingsModel, user: dict = Depends(require_admin)):
     if not user:
         raise HTTPException(401)
     global NOTIFY_SETTINGS
@@ -936,25 +904,15 @@ async def get_users(user: dict = Depends(require_admin)):
 
 
 @app.post("/api/users")
-async def create_user_api(
-    user_data: UserCreate, current_user: dict = Depends(require_admin)
-):
+async def create_user_api(user_data: UserCreate, current_user: dict = Depends(require_admin)):
     """Create a new user (admin only)"""
     if user_data.role not in ["admin", "viewer"]:
-        raise HTTPException(
-            status_code=400, detail="Invalid role. Must be 'admin' or 'viewer'"
-        )
+        raise HTTPException(status_code=400, detail="Invalid role. Must be 'admin' or 'viewer'")
 
-    if auth_module.create_user(
-        DB_PATH, user_data.username, user_data.password, user_data.role
-    ):
-        return {
-            "message": f"User '{user_data.username}' created with role '{user_data.role}'"
-        }
+    if auth_module.create_user(DB_PATH, user_data.username, user_data.password, user_data.role):
+        return {"message": f"User '{user_data.username}' created with role '{user_data.role}'"}
     else:
-        raise HTTPException(
-            status_code=400, detail="User already exists or error creating user"
-        )
+        raise HTTPException(status_code=400, detail="User already exists or error creating user")
 
 
 @app.put("/api/users/{username}")
@@ -1044,9 +1002,7 @@ if __name__ == "__main__":
 
     # Start monitoring loop in a thread
     monitor_thread = threading.Thread(
-        target=lambda: asyncio.run(
-            monitoring.monitor_loop(NOTIFY_SETTINGS, CHECK_INTERVAL)
-        ),
+        target=lambda: asyncio.run(monitoring.monitor_loop(NOTIFY_SETTINGS, CHECK_INTERVAL)),
         daemon=True,
     )
     monitor_thread.start()

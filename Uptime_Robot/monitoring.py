@@ -44,23 +44,17 @@ def get_alert_policy() -> Dict[str, Any]:
 
     # Нормалізація типів/меж
     try:
-        result["request_timeout_seconds"] = max(
-            1, int(result.get("request_timeout_seconds", 60))
-        )
+        result["request_timeout_seconds"] = max(1, int(result.get("request_timeout_seconds", 60)))
     except Exception:
         result["request_timeout_seconds"] = 60
 
     try:
-        result["down_failures_threshold"] = max(
-            1, int(result.get("down_failures_threshold", 1))
-        )
+        result["down_failures_threshold"] = max(1, int(result.get("down_failures_threshold", 1)))
     except Exception:
         result["down_failures_threshold"] = 1
 
     try:
-        result["up_success_threshold"] = max(
-            1, int(result.get("up_success_threshold", 1))
-        )
+        result["up_success_threshold"] = max(1, int(result.get("up_success_threshold", 1)))
     except Exception:
         result["up_success_threshold"] = 1
 
@@ -72,9 +66,7 @@ def get_alert_policy() -> Dict[str, Any]:
         result["still_down_repeat_seconds"] = 600
 
     try:
-        result["ssl_notification_days"] = max(
-            1, int(result.get("ssl_notification_days", 21))
-        )
+        result["ssl_notification_days"] = max(1, int(result.get("ssl_notification_days", 21)))
     except Exception:
         result["ssl_notification_days"] = 21
 
@@ -86,9 +78,7 @@ def get_alert_policy() -> Dict[str, Any]:
         result["ssl_notification_cooldown_seconds"] = 21600
 
     try:
-        result["ssl_check_interval_hours"] = max(
-            1, int(result.get("ssl_check_interval_hours", 6))
-        )
+        result["ssl_check_interval_hours"] = max(1, int(result.get("ssl_check_interval_hours", 6)))
     except Exception:
         result["ssl_check_interval_hours"] = 6
 
@@ -119,9 +109,7 @@ async def check_site_status(
     response_time = None
     error_message = None
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-    }
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
     try:
         # У майбутньому тут можна додати логіку для різних типів моніторів (port, ping)
@@ -206,8 +194,7 @@ async def check_site_status(
             last_alert = LAST_DOWN_ALERT.get(site_id)
             if (
                 last_alert is None
-                or (checked_at - last_alert).total_seconds()
-                >= policy["still_down_repeat_seconds"]
+                or (checked_at - last_alert).total_seconds() >= policy["still_down_repeat_seconds"]
             ):
                 should_alert = True
                 alert_type = "REPEAT"
@@ -328,9 +315,7 @@ async def check_site_certificate(
     policy = get_alert_policy()
     days = cert_info["days_until_expire"]
     if days <= policy["ssl_notification_days"] and notify_methods:
-        c.execute(
-            "SELECT last_notified FROM ssl_certificates WHERE site_id = ?", (site_id,)
-        )
+        c.execute("SELECT last_notified FROM ssl_certificates WHERE site_id = ?", (site_id,))
         row = c.fetchone()
 
         should_notify = True
@@ -383,30 +368,29 @@ async def check_all_certificates(notify_settings: Dict[str, Any]):
         sites = c.fetchall()
 
     for site in sites:
-        notify_methods = (
-            json.loads(site["notify_methods"]) if site["notify_methods"] else []
-        )
-        await check_site_certificate(
-            site["id"], site["url"], notify_methods, notify_settings
-        )
+        notify_methods = json.loads(site["notify_methods"]) if site["notify_methods"] else []
+        await check_site_certificate(site["id"], site["url"], notify_methods, notify_settings)
         await asyncio.sleep(1)
 
 
-async def monitor_loop(notify_settings: Dict[str, Any], check_interval: int = 60):
-    """Основний цикл моніторингу"""
+async def monitor_loop(notify_settings: Dict[str, Any], default_check_interval: int = 60):
+    """Основний цикл моніторингу з підтримкою індивідуальних інтервалів"""
     policy = get_alert_policy()
-    ssl_check_interval = (
-        policy["ssl_check_interval_hours"] * 3600
-    )  # конвертація в секунди
+    ssl_check_interval = policy["ssl_check_interval_hours"] * 3600  # конвертація в секунди
     last_cert_check = datetime.now() - timedelta(hours=25)
+
+    # Track last check time for each site
+    last_check_time = {}  # site_id -> datetime
 
     while True:
         try:
-            # Перевірка доступності сайтів
+            current_time = datetime.now()
+
+            # Перевірка доступності сайтів з індивідуальними інтервалами
             with get_db_connection() as conn:
                 c = conn.cursor()
                 c.execute(
-                    "SELECT id, url, notify_methods FROM sites WHERE is_active = 1"
+                    "SELECT id, url, notify_methods, check_interval FROM sites WHERE is_active = 1"
                 )
                 sites = c.fetchall()
 
@@ -414,17 +398,32 @@ async def monitor_loop(notify_settings: Dict[str, Any], check_interval: int = 60
                 notify_methods = (
                     json.loads(site["notify_methods"]) if site["notify_methods"] else []
                 )
-                # Передаємо notify_settings у check_site_status
-                await check_site_status(
-                    site["id"], site["url"], notify_methods, notify_settings
+                # Use site-specific interval or default
+                site_interval = (
+                    site["check_interval"] if site["check_interval"] else default_check_interval
                 )
+
+                # Check if it's time to check this site
+                last_check = last_check_time.get(site["id"])
+                if (
+                    last_check is None
+                    or (current_time - last_check).total_seconds() >= site_interval
+                ):
+                    # Передаємо notify_settings у check_site_status
+                    await check_site_status(
+                        site["id"], site["url"], notify_methods, notify_settings
+                    )
+                    last_check_time[site["id"]] = current_time
 
             # Перевірка SSL сертифікатів кожні 6 годин
             if (datetime.now() - last_cert_check).total_seconds() >= ssl_check_interval:
                 logger.info("Checking SSL certificates in background...")
                 await check_all_certificates(notify_settings)
                 last_cert_check = datetime.now()
+
+            # Sleep for a short interval to allow responsive updates
+            await asyncio.sleep(5)
+
         except Exception as e:
             logger.error(f"Error in monitor_loop: {e}")
-
-        await asyncio.sleep(check_interval)
+            await asyncio.sleep(5)

@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 # Internal modules
 import config_manager
 import models
+import monitoring
 import notifications
 import servicemanager
 import ui_templates
@@ -24,8 +25,6 @@ from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from logger import logger
 from pydantic import BaseModel
-
-import monitoring
 
 # Configuration
 config_manager.init_paths()
@@ -96,6 +95,7 @@ class SiteCreate(BaseModel):
 class SiteUpdate(BaseModel):
     name: Optional[str] = None
     url: Optional[str] = None
+    check_interval: Optional[int] = None
     notify_methods: Optional[List[str]] = None
     is_active: Optional[bool] = None
 
@@ -200,9 +200,7 @@ async def public_status_page():
         </div>"""
 
     overall_status_class = "up" if down_count == 0 else "down"
-    overall_status_text = (
-        "All systems operational" if down_count == 0 else "Some issues detected"
-    )
+    overall_status_text = "All systems operational" if down_count == 0 else "Some issues detected"
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     return HTMLResponse(
@@ -277,9 +275,7 @@ async def add_site(site: SiteCreate):
         except sqlite3.IntegrityError:
             raise HTTPException(400, "Already exists")
 
-    await monitoring.check_site_status(
-        site_id, site.url, site.notify_methods, NOTIFY_SETTINGS
-    )
+    await monitoring.check_site_status(site_id, site.url, site.notify_methods, NOTIFY_SETTINGS)
     return {"id": site_id}
 
 
@@ -452,9 +448,7 @@ async def get_incidents():
                         try:
                             from datetime import datetime
 
-                            start_dt = datetime.fromisoformat(
-                                start.replace("Z", "+00:00")
-                            )
+                            start_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
                             end_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
                             duration = end_dt - start_dt
                             hours = duration.total_seconds() // 3600
@@ -468,9 +462,7 @@ async def get_incidents():
                         break
 
             inc["duration"] = (
-                duration_found
-                if duration_found
-                else ("в процесі" if not down_times else None)
+                duration_found if duration_found else ("в процесі" if not down_times else None)
             )
             incidents.append(inc)
 
@@ -514,9 +506,7 @@ class UptimeMonitorService(win32serviceutil.ServiceFramework):
         asyncio.set_event_loop(loop)
 
         try:
-            asyncio.ensure_future(
-                monitoring.monitor_loop(NOTIFY_SETTINGS, CHECK_INTERVAL)
-            )
+            asyncio.ensure_future(monitoring.monitor_loop(NOTIFY_SETTINGS, CHECK_INTERVAL))
             # In Windows Service context stdout/stderr may be None, which breaks
             # uvicorn default logging formatter (isatty check).
             config = uvicorn.Config(
@@ -550,9 +540,7 @@ class UptimeMonitorService(win32serviceutil.ServiceFramework):
                 for task in pending:
                     task.cancel()
                 if pending:
-                    loop.run_until_complete(
-                        asyncio.gather(*pending, return_exceptions=True)
-                    )
+                    loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
             except Exception:
                 pass
             loop.close()
@@ -576,9 +564,7 @@ def run_console():
 
     async def run():
         asyncio.create_task(monitoring.monitor_loop(NOTIFY_SETTINGS, CHECK_INTERVAL))
-        config = uvicorn.Config(
-            app, host=SERVER_HOST, port=DEFAULT_PORT, log_level="info"
-        )
+        config = uvicorn.Config(app, host=SERVER_HOST, port=DEFAULT_PORT, log_level="info")
         await uvicorn.Server(config).serve()
 
     try:

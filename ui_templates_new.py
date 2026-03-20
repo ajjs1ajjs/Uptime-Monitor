@@ -303,6 +303,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                         <option value="ssl">🔒 SSL</option>
                     </select>
                 </div>
+                <div class="form-row" style="margin-top: 15px;">
+                    <input type="number" id="siteCheckInterval" placeholder="60" min="10" max="3600" step="10" value="60">
+                    <span style="color: var(--text-secondary); font-size: 12px; white-space: nowrap;">Інтервал перевірки (сек)</span>
+                </div>
                 <div class="modal-field" style="margin-top: 16px;">
                     <label style="color: var(--text-secondary); font-size: 12px; margin-bottom: 10px; display: block;">Способи сповіщень</label>
                     <div class="edit-notify-options" id="siteNotifyOptions">
@@ -361,6 +365,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             <div class="modal-field" style="margin-top: 16px;">
                 <label style="color: var(--text-secondary); font-size: 12px; margin-bottom: 6px; display: block;">URL</label>
                 <input type="url" id="editSiteUrl" style="width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--border); background: rgba(15, 23, 42, 0.8); color: var(--text-primary); font-size: 15px;">
+            </div>
+            <div class="modal-field" style="margin-top: 16px;">
+                <label style="color: var(--text-secondary); font-size: 12px; margin-bottom: 6px; display: block;">Інтервал перевірки (секунди)</label>
+                <input type="number" id="editSiteInterval" min="10" max="3600" step="10" style="width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--border); background: rgba(15, 23, 42, 0.8); color: var(--text-primary); font-size: 15px;">
+                <small style="color: var(--text-secondary); font-size: 11px; margin-top: 4px; display: block;">Мін: 10с, Макс: 60хв. Залиште 60 для стандартного інтервалу.</small>
             </div>
             <div class="modal-field" style="margin-top: 16px;">
                 <label style="color: var(--text-secondary); font-size: 12px; margin-bottom: 10px; display: block;">Способи сповіщень</label>
@@ -863,7 +872,7 @@ DASHBOARD_JS = """
                     </div>
                     <div class="monitor-actions">
                         <button class="btn btn-check" onclick="checkSite(${site.id})">Check</button>
-                        <button class="btn btn-edit" onclick="openEditModal(${site.id}, '${safeName}', '${encodeURIComponent(safeUrl)}', '${encodeURIComponent(JSON.stringify(site.notify_methods || []))}')">Edit</button>
+                        <button class="btn btn-edit" onclick="openEditModal(${site.id}, '${safeName}', '${encodeURIComponent(safeUrl)}', '${encodeURIComponent(JSON.stringify(site.notify_methods || []))}', ${site.check_interval || 60})">Edit</button>
                         <button class="btn btn-delete" onclick="deleteSite(${site.id})">Delete</button>
                     </div>
                 </div>`;
@@ -914,6 +923,7 @@ DASHBOARD_JS = """
             const name = document.getElementById('siteName').value;
             const url = document.getElementById('siteUrl').value;
             const monitor_type = document.getElementById('monitorType').value;
+            const check_interval = parseInt(document.getElementById('siteCheckInterval').value) || 60;
             const container = document.getElementById('siteNotifyOptions');
             const notify_methods = container ? Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(o => o.value) : [];
 
@@ -923,11 +933,12 @@ DASHBOARD_JS = """
                 const response = await fetch('/api/sites', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({name, url, monitor_type, notify_methods})
+                    body: JSON.stringify({name, url, monitor_type, check_interval, notify_methods})
                 });
                 if (response.ok) {
                     document.getElementById('siteName').value = '';
                     document.getElementById('siteUrl').value = '';
+                    document.getElementById('siteCheckInterval').value = '60';
                     if (container) container.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
                     loadSites();
                     alert('Монітор додано!');
@@ -1315,10 +1326,11 @@ DASHBOARD_JS = """
             } catch(e) { console.error(e); }
         }
 
-        function openEditModal(id, name, url, notifyMethods) {
+        function openEditModal(id, name, url, notifyMethods, checkInterval) {
             document.getElementById('editSiteId').value = id;
             document.getElementById('editSiteName').value = name;
             document.getElementById('editSiteUrl').value = decodeURIComponent(url);
+            document.getElementById('editSiteInterval').value = checkInterval || 60;
             const methods = typeof notifyMethods === 'string' ? JSON.parse(decodeURIComponent(notifyMethods)) : notifyMethods;
             const container = document.getElementById('editSiteNotify');
             if (container) {
@@ -1337,11 +1349,12 @@ DASHBOARD_JS = """
             const id = document.getElementById('editSiteId').value;
             const name = document.getElementById('editSiteName').value.trim();
             const url = document.getElementById('editSiteUrl').value.trim();
+            const checkInterval = parseInt(document.getElementById('editSiteInterval').value) || 60;
             const container = document.getElementById('editSiteNotify');
             const notify_methods = container ? Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(o => o.value) : [];
             if (!name || !url) return alert('Заповніть всі поля!');
             try {
-                await fetch(`/api/sites/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name, url, notify_methods}) });
+                await fetch(`/api/sites/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name, url, check_interval: checkInterval, notify_methods}) });
                 closeEditModal();
                 loadSites();
             } catch(e) { console.error(e); }
@@ -1456,9 +1469,7 @@ def get_notification_cards_html(config):
     return html
 
 
-def get_dashboard_html(
-    total_sites, up_sites, down_sites, notify_config_json, notification_cards
-):
+def get_dashboard_html(total_sites, up_sites, down_sites, notify_config_json, notification_cards):
     return DASHBOARD_HTML.format(
         total_sites=total_sites,
         up_sites=up_sites,
