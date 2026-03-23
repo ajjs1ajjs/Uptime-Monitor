@@ -46,22 +46,8 @@ DEFAULT_HOST = CONFIG.get("server", {}).get("host", "auto")
 DEFAULT_PORT = CONFIG.get("server", {}).get("port", 8080)
 
 def get_default_host():
-    """Отримує поточну IP адресу сервера"""
-    try:
-        hostname = socket.gethostname()
-        ip = socket.gethostbyname(hostname)
-        if ip.startswith("127."):
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            try:
-                s.connect(("8.8.8.8", 80))
-                ip = s.getsockname()[0]
-            except Exception:
-                pass
-            finally:
-                s.close()
-        return ip
-    except Exception:
-        return "0.0.0.0"
+    """Повертає 0.0.0.0 для біндінгу на всі інтерфейси"""
+    return "0.0.0.0"
 
 SERVER_HOST = "0.0.0.0" if DEFAULT_HOST == "auto" else DEFAULT_HOST
 
@@ -71,7 +57,7 @@ app = FastAPI(title="Uptime Monitor")
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8080", "https://localhost:8080"],
+    allow_origins=["*"],
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Content-Type", "Authorization"],
 )
