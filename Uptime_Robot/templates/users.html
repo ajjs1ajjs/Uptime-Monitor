@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Користувачі - Uptime Monitor</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
+            color: #fff;
+            min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #1a1a2e, #0f0f23);
+            padding: 20px 40px;
+            border-bottom: 1px solid #2a2a4a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo { font-size: 24px; font-weight: 700; }
+        .logo-icon {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #00d9ff, #00ff88);
+            border-radius: 10px;
+            line-height: 40px;
+            font-size: 20px;
+            margin-right: 10px;
+            text-align: center;
+        }
+        .nav-links a {
+            color: #a0a0b0;
+            text-decoration: none;
+            margin-left: 20px;
+            font-size: 14px;
+            transition: color 0.3s;
+        }
+        .nav-links a:hover { color: #00d9ff; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 40px; }
+        h1 { font-size: 28px; margin-bottom: 30px; }
+
+        .card {
+            background: linear-gradient(145deg, #1a1a2e, #16213e);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 1px solid #2a2a4a;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #00d9ff, #00a8cc);
+            color: #000;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 217, 255, 0.4);
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, #ff4757, #ff3838);
+            color: #fff;
+        }
+        .btn-danger:hover {
+            box-shadow: 0 5px 20px rgba(255, 71, 87, 0.4);
+        }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #2a2a4a; }
+        th { color: #a0a0b0; font-weight: 500; font-size: 13px; }
+        td { font-size: 14px; }
+        tr:hover { background: rgba(255,255,255,0.02); }
+
+        .role-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .role-admin {
+            background: rgba(0, 217, 255, 0.15);
+            color: #00d9ff;
+        }
+        .role-viewer {
+            background: rgba(148, 163, 184, 0.15);
+            color: #94a3b8;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: #1a1a2e;
+            padding: 30px;
+            border-radius: 15px;
+            width: 100%;
+            max-width: 400px;
+            border: 1px solid #2a2a4a;
+        }
+        .modal-header {
+            font-size: 20px;
+            margin-bottom: 20px;
+        }
+        .form-group { margin-bottom: 15px; }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #a0a0b0;
+            font-size: 13px;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #2a2a4a;
+            background: #0f0f23;
+            color: #fff;
+            font-size: 14px;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .modal-actions .btn { flex: 1; }
+        .btn-secondary {
+            background: #2a2a4a;
+            color: #fff;
+        }
+
+        .actions-cell { display: flex; gap: 8px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo"><span class="logo-icon">⚡</span>Uptime Monitor</div>
+        <div class="nav-links">
+            <a href="/">Дашборд</a>
+            <a href="/users">Користувачі</a>
+            <a href="/logout">Вийти</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+            <h1>Управління користувачами</h1>
+            <button class="btn btn-primary" onclick="showCreateModal()">+ Додати користувача</button>
+        </div>
+
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>Created</th>
+                        <th>Last Login</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="usersTableBody">
+                    <tr><td colspan="6" style="text-align: center; color: #a0a0b0;">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Create User Modal -->
+    <div class="modal" id="createModal">
+        <div class="modal-content">
+            <div class="modal-header">Додати користувача</div>
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="newUsername" placeholder="Enter username">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="newPassword" placeholder="Enter password">
+            </div>
+            <div class="form-group">
+                <label>Role</label>
+                <select id="newRole">
+                    <option value="viewer">Viewer (read-only)</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('createModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="createUser()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div class="modal" id="editModal">
+        <div class="modal-content">
+            <div class="modal-header">Редагувати користувача</div>
+            <input type="hidden" id="editUsername">
+            <div class="form-group">
+                <label>Role</label>
+                <select id="editRole">
+                    <option value="viewer">Viewer (read-only)</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>New Password (optional)</label>
+                <input type="password" id="editPassword" placeholder="Leave empty to keep current">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('editModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="updateUser()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+
+        // Load users on page load
+        loadUsers();
+        loadCurrentUser();
+
+        async function loadCurrentUser() {
+            try {
+                const res = await fetch('/api/user');
+                if (res.ok) {
+                    currentUser = await res.json();
+                    if (!currentUser.is_admin) {
+                        window.location.href = '/';
+                    }
+                } else {
+                    window.location.href = '/login';
+                }
+            } catch (e) {
+                console.error('Error loading current user:', e);
+            }
+        }
+
+        async function loadUsers() {
+            try {
+                const res = await fetch('/api/users');
+                if (!res.ok) {
+                    document.getElementById('usersTableBody').innerHTML = '<tr><td colspan="6" style="text-align: center; color: #ff4757;">Error loading users</td></tr>';
+                    return;
+                }
+                const users = await res.json();
+                renderUsers(users);
+            } catch (e) {
+                document.getElementById('usersTableBody').innerHTML = '<tr><td colspan="6" style="text-align: center; color: #ff4757;">Error loading users</td></tr>';
+            }
+        }
+
+        function renderUsers(users) {
+            const tbody = document.getElementById('usersTableBody');
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #a0a0b0;">No users found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = users.map(user => `
+                <tr>
+                    <td>${user.id}</td>
+                    <td>${user.username}</td>
+                    <td><span class="role-badge ${user.role === 'admin' ? 'role-admin' : 'role-viewer'}">${user.role}</span></td>
+                    <td>${formatDate(user.created_at)}</td>
+                    <td>${user.last_login ? formatDate(user.last_login) : 'Never'}</td>
+                    <td>
+                        <div class="actions-cell">
+                            <button class="btn btn-sm btn-secondary" onclick="showEditModal('${user.username}', '${user.role}')">Edit</button>
+                            ${user.username !== currentUser?.username ? `<button class="btn btn-sm btn-danger" onclick="deleteUser('${user.username}')">Delete</button>` : ''}
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return 'Never';
+            try {
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('uk-UA', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch {
+                return dateStr;
+            }
+        }
+
+        function showCreateModal() {
+            document.getElementById('newUsername').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('newRole').value = 'viewer';
+            document.getElementById('createModal').classList.add('active');
+        }
+
+        function showEditModal(username, role) {
+            document.getElementById('editUsername').value = username;
+            document.getElementById('editRole').value = role;
+            document.getElementById('editPassword').value = '';
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        async function createUser() {
+            const username = document.getElementById('newUsername').value.trim();
+            const password = document.getElementById('newPassword').value;
+            const role = document.getElementById('newRole').value;
+
+            if (!username || !password) {
+                alert('Username and password are required');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, role })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    alert(data.message);
+                    closeModal('createModal');
+                    loadUsers();
+                } else {
+                    alert(data.detail || 'Error creating user');
+                }
+            } catch (e) {
+                alert('Error creating user');
+            }
+        }
+
+        async function updateUser() {
+            const username = document.getElementById('editUsername').value;
+            const role = document.getElementById('editRole').value;
+            const password = document.getElementById('editPassword').value;
+
+            try {
+                const body = { role };
+                if (password) body.password = password;
+
+                const res = await fetch(`/api/users/${username}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    alert(data.message);
+                    closeModal('editModal');
+                    loadUsers();
+                } else {
+                    alert(data.detail || 'Error updating user');
+                }
+            } catch (e) {
+                alert('Error updating user');
+            }
+        }
+
+        async function deleteUser(username) {
+            if (!confirm(`Are you sure you want to delete user "${username}"?`)) return;
+
+            try {
+                const res = await fetch(`/api/users/${username}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    alert(data.message);
+                    loadUsers();
+                } else {
+                    alert(data.detail || 'Error deleting user');
+                }
+            } catch (e) {
+                alert('Error deleting user');
+            }
+        }
+    </script>
+</body>
+</html>

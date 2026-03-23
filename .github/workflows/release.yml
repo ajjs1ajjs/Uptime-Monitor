@@ -27,7 +27,7 @@ jobs:
             --exclude='*.db' \
             --exclude='*.log' \
             --exclude='UptimeMonitor_EXE' \
-            main.py main_service.py auth_module.py config.py database.py logger.py \
+            main.py main_service.py auth_module.py database.py logger.py \
             models.py notifications.py monitoring.py ssl_checker.py \
             templates/ static/ requirements.txt
       

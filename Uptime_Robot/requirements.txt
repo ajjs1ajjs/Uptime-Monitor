@@ -6,3 +6,4 @@ pywin32
 python-multipart
 bcrypt
 jinja2
+aiosqlite

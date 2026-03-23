@@ -92,7 +92,7 @@ installer/
 C:\Program Files\Uptime Monitor\
 ├── main.py
 ├── main_service.py
-├── config.py
+├── config_manager.py
 ├── config_manager.py
 ├── monitoring.py
 ├── notifications.py

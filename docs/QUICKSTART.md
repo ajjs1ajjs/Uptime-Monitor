@@ -11,7 +11,7 @@ curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/insta
 ## 2. Перевірка статусу (30 секунд)
 
 ```bash
-sudo systemctl status uptime-monitor
+sudo systemctl status uptime-monitor uptime-monitor-worker
 ```
 
 ## 3. Створення першого бекапу ⚠️ ОБОВ'ЯЗКОВО

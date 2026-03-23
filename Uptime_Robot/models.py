@@ -1,20 +1,20 @@
 """Модуль для роботи з базою даних"""
 
 import json
-import sqlite3
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from database import get_db_connection
+try:
+    from .database import get_db_connection
+except ImportError:
+    from database import get_db_connection
 
 
-def init_database(db_path: str):
+async def init_database(db_path: str):
     """Ініціалізує базу даних"""
-    with get_db_connection(db_path) as conn:
-        c = conn.cursor()
-
+    async with get_db_connection(db_path) as conn:
         # Таблиця сайтів
-        c.execute("""CREATE TABLE IF NOT EXISTS sites (
+        await conn.execute("""CREATE TABLE IF NOT EXISTS sites (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             url TEXT NOT NULL UNIQUE,
@@ -26,11 +26,14 @@ def init_database(db_path: str):
             status_code INTEGER,
             response_time REAL,
             error_message TEXT,
-            monitor_type TEXT DEFAULT 'http'
+            monitor_type TEXT DEFAULT 'http',
+            failed_attempts INTEGER DEFAULT 0,
+            success_attempts INTEGER DEFAULT 0,
+            last_down_alert TEXT
         )""")
 
         # Таблиця історії статусів
-        c.execute("""CREATE TABLE IF NOT EXISTS status_history (
+        await conn.execute("""CREATE TABLE IF NOT EXISTS status_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             site_id INTEGER,
             status TEXT,
@@ -42,13 +45,13 @@ def init_database(db_path: str):
         )""")
 
         # Таблиця налаштувань сповіщень
-        c.execute("""CREATE TABLE IF NOT EXISTS notify_config (
+        await conn.execute("""CREATE TABLE IF NOT EXISTS notify_config (
             id INTEGER PRIMARY KEY,
             config TEXT
         )""")
 
         # Таблиця SSL сертифікатів
-        c.execute("""CREATE TABLE IF NOT EXISTS ssl_certificates (
+        await conn.execute("""CREATE TABLE IF NOT EXISTS ssl_certificates (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             site_id INTEGER UNIQUE,
             hostname TEXT,
@@ -63,64 +66,69 @@ def init_database(db_path: str):
         )""")
 
         # Таблиця налаштувань додатку
-        c.execute("""CREATE TABLE IF NOT EXISTS app_settings (
+        await conn.execute("""CREATE TABLE IF NOT EXISTS app_settings (
             id INTEGER PRIMARY KEY,
             display_address TEXT
         )""")
 
-        # Migrations for legacy ssl_certificates schema:
-        # - add missing last_notified column
-        # - deduplicate legacy rows (older DBs may miss UNIQUE(site_id))
-        # - enforce one row per site via unique index
-        c.execute("PRAGMA table_info(ssl_certificates)")
-        ssl_columns = {row[1] for row in c.fetchall()}
+        # Migrations for legacy ssl_certificates
+        async with conn.execute("PRAGMA table_info(ssl_certificates)") as c:
+            rows = await c.fetchall()
+            ssl_columns = {row[1] for row in rows}
         if "last_notified" not in ssl_columns:
-            c.execute("ALTER TABLE ssl_certificates ADD COLUMN last_notified TEXT")
+            await conn.execute("ALTER TABLE ssl_certificates ADD COLUMN last_notified TEXT")
 
-        c.execute("""DELETE FROM ssl_certificates
+        await conn.execute("""DELETE FROM ssl_certificates
                      WHERE id NOT IN (
                          SELECT MAX(id) FROM ssl_certificates GROUP BY site_id
                      )""")
-        c.execute(
+        await conn.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_ssl_certificates_site_id_unique ON ssl_certificates(site_id)"
         )
 
-        # Migration: Add role column to users table if not exists
-        # First check if users table exists
-        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
-        users_table_exists = c.fetchone() is not None
+        # Migrations for legacy users
+        async with conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'") as c:
+            users_table_exists = await c.fetchone() is not None
 
         if users_table_exists:
-            c.execute("PRAGMA table_info(users)")
-            columns = {row[1] for row in c.fetchall()}
+            async with conn.execute("PRAGMA table_info(users)") as c:
+                rows = await c.fetchall()
+                columns = {row[1] for row in rows}
             if "role" not in columns:
-                c.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'admin'")
-                # Update existing users: is_admin=1 -> admin, is_admin=0 -> viewer
-                c.execute("UPDATE users SET role = 'admin' WHERE is_admin = 1")
-                c.execute("UPDATE users SET role = 'viewer' WHERE is_admin = 0 OR is_admin IS NULL")
+                await conn.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'admin'")
+                await conn.execute("UPDATE users SET role = 'admin' WHERE is_admin = 1")
+                await conn.execute("UPDATE users SET role = 'viewer' WHERE is_admin = 0 OR is_admin IS NULL")
+                
+        # Migrations for legacy sites
+        async with conn.execute("PRAGMA table_info(sites)") as c:
+            rows = await c.fetchall()
+            site_columns = {row[1] for row in rows}
+        
+        if "failed_attempts" not in site_columns:
+            await conn.execute("ALTER TABLE sites ADD COLUMN failed_attempts INTEGER DEFAULT 0")
+            await conn.execute("ALTER TABLE sites ADD COLUMN success_attempts INTEGER DEFAULT 0")
+            await conn.execute("ALTER TABLE sites ADD COLUMN last_down_alert TEXT")
 
-        conn.commit()
+        await conn.commit()
 
 
-def get_all_sites(db_path: str) -> List[Dict[str, Any]]:
+async def get_all_sites(db_path: str) -> List[Dict[str, Any]]:
     """Отримує всі сайти"""
-    with get_db_connection(db_path) as conn:
-        c = conn.cursor()
-        c.execute("SELECT * FROM sites ORDER BY id DESC")
-        sites = [dict(row) for row in c.fetchall()]
-    return sites
+    async with get_db_connection(db_path) as conn:
+        async with conn.execute("SELECT * FROM sites ORDER BY id DESC") as c:
+            rows = await c.fetchall()
+            return [dict(row) for row in rows]
 
 
-def get_active_sites(db_path: str) -> List[Dict[str, Any]]:
+async def get_active_sites(db_path: str) -> List[Dict[str, Any]]:
     """Отримує активні сайти"""
-    with get_db_connection(db_path) as conn:
-        c = conn.cursor()
-        c.execute("SELECT * FROM sites WHERE is_active = 1")
-        sites = [dict(row) for row in c.fetchall()]
-    return sites
+    async with get_db_connection(db_path) as conn:
+        async with conn.execute("SELECT * FROM sites WHERE is_active = 1") as c:
+            rows = await c.fetchall()
+            return [dict(row) for row in rows]
 
 
-def add_site(
+async def add_site(
     db_path: str,
     name: str,
     url: str,
@@ -128,19 +136,18 @@ def add_site(
     notify_methods: Optional[List[str]] = None,
 ) -> int:
     """Додає новий сайт"""
-    with get_db_connection(db_path) as conn:
-        c = conn.cursor()
-        c.execute(
+    async with get_db_connection(db_path) as conn:
+        async with conn.execute(
             """INSERT INTO sites (name, url, check_interval, notify_methods, is_active)
                      VALUES (?, ?, ?, ?, 1)""",
             (name, url, check_interval, json.dumps(notify_methods or [])),
-        )
-        site_id = c.lastrowid
-        conn.commit()
+        ) as c:
+            site_id = c.lastrowid
+        await conn.commit()
     return site_id
 
 
-def update_site(db_path: str, site_id: int, **kwargs):
+async def update_site(db_path: str, site_id: int, **kwargs):
     """Оновлює сайт"""
     allowed_columns = {
         "name",
@@ -149,6 +156,11 @@ def update_site(db_path: str, site_id: int, **kwargs):
         "is_active",
         "notify_methods",
         "last_notification",
+        "failed_attempts",
+        "success_attempts",
+        "status",
+        "status_code",
+        "response_time"
     }
 
     updates = []
@@ -165,23 +177,21 @@ def update_site(db_path: str, site_id: int, **kwargs):
 
     params.append(site_id)
 
-    with get_db_connection(db_path) as conn:
-        c = conn.cursor()
-        c.execute(f"UPDATE sites SET {', '.join(updates)} WHERE id = ?", params)
-        conn.commit()
+    async with get_db_connection(db_path) as conn:
+        await conn.execute(f"UPDATE sites SET {', '.join(updates)} WHERE id = ?", params)
+        await conn.commit()
 
 
-def delete_site(db_path: str, site_id: int):
+async def delete_site(db_path: str, site_id: int):
     """Видаляє сайт та його історію"""
-    with get_db_connection(db_path) as conn:
-        c = conn.cursor()
-        c.execute("DELETE FROM status_history WHERE site_id = ?", (site_id,))
-        c.execute("DELETE FROM ssl_certificates WHERE site_id = ?", (site_id,))
-        c.execute("DELETE FROM sites WHERE id = ?", (site_id,))
-        conn.commit()
+    async with get_db_connection(db_path) as conn:
+        await conn.execute("DELETE FROM status_history WHERE site_id = ?", (site_id,))
+        await conn.execute("DELETE FROM ssl_certificates WHERE site_id = ?", (site_id,))
+        await conn.execute("DELETE FROM sites WHERE id = ?", (site_id,))
+        await conn.commit()
 
 
-def add_status_history(
+async def add_status_history(
     db_path: str,
     site_id: int,
     status: str,
@@ -190,9 +200,8 @@ def add_status_history(
     error_message: Optional[str],
 ):
     """Додає запис в історію статусів"""
-    with get_db_connection(db_path) as conn:
-        c = conn.cursor()
-        c.execute(
+    async with get_db_connection(db_path) as conn:
+        await conn.execute(
             """INSERT INTO status_history
                      (site_id, status, status_code, response_time, error_message, checked_at)
                      VALUES (?, ?, ?, ?, ?, ?)""",
@@ -206,34 +215,28 @@ def add_status_history(
             ),
         )
 
-        # Очищення старих записів (старші за 30 днів)
-        c.execute("DELETE FROM status_history WHERE checked_at < datetime('now', '-30 days')")
-
-        conn.commit()
+        await conn.execute("DELETE FROM status_history WHERE checked_at < datetime('now', '-30 days')")
+        await conn.commit()
 
 
-def get_site_stats(db_path: str, site_id: int) -> Dict[str, Any]:
+async def get_site_stats(db_path: str, site_id: int) -> Dict[str, Any]:
     """Отримує статистику сайту"""
-    with get_db_connection(db_path) as conn:
-        c = conn.cursor()
-
-        # Останній статус
-        c.execute(
+    async with get_db_connection(db_path) as conn:
+        async with conn.execute(
             """SELECT * FROM status_history
                      WHERE site_id = ? ORDER BY checked_at DESC LIMIT 1""",
-            (site_id,),
-        )
-        last_check = c.fetchone()
+            (site_id,)
+        ) as c:
+            last_check = await c.fetchone()
 
-        # Загальна статистика
-        c.execute(
+        async with conn.execute(
             """SELECT
                         COUNT(*) as total,
                         SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count
                      FROM status_history WHERE site_id = ?""",
-            (site_id,),
-        )
-        stats = c.fetchone()
+            (site_id,)
+        ) as c:
+            stats = await c.fetchone()
 
     return {
         "last_check": dict(last_check) if last_check else None,
@@ -242,52 +245,47 @@ def get_site_stats(db_path: str, site_id: int) -> Dict[str, Any]:
     }
 
 
-def save_notify_settings(db_path: str, settings: Dict[str, Any]):
+async def save_notify_settings(db_path: str, settings: Dict[str, Any]):
     """Зберігає налаштування сповіщень"""
-    with get_db_connection(db_path) as conn:
-        c = conn.cursor()
-        c.execute(
+    async with get_db_connection(db_path) as conn:
+        await conn.execute(
             "INSERT OR REPLACE INTO notify_config (id, config) VALUES (1, ?)",
             (json.dumps(settings),),
         )
-        conn.commit()
+        await conn.commit()
 
 
-def load_notify_settings(db_path: str) -> Dict[str, Any]:
+async def load_notify_settings(db_path: str) -> Dict[str, Any]:
     """Завантажує налаштування сповіщень"""
-    with get_db_connection(db_path) as conn:
-        c = conn.cursor()
-        c.execute("SELECT config FROM notify_config WHERE id = 1")
-        row = c.fetchone()
+    async with get_db_connection(db_path) as conn:
+        async with conn.execute("SELECT config FROM notify_config WHERE id = 1") as c:
+            row = await c.fetchone()
 
     if row:
         return json.loads(row["config"])
     return {}
 
 
-def get_ssl_certificates(db_path: str) -> List[Dict[str, Any]]:
+async def get_ssl_certificates(db_path: str) -> List[Dict[str, Any]]:
     """Отримує всі SSL сертифікати"""
-    with get_db_connection(db_path) as conn:
-        c = conn.cursor()
-        c.execute("""SELECT c.*, s.name as site_name, s.url as site_url
+    async with get_db_connection(db_path) as conn:
+        async with conn.execute("""SELECT c.*, s.name as site_name, s.url as site_url
                      FROM ssl_certificates c
                      JOIN sites s ON c.site_id = s.id
                      WHERE s.is_active = 1
-                     ORDER BY c.days_until_expire ASC""")
-        certs = [dict(row) for row in c.fetchall()]
-    return certs
+                     ORDER BY c.days_until_expire ASC""") as c:
+            rows = await c.fetchall()
+            return [dict(row) for row in rows]
 
 
-def save_ssl_certificate(db_path: str, site_id: int, cert_data: Dict[str, Any]):
+async def save_ssl_certificate(db_path: str, site_id: int, cert_data: Dict[str, Any]):
     """Зберігає або оновлює SSL сертифікат"""
-    with get_db_connection(db_path) as conn:
-        c = conn.cursor()
-
-        c.execute("""SELECT id FROM ssl_certificates WHERE site_id = ?""", (site_id,))
-        existing = c.fetchone()
+    async with get_db_connection(db_path) as conn:
+        async with conn.execute("""SELECT id FROM ssl_certificates WHERE site_id = ?""", (site_id,)) as c:
+            existing = await c.fetchone()
 
         if existing:
-            c.execute(
+            await conn.execute(
                 """UPDATE ssl_certificates SET
                             hostname = ?, issuer = ?, subject = ?,
                             start_date = ?, expire_date = ?, days_until_expire = ?,
@@ -306,7 +304,7 @@ def save_ssl_certificate(db_path: str, site_id: int, cert_data: Dict[str, Any]):
                 ),
             )
         else:
-            c.execute(
+            await conn.execute(
                 """INSERT INTO ssl_certificates
                             (site_id, hostname, issuer, subject, start_date, expire_date,
                              days_until_expire, is_valid, last_checked)
@@ -324,4 +322,4 @@ def save_ssl_certificate(db_path: str, site_id: int, cert_data: Dict[str, Any]):
                 ),
             )
 
-        conn.commit()
+        await conn.commit()

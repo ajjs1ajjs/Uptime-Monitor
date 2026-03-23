@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Status - Uptime Monitor</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background: #0f0f23; color: #fff; min-height: 100vh; }
+        .header { background: linear-gradient(135deg, #1a1a2e, #0f0f23); padding: 40px; text-align: center; border-bottom: 1px solid #2a2a4a; }
+        .logo { font-size: 32px; font-weight: 700; margin-bottom: 20px; }
+        .logo-icon { display: inline-block; width: 50px; height: 50px; background: linear-gradient(135deg, #00d9ff, #00ff88); border-radius: 12px; line-height: 50px; font-size: 24px; margin-right: 10px; }
+        .overall-status { font-size: 48px; font-weight: 700; margin: 30px 0; }
+        .overall-status.up { color: #00ff88; }
+        .overall-status.down { color: #ff4757; }
+        .stats { display: flex; justify-content: center; gap: 40px; margin: 20px 0; }
+        .stat { text-align: center; }
+        .stat-value { font-size: 36px; font-weight: 700; }
+        .stat-label { color: #a0a0b0; font-size: 14px; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 40px; }
+        .monitor { background: linear-gradient(145deg, #1a1a2e, #16213e); padding: 20px; margin-bottom: 15px; border-radius: 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #2a2a4a; }
+        .monitor.up { border-left: 4px solid #00ff88; }
+        .monitor.down { border-left: 4px solid #ff4757; }
+        .monitor.unknown { border-left: 4px solid #94a3b8; }
+        .monitor-name { font-size: 18px; font-weight: 600; }
+        .monitor-url { color: #a0a0b0; font-size: 13px; margin-top: 5px; }
+        .status-badge { padding: 8px 20px; border-radius: 20px; font-weight: 600; font-size: 14px; }
+        .status-badge.up { background: rgba(0,255,136,0.15); color: #00ff88; }
+        .status-badge.down { background: rgba(255,71,87,0.15); color: #ff4757; }
+        .status-badge.unknown { background: rgba(148,163,184,0.15); color: #94a3b8; }
+        .footer { text-align: center; padding: 40px; color: #a0a0b0; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo"><span class="logo-icon">⚡</span>Uptime Monitor</div>
+        <div class="overall-status {{ overall_status_class }}">
+            {{ overall_status_text }}
+        </div>
+        <div class="stats">
+            <div class="stat"><div class="stat-value" style="color: #00d9ff;">{{ total }}</div><div class="stat-label">Моніторів</div></div>
+            <div class="stat"><div class="stat-value" style="color: #00ff88;">{{ up_count }}</div><div class="stat-label">Онлайн</div></div>
+            <div class="stat"><div class="stat-value" style="color: #ff4757;">{{ down_count }}</div><div class="stat-label">Офлайн</div></div>
+        </div>
+    </div>
+    <div class="container">
+        {% for site in sites %}
+        <div class="monitor {{ site.status_class }}">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 10px; height: 10px; border-radius: 50%; background: {{ site.dot_color }}; box-shadow: 0 0 8px {{ site.dot_color }};"></div>
+                <div>
+                    <div class="monitor-name">{{ site.name }}</div>
+                    <div class="monitor-url">{{ site.url }}</div>
+                </div>
+            </div>
+            <span class="status-badge {{ site.status_class }}">{{ site.status_text }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="footer"><p>Оновлено: {{ timestamp }}</p></div>
+</body>
+</html>

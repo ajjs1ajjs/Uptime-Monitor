@@ -17,7 +17,7 @@ DATA_DIR="/var/lib/uptime-monitor"
 LOG_DIR="/var/log/uptime-monitor"
 SERVICE_NAME="uptime-monitor"
 USER="uptime-monitor"
-APP_VERSION="v1.0.0"
+APP_VERSION="v1.1.0"
 
 echo -e "${GREEN}"
 echo "=========================================="
@@ -53,6 +53,10 @@ while [[ $# -gt 0 ]]; do
             echo "  --version VERSION Install specific version (e.g., v1.0.0 or main)"
             echo "  --help            Show this help message"
             exit 0
+            ;;
+        --local)
+            LOCAL_INSTALL=true
+            shift
             ;;
         *)
             echo -e "${RED}Unknown option: $1${NC}"
@@ -131,22 +135,29 @@ fi
 echo -e "${BLUE}Creating directories...${NC}"
 mkdir -p "$INSTALL_DIR" "$CONFIG_DIR" "$DATA_DIR" "$LOG_DIR"
 
-# Download from source archive
-echo -e "${BLUE}Downloading version $INSTALL_VERSION from GitHub...${NC}"
-TMP_WORKDIR=$(mktemp -d /tmp/uptime-monitor-install.XXXXXX)
-ARCHIVE_PATH="$TMP_WORKDIR/uptime-monitor.tar.gz"
-trap 'rm -rf "$TMP_WORKDIR"' EXIT
+# Download or use local files
+if [ "$LOCAL_INSTALL" = true ]; then
+    echo -e "${YELLOW}Installing from local files...${NC}"
+    # Use current directory
+    EXTRACT_DIR="$(pwd)"
+else
+    # Download from source archive
+    echo -e "${BLUE}Downloading version $INSTALL_VERSION from GitHub...${NC}"
+    TMP_WORKDIR=$(mktemp -d /tmp/uptime-monitor-install.XXXXXX)
+    ARCHIVE_PATH="$TMP_WORKDIR/uptime-monitor.tar.gz"
+    trap 'rm -rf "$TMP_WORKDIR"' EXIT
 
-if ! curl -fsSL "$DOWNLOAD_URL" -o "$ARCHIVE_PATH" 2>/dev/null; then
-    echo -e "${RED}Error: Failed to download from GitHub${NC}"
-    exit 1
+    if ! curl -fsSL "$DOWNLOAD_URL" -o "$ARCHIVE_PATH" 2>/dev/null; then
+        echo -e "${RED}Error: Failed to download from GitHub${NC}"
+        exit 1
+    fi
+
+    echo -e "${BLUE}Extracting...${NC}"
+    tar -xzf "$ARCHIVE_PATH" -C "$TMP_WORKDIR"
+
+    # Find extracted directory
+    EXTRACT_DIR=$(find "$TMP_WORKDIR" -mindepth 1 -maxdepth 1 -type d -name "Uptime-Monitor*" | head -1)
 fi
-
-echo -e "${BLUE}Extracting...${NC}"
-tar -xzf "$ARCHIVE_PATH" -C "$TMP_WORKDIR"
-
-# Find extracted directory (from current download only)
-EXTRACT_DIR=$(find "$TMP_WORKDIR" -mindepth 1 -maxdepth 1 -type d -name "Uptime-Monitor*" | head -1)
 
 if [ -z "$EXTRACT_DIR" ]; then
     echo -e "${RED}Error: Could not find extracted files${NC}"
@@ -164,11 +175,16 @@ else
 fi
 
 # Copy Python files
-for f in main.py auth_module.py config.py database.py logger.py models.py notifications.py monitoring.py ssl_checker.py config_manager.py ui_templates.py; do
+for f in main.py worker.py state.py auth_module.py database.py logger.py models.py notifications.py monitoring.py ssl_checker.py config_manager.py ui_templates.py; do
     if [ -f "$SRC_DIR/$f" ]; then
         cp "$SRC_DIR/$f" "$INSTALL_DIR/"
     fi
 done
+
+# Copy routers package
+if [ -d "$SRC_DIR/routers" ]; then
+    cp -r "$SRC_DIR/routers" "$INSTALL_DIR/"
+fi
 
 # Copy templates and static
 if [ -d "$SRC_DIR/templates" ]; then
@@ -196,11 +212,7 @@ $PYTHON_CMD -m venv venv
 # Install Python dependencies in venv
 echo -e "${BLUE}Installing Python packages...${NC}"
 ./venv/bin/pip install --upgrade pip > /dev/null
-if [ -f "requirements-linux.txt" ]; then
-    ./venv/bin/pip install -r requirements-linux.txt
-elif [ -f "requirements.txt" ]; then
-    ./venv/bin/pip install -r requirements.txt
-fi
+./venv/bin/pip install -r requirements.txt
 
 # Get server IP for auto-detection
 SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "0.0.0.0")
@@ -241,8 +253,8 @@ if [ ! -f "$CONFIG_DIR/config.json" ]; then
         "up_success_threshold": 1,
         "still_down_repeat_seconds": 600,
         "treat_4xx_as_down": true,
-        "ssl_notification_days": 21,
-        "ssl_notification_cooldown_seconds": 43200
+        "ssl_notification_days": 7,
+        "ssl_notification_cooldown_seconds": 21600
     },
     "backup": {
         "enabled": true,
@@ -270,11 +282,13 @@ echo -e "${BLUE}Creating backup directories...${NC}"
 mkdir -p "/backup/uptime-monitor"
 chown -R "$USER:$USER" "/backup/uptime-monitor" 2>/dev/null || true
 
-# Create systemd service
-echo -e "${BLUE}Creating systemd service...${NC}"
+# Create systemd services
+echo -e "${BLUE}Creating systemd services...${NC}"
+
+# 1. Main Web Service
 cat > /etc/systemd/system/$SERVICE_NAME.service << EOF
 [Unit]
-Description=Uptime Monitor Service (Version $APP_VERSION)
+Description=Uptime Monitor Web UI (Version $APP_VERSION)
 Documentation=https://github.com/$GITHUB_REPO
 After=network.target
 
@@ -291,6 +305,33 @@ Restart=always
 RestartSec=10
 StandardOutput=append:$LOG_DIR/uptime-monitor.log
 StandardError=append:$LOG_DIR/uptime-monitor.error.log
+
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# 2. Background Worker Service
+cat > /etc/systemd/system/$SERVICE_NAME-worker.service << EOF
+[Unit]
+Description=Uptime Monitor Background Worker
+After=network.target $SERVICE_NAME.service
+PartOf=$SERVICE_NAME.service
+
+[Service]
+Type=simple
+User=$USER
+Group=$USER
+WorkingDirectory=$INSTALL_DIR
+Environment="PATH=$INSTALL_DIR/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="CONFIG_PATH=$CONFIG_DIR/config.json"
+ExecStart=$INSTALL_DIR/venv/bin/python $INSTALL_DIR/worker.py
+Restart=always
+RestartSec=10
+StandardOutput=append:$LOG_DIR/worker.log
+StandardError=append:$LOG_DIR/worker.error.log
 
 NoNewPrivileges=true
 PrivateTmp=true
@@ -319,11 +360,13 @@ elif command -v firewall-cmd &> /dev/null; then
     fi
 fi
 
-# Start service
-echo -e "${BLUE}Starting service...${NC}"
+# Start services
+echo -e "${BLUE}Starting services...${NC}"
 systemctl daemon-reload
 systemctl enable $SERVICE_NAME
+systemctl enable $SERVICE_NAME-worker
 systemctl start $SERVICE_NAME
+systemctl start $SERVICE_NAME-worker
 
 # Check status
 sleep 3
@@ -359,7 +402,7 @@ if systemctl is-active --quiet $SERVICE_NAME; then
     echo "  sudo $INSTALL_DIR/scripts/config-rollback.sh --list     # List backups"
     echo "  sudo $INSTALL_DIR/scripts/config-rollback.sh            # Rollback to previous"
     echo ""
-    echo "Backup System (NEW!):"
+    echo "Backup System:"
     echo "  Create backup:  sudo $INSTALL_DIR/scripts/backup-system.sh --dest /backup/uptime-monitor/"
     echo "  Check status:   sudo $INSTALL_DIR/scripts/backup-system.sh --status"
     echo "  Restore:        sudo $INSTALL_DIR/scripts/restore-system.sh --auto"

@@ -28,9 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /root/.local /root/.local
 
 # Copy application code
-COPY Uptime_Robot/ ./Uptime_Robot/
-COPY docs/ ./docs/
-COPY README.md CHANGELOG.md ./
+COPY . ./Uptime_Robot/
 
 # Create non-root user for security
 RUN groupadd -r uptime && useradd -r -g uptime uptime \

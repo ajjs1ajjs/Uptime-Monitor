@@ -24,22 +24,35 @@
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Inter', sans-serif; background: var(--bg-gradient); color: var(--text-primary); min-height: 100vh; }
-        
+
         .header { background: rgba(15, 23, 42, 0.95); padding: 16px 32px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; backdrop-filter: blur(20px); position: sticky; top: 0; z-index: 100; }
         .logo { font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 12px; }
         .logo-icon { width: 40px; height: 40px; background: linear-gradient(135deg, var(--accent), #06b6d4); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 4px 15px rgba(0, 217, 255, 0.3); }
-        
+
+        /* Theme Toggle */
+        .theme-toggle { padding: 8px 16px; background: rgba(30, 41, 59, 0.6); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; font-weight: 500; color: var(--text-secondary); transition: all 0.3s ease; display: flex; align-items: center; gap: 8px; font-size: 13px; }
+        .theme-toggle:hover { border-color: var(--accent); color: var(--text-primary); background: rgba(0, 217, 255, 0.1); }
+
         .hero-stats { display: flex; gap: 24px; margin: 32px; background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9)); padding: 28px 36px; border-radius: 20px; border: 1px solid rgba(148, 163, 184, 0.1); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
         .hero-stat { text-align: center; flex: 1; position: relative; padding: 0 20px; }
         .hero-stat:not(:last-child)::after { content: ''; position: absolute; right: 0; top: 50%; transform: translateY(-50%); height: 50%; width: 1px; background: var(--border); }
         .hero-stat-value { font-size: 42px; font-weight: 700; color: var(--accent); text-shadow: 0 0 30px rgba(0, 217, 255, 0.3); }
         .hero-stat-label { color: var(--text-secondary); font-size: 13px; margin-top: 8px; text-transform: uppercase; letter-spacing: 1px; }
-        
+
+        /* Gauge Charts */
+        .gauge-container { display: flex; gap: 20px; margin: 0 32px 24px; flex-wrap: wrap; }
+        .gauge-card { background: rgba(30, 41, 59, 0.6); border: 1px solid var(--border); border-radius: 15px; padding: 20px; flex: 1; min-width: 200px; text-align: center; }
+        .gauge-card h3 { color: var(--text-secondary); font-size: 13px; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px; }
+        .gauge-value { font-size: 32px; font-weight: 700; margin-top: 10px; }
+        .gauge-value.up { color: var(--success); }
+        .gauge-value.down { color: var(--danger); }
+        .gauge-value.warning { color: var(--warning); }
+
         .monitoring-types { display: flex; gap: 12px; margin: 0 32px 24px; flex-wrap: wrap; }
         .monitor-type-btn { padding: 10px 20px; background: rgba(30, 41, 59, 0.6); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; font-weight: 500; color: var(--text-secondary); transition: all 0.3s ease; display: flex; align-items: center; gap: 8px; font-size: 13px; }
         .monitor-type-btn:hover { border-color: var(--accent); color: var(--text-primary); background: rgba(0, 217, 255, 0.1); }
         .monitor-type-btn.active { background: linear-gradient(135deg, var(--accent), #06b6d4); color: #000; border-color: var(--accent); font-weight: 600; }
-        
+
         .container { max-width: 1400px; margin: 0 auto; padding: 0 32px 32px; }
         #tab-dashboard .container {
             max-width: none !important;
@@ -47,79 +60,82 @@
             width: 100% !important;
             padding: 0 12px 32px !important;
         }
-        
+
         .panel { background: linear-gradient(180deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%); padding: 24px; border-radius: 16px; margin-bottom: 24px; border: 1px solid rgba(148, 163, 184, 0.1); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); transition: all 0.3s ease; }
         .panel:hover { border-color: rgba(0, 217, 255, 0.3); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4); }
         .panel-title { font-size: 16px; font-weight: 600; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; color: var(--text-primary); }
-        
+
         .chart-container { position: relative; height: 280px; margin: 16px 0; }
-        
+
         .monitor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
         .monitor-card { background: linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%); padding: 20px; border-radius: 16px; border: 1px solid rgba(148, 163, 184, 0.1); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); position: relative; overflow: hidden; }
         .monitor-card:hover { transform: translateY(-5px) scale(1.02); box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 30px rgba(0,217,255,0.1); }
         .monitor-card.up { border-left: 4px solid var(--success); }
         .monitor-card.down { border-left: 4px solid var(--danger); }
         .monitor-card.paused { border-left: 4px solid var(--warning); opacity: 0.7; }
-        
+
         .monitor-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
         .monitor-name { font-size: 18px; font-weight: 600; }
         .monitor-url { color: var(--text-secondary); font-size: 13px; word-break: break-all; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
         .monitor-type-badge { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; background: rgba(0,255,136,0.15); color: var(--accent); }
-        
+
         .monitor-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0; padding: 12px 0; border-top: 1px solid rgba(148, 163, 184, 0.1); border-bottom: 1px solid rgba(148, 163, 184, 0.1); }
         .monitor-stat { text-align: center; }
         .monitor-stat-value { font-size: 16px; font-weight: 600; }
         .monitor-stat-label { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
-        
+
         .monitor-actions { display: flex; gap: 8px; margin-top: 16px; }
-        .btn { flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 12px; transition: all 0.2s ease; }
+        .btn { flex: 1; padding: 10px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 12px; transition: all 0.2s ease; position: relative; z-index: 10; }
         .btn-check { background: linear-gradient(135deg, var(--accent), #06b6d4); color: #000; }
         .btn-edit { background: rgba(245, 158, 11, 0.15); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.3); }
         .btn-delete { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
-        
+
         .modal { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
         .modal.active { display: flex; }
         .modal-content { background: linear-gradient(180deg, #1e293b, #0f172a); padding: 28px; border-radius: 16px; max-width: 480px; width: 90%; border: 1px solid var(--border); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
-        
+
         .tabs { display: flex; gap: 8px; margin: 0 32px; padding: 4px; background: rgba(15, 23, 42, 0.6); border-radius: 12px; border: 1px solid rgba(148, 163, 184, 0.1); width: fit-content; }
         .tab-btn { padding: 10px 24px; background: transparent; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; color: var(--text-secondary); transition: all 0.2s ease; font-size: 14px; }
         .tab-btn.active { background: linear-gradient(135deg, var(--accent), #06b6d4); color: #000; font-weight: 600; }
-        
+
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: fadeSlideIn 0.4s ease; }
-        
+
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        
+
         .notify-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
         .notify-card { background: linear-gradient(180deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%); padding: 20px; border-radius: 14px; border: 1px solid rgba(148, 163, 184, 0.1); transition: all 0.2s ease; }
         .notify-card:hover { border-color: rgba(0, 217, 255, 0.3); box-shadow: 0 0 20px rgba(0, 217, 255, 0.1); }
         .notify-card.enabled { border-color: rgba(34, 197, 94, 0.4); background: linear-gradient(180deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%); }
         .notify-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-        
+
         .edit-notify-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
         .notify-option { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 10px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border); cursor: pointer; transition: all 0.2s; }
         .notify-option:hover { border-color: var(--accent); background: rgba(0, 217, 255, 0.1); }
         .notify-option input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
         .notify-option span { font-size: 13px; color: var(--text-primary); }
-        
+
+        .add-channel-btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px; border-radius: 14px; background: rgba(15, 23, 42, 0.4); border: 2px dashed var(--border); color: var(--text-secondary); cursor: pointer; transition: all 0.2s; }
+        .add-channel-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(0, 217, 255, 0.05); }
+
         .toggle { position: relative; display: inline-block; width: 44px; height: 24px; }
         .toggle input { opacity: 0; width: 0; height: 0; }
         .toggle-slider { position: absolute; cursor: pointer; inset: 0; background: rgba(30, 41, 59, 0.8); border-radius: 24px; transition: 0.2s; border: 1px solid var(--border); }
         .toggle-slider::before { content: ''; position: absolute; height: 18px; width: 18px; left: 2px; bottom: 2px; background: var(--text-secondary); border-radius: 50%; transition: 0.2s; }
         .toggle input:checked + .toggle-slider { background: var(--accent); border-color: var(--accent); }
         .toggle input:checked + .toggle-slider::before { transform: translateX(20px); background: #000; }
-        
+
         .notify-fields { display: flex; flex-direction: column; gap: 10px; }
         .notify-fields input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: rgba(15, 23, 42, 0.8); color: var(--text-primary); font-size: 13px; }
         .notify-fields input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0, 217, 255, 0.1); }
-        
+
         .btn-add-channel { padding: 10px 18px; background: linear-gradient(135deg, var(--accent), #06b6d4); border: none; border-radius: 8px; color: #000; font-weight: 600; cursor: pointer; font-size: 13px; transition: all 0.2s; }
         .btn-add-channel:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0, 217, 255, 0.3); }
-        
+
         .add-channel-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 30px; border-radius: 14px; background: rgba(15, 23, 42, 0.3); border: 2px dashed var(--border); cursor: pointer; transition: all 0.2s; min-height: 140px; }
         .add-channel-card:hover { border-color: var(--accent); background: rgba(0, 217, 255, 0.05); }
-        
+
         .channels-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
         .channel-item { background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
         .channel-header { display: flex; justify-content: space-between; align-items: center; }
@@ -128,15 +144,15 @@
         .btn-remove-channel:hover { background: rgba(239, 68, 68, 0.4); }
         .btn-add-channel-inline { width: 100%; padding: 12px; background: rgba(0, 217, 255, 0.1); border: 1px dashed var(--accent); border-radius: 10px; color: var(--accent); cursor: pointer; font-size: 13px; transition: all 0.2s; }
         .btn-add-channel-inline:hover { background: rgba(0, 217, 255, 0.2); }
-        
+
         .btn-save-notify { margin-top: 24px; width: 100%; padding: 16px; background: linear-gradient(135deg, var(--accent), #00d9ff); border: none; border-radius: 12px; color: #000; font-weight: 600; font-size: 15px; cursor: pointer; transition: all 0.2s; }
         .btn-save-notify:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0, 217, 255, 0.3); }
-        
+
         .form-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
         .form-row input, .form-row select { flex: 1; min-width: 180px; padding: 12px; border-radius: 10px; background: rgba(15, 23, 42, 0.8); color: var(--text-primary); border: 1px solid var(--border); font-size: 14px; }
-        
+
         .ssl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
-        
+
         .header-btn { padding: 8px 16px; background: rgba(0, 217, 255, 0.15); color: var(--accent); text-decoration: none; border-radius: 8px; font-size: 13px; font-weight: 500; transition: all 0.2s; border: 1px solid transparent; }
         .header-btn.danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
     </style>
@@ -146,30 +162,32 @@
         <div class="logo"><div class="logo-icon">⚡</div><span>Uptime Monitor</span></div>
         <div style="display: flex; align-items: center; gap: 16px;">
             <div id="lastUpdate" style="color: var(--text-secondary); font-size: 13px;"></div>
+            <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
             <a href="/status" target="_blank" class="header-btn">📄 Status</a>
+            <a href="/users" class="header-btn">👥 Користувачі</a>
             <a href="/logout" class="header-btn danger">🚪 Вийти</a>
         </div>
     </div>
-    
+
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('dashboard')">Dashboard</button>
         <button class="tab-btn" onclick="switchTab('ssl')">SSL</button>
         <button class="tab-btn" onclick="switchTab('incidents')">Incidents</button>
         <button class="tab-btn" onclick="switchTab('settings')">Settings</button>
     </div>
-    
+
     <div id="tab-dashboard" class="tab-content active">
         <div class="hero-stats">
             <div class="hero-stat">
-                <div class="hero-stat-value">2</div>
+                <div class="hero-stat-value">{{ total_sites }}</div>
                 <div class="hero-stat-label">Моніторів</div>
             </div>
             <div class="hero-stat">
-                <div class="hero-stat-value" style="color: var(--success);">1</div>
+                <div class="hero-stat-value" style="color: var(--success);">{{ up_sites }}</div>
                 <div class="hero-stat-label">Онлайн</div>
             </div>
             <div class="hero-stat">
-                <div class="hero-stat-value" style="color: var(--danger);">1</div>
+                <div class="hero-stat-value" style="color: var(--danger);">{{ down_sites }}</div>
                 <div class="hero-stat-label">Офлайн</div>
             </div>
             <div class="hero-stat">
@@ -177,20 +195,50 @@
                 <div class="hero-stat-label">Інцидентів</div>
             </div>
         </div>
-        
+
+        <!-- Gauge Charts -->
+        <div class="gauge-container">
+            <div class="gauge-card">
+                <h3>📊 Uptime (24h)</h3>
+                <canvas id="uptimeGauge" width="150" height="75"></canvas>
+                <div class="gauge-value up" id="uptimeValue">100%</div>
+            </div>
+            <div class="gauge-card">
+                <h3>⚡ Avg Response</h3>
+                <canvas id="responseGauge" width="150" height="75"></canvas>
+                <div class="gauge-value" id="responseValue">0ms</div>
+            </div>
+            <div class="gauge-card">
+                <h3>🔒 SSL Status</h3>
+                <canvas id="sslGauge" width="150" height="75"></canvas>
+                <div class="gauge-value" id="sslValue">OK</div>
+            </div>
+        </div>
+
         <div class="container">
             <div class="panel">
-                <div class="panel-title">📈 Час відповіді (24 години)</div>
-                <div class="chart-container">
-                    <canvas id="responseTimeChart"></canvas>
+                <div class="panel-title">📊 Monitors Timeline (24h)</div>
+                <div style="display: flex; align-items: flex-end; gap: 10px; margin-bottom: 10px; padding: 0 10px;">
+                    <div style="display: flex; gap: 4px; align-items: center; font-size: 10px;">
+                        <div style="width: 12px; height: 12px; background: #22c55e; border-radius: 2px;"></div>
+                        <span style="color: var(--text-secondary);">UP</span>
+                    </div>
+                    <div style="display: flex; gap: 4px; align-items: center; font-size: 10px;">
+                        <div style="width: 12px; height: 12px; background: #ef4444; border-radius: 2px;"></div>
+                        <span style="color: var(--text-secondary);">DOWN</span>
+                    </div>
+                    <div style="display: flex; gap: 4px; align-items: center; font-size: 10px;">
+                        <div style="width: 12px; height: 12px; background: #eab308; border-radius: 2px;"></div>
+                        <span style="color: var(--text-secondary);">SLOW</span>
+                    </div>
+                    <div style="display: flex; gap: 4px; align-items: center; font-size: 10px;">
+                        <div style="width: 12px; height: 12px; background: #6b7280; border-radius: 2px;"></div>
+                        <span style="color: var(--text-secondary);">NO DATA</span>
+                    </div>
                 </div>
+                <div id="uptimeChartContainer" style="padding: 10px; max-height: 500px; overflow-y: auto;"></div>
             </div>
-            
-            <div class="panel">
-                <div class="panel-title">⏱️ Історія перевірок (останні 50)</div>
-                <div id="statusBarsContainer" style="padding: 10px;"></div>
-            </div>
-            
+
             <div class="panel">
                 <div class="panel-title">🎯 Швидкі дії</div>
                 <div style="display: flex; gap: 15px; flex-wrap: wrap;">
@@ -199,14 +247,14 @@
                     <button class="btn btn-edit" onclick="switchTab('incidents')">⚠️ Інциденти</button>
                 </div>
             </div>
-            
+
             <div class="panel">
                 <div class="panel-title">📊 Статус всіх моніторів</div>
                 <div class="monitor-grid" id="dashboardMonitors"></div>
             </div>
         </div>
     </div>
-    
+
     <div id="tab-incidents" class="tab-content">
         <div class="container">
             <div class="panel">
@@ -217,7 +265,7 @@
             </div>
         </div>
     </div>
-    
+
     <div id="tab-settings" class="tab-content">
         <div class="container">
             <div class="panel">
@@ -234,6 +282,10 @@
                         <option value="ssl">🔒 SSL</option>
                     </select>
                 </div>
+                <div class="form-row" style="margin-top: 15px;">
+                    <input type="number" id="siteCheckInterval" placeholder="60" min="10" max="3600" step="10" value="60">
+                    <span style="color: var(--text-secondary); font-size: 12px; white-space: nowrap;">Інтервал перевірки (сек)</span>
+                </div>
                 <div class="modal-field" style="margin-top: 16px;">
                     <label style="color: var(--text-secondary); font-size: 12px; margin-bottom: 10px; display: block;">Способи сповіщень</label>
                     <div class="edit-notify-options" id="siteNotifyOptions">
@@ -245,7 +297,7 @@
                 </div>
                 <button class="btn btn-check" style="margin-top: 20px; width: 100%;" onclick="addSite()">➕ Додати монітор</button>
             </div>
-            
+
             <div class="panel">
                 <div class="panel-title">🔗 Налаштування адреси</div>
                 <div class="address-config">
@@ -255,72 +307,12 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="panel">
                 <div class="panel-title">🔔 Глобальні налаштування сповіщень</div>
-                <div class="notify-grid">
+                <div class="notify-grid" id="notifyGrid">
                     <!-- Notification Cards here -->
-                    
-        <div class="notify-card enabled" id="card-telegram">
-            <div class="notify-header">
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <span style="font-size:24px;">📱</span>
-                    <div><div style="font-weight:600;">Telegram</div><div style="font-size:12px; color:var(--text-secondary);">Миттєві сповіщення</div></div>
-                </div>
-                <label class="toggle">
-                    <input type="checkbox" id="toggle-telegram" onchange="toggleNotify('telegram')" checked>
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-            <div class="notify-fields"><input type="text" id="telegram-token" placeholder="token" value=""><input type="text" id="telegram-chat_id" placeholder="chat_id" value=""></div></div>
-        <div class="notify-card enabled" id="card-teams">
-            <div class="notify-header">
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <span style="font-size:24px;">🏢</span>
-                    <div><div style="font-weight:600;">MS Teams</div><div style="font-size:12px; color:var(--text-secondary);">Робочі групи</div></div>
-                </div>
-                <label class="toggle">
-                    <input type="checkbox" id="toggle-teams" onchange="toggleNotify('teams')" checked>
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-            <div class="notify-fields"><input type="text" id="teams-webhook_url" placeholder="webhook_url" value=""></div></div>
-        <div class="notify-card " id="card-discord">
-            <div class="notify-header">
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <span style="font-size:24px;">🎮</span>
-                    <div><div style="font-weight:600;">Discord</div><div style="font-size:12px; color:var(--text-secondary);">Геймерські спільноти</div></div>
-                </div>
-                <label class="toggle">
-                    <input type="checkbox" id="toggle-discord" onchange="toggleNotify('discord')" >
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-            <div class="notify-fields"><input type="text" id="discord-webhook_url" placeholder="webhook_url" value=""></div></div>
-        <div class="notify-card " id="card-slack">
-            <div class="notify-header">
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <span style="font-size:24px;">💬</span>
-                    <div><div style="font-weight:600;">Slack</div><div style="font-size:12px; color:var(--text-secondary);">Корпоративний чат</div></div>
-                </div>
-                <label class="toggle">
-                    <input type="checkbox" id="toggle-slack" onchange="toggleNotify('slack')" >
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-            <div class="notify-fields"><input type="text" id="slack-webhook_url" placeholder="webhook_url" value=""></div></div>
-        <div class="notify-card " id="card-email">
-            <div class="notify-header">
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <span style="font-size:24px;">📧</span>
-                    <div><div style="font-weight:600;">Email</div><div style="font-size:12px; color:var(--text-secondary);">Електронна пошта</div></div>
-                </div>
-                <label class="toggle">
-                    <input type="checkbox" id="toggle-email" onchange="toggleNotify('email')" >
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-            <div class="notify-fields"><input type="text" id="email-smtp_server" placeholder="smtp_server" value=""><input type="text" id="email-smtp_port" placeholder="smtp_port" value="587"><input type="text" id="email-username" placeholder="username" value=""><input type="text" id="email-password" placeholder="password" value=""><input type="text" id="email-to_email" placeholder="to_email" value=""></div></div>
+                    {{ notification_cards | safe }}
                 </div>
                 <div class="add-channel-card" onclick="openAddChannelModal()">
                     <span style="font-size: 28px;">➕</span>
@@ -354,6 +346,11 @@
                 <input type="url" id="editSiteUrl" style="width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--border); background: rgba(15, 23, 42, 0.8); color: var(--text-primary); font-size: 15px;">
             </div>
             <div class="modal-field" style="margin-top: 16px;">
+                <label style="color: var(--text-secondary); font-size: 12px; margin-bottom: 6px; display: block;">Інтервал перевірки (секунди)</label>
+                <input type="number" id="editSiteInterval" min="10" max="3600" step="10" style="width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--border); background: rgba(15, 23, 42, 0.8); color: var(--text-primary); font-size: 15px;">
+                <small style="color: var(--text-secondary); font-size: 11px; margin-top: 4px; display: block;">Мін: 10с, Макс: 60хв. Залиште 60 для стандартного інтервалу.</small>
+            </div>
+            <div class="modal-field" style="margin-top: 16px;">
                 <label style="color: var(--text-secondary); font-size: 12px; margin-bottom: 10px; display: block;">Способи сповіщень</label>
                 <div class="edit-notify-options" id="editSiteNotify">
                     <label class="notify-option"><input type="checkbox" value="telegram"><span>📱 Telegram</span></label>
@@ -378,6 +375,7 @@
                     <option value="telegram">📱 Telegram</option>
                     <option value="discord">🎮 Discord</option>
                     <option value="teams">🏢 MS Teams</option>
+                    <option value="email">📧 Email</option>
                 </select>
             </div>
             <div class="modal-field" style="margin-top: 16px;">
@@ -400,16 +398,37 @@
                     <input type="url" id="newWebhookUrl" placeholder="https://discord.com/api/webhooks/..." style="width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--border); background: rgba(15, 23, 42, 0.8); color: var(--text-primary); font-size: 14px;">
                 </div>
             </div>
+            <div id="emailFields" style="display: none; margin-top: 16px;">
+                <div class="modal-field">
+                    <label style="color: var(--text-secondary); font-size: 12px; margin-bottom: 8px; display: block;">SMTP Сервер</label>
+                    <input type="text" id="newEmailSmtp" placeholder="smtp.gmail.com" style="width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--border); background: rgba(15, 23, 42, 0.8); color: var(--text-primary); font-size: 14px;">
+                </div>
+                <div class="modal-field" style="margin-top: 12px;">
+                    <label style="color: var(--text-secondary); font-size: 12px; margin-bottom: 8px; display: block;">Порт</label>
+                    <input type="text" id="newEmailPort" placeholder="587" value="587" style="width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--border); background: rgba(15, 23, 42, 0.8); color: var(--text-primary); font-size: 14px;">
+                </div>
+                <div class="modal-field" style="margin-top: 12px;">
+                    <label style="color: var(--text-secondary); font-size: 12px; margin-bottom: 8px; display: block;">Username</label>
+                    <input type="text" id="newEmailUser" placeholder="your@email.com" style="width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--border); background: rgba(15, 23, 42, 0.8); color: var(--text-primary); font-size: 14px;">
+                </div>
+                <div class="modal-field" style="margin-top: 12px;">
+                    <label style="color: var(--text-secondary); font-size: 12px; margin-bottom: 8px; display: block;">Password</label>
+                    <input type="password" id="newEmailPass" placeholder="Пароль" style="width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--border); background: rgba(15, 23, 42, 0.8); color: var(--text-primary); font-size: 14px;">
+                </div>
+                <div class="modal-field" style="margin-top: 12px;">
+                    <label style="color: var(--text-secondary); font-size: 12px; margin-bottom: 8px; display: block;">Отримувач</label>
+                    <input type="text" id="newEmailTo" placeholder="to@email.com" style="width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--border); background: rgba(15, 23, 42, 0.8); color: var(--text-primary); font-size: 14px;">
+                </div>
+            </div>
             <div class="modal-actions" style="margin-top: 24px; display: flex; gap: 12px;">
                 <button onclick="closeAddChannelModal()" style="flex: 1; padding: 14px; border: none; border-radius: 10px; background: rgba(148, 163, 184, 0.15); color: var(--text-primary); cursor: pointer; font-size: 14px; font-weight: 500;">Скасувати</button>
                 <button onclick="addNewChannel()" style="flex: 1; padding: 14px; border: none; border-radius: 10px; background: linear-gradient(135deg, var(--accent), #00d9ff); color: #000; cursor: pointer; font-size: 14px; font-weight: 600;">Додати</button>
             </div>
         </div>
     </div>
-    </div>
 
     <script>
-        var notifyConfig = {"telegram": {"enabled": true, "token": "", "chat_id": ""}, "teams": {"enabled": true, "webhook_url": ""}, "discord": {"enabled": false, "webhook_url": ""}, "slack": {"enabled": false, "webhook_url": ""}, "email": {"enabled": false, "smtp_server": "", "smtp_port": 587, "username": "", "password": "", "to_email": ""}, "sms": {"enabled": false, "account_sid": "", "auth_token": "", "from_number": "", "to_number": ""}};
+        var notifyConfig = {{ notify_config_json | safe }};
 
         
         let currentFilter = 'all';
@@ -423,6 +442,8 @@
                 sitesData = await response.json();
                 renderMonitors();
                 updateStats();
+                updateGauges();
+                loadUptimeChart();
             } catch(e) { console.error(e); }
         }
 
@@ -430,73 +451,286 @@
             const up = sitesData.filter(s => s.status === 'up').length;
             const down = sitesData.filter(s => s.status === 'down').length;
             const total = sitesData.length;
-            
+
             // Update hero stats if they exist
             const vTotal = document.querySelector('.hero-stat-value:nth-child(1)');
             const vUp = document.querySelector('.hero-stat-value:nth-child(2)');
             const vDown = document.querySelector('.hero-stat-value:nth-child(3)');
-            
+
             document.getElementById('lastUpdate').innerText = 'Останнє оновлення: ' + new Date().toLocaleTimeString();
         }
 
-        async function loadStatusHistory() {
-            const container = document.getElementById('statusBarsContainer');
+        // Gauge Charts
+        let gaugeCharts = {};
+
+        function createGaugeChart(canvasId, value, color) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+
+            return new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    datasets: [{
+                        data: [value, 100 - value],
+                        backgroundColor: [color, 'rgba(255,255,255,0.1)'],
+                        borderWidth: 0,
+                        circumference: 180,
+                        rotation: 270,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '75%',
+                    plugins: {
+                        tooltip: { enabled: false },
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function updateGauges() {
+            const up = sitesData.filter(s => s.status === 'up').length;
+            const total = sitesData.length || 1;
+            const uptimePercent = Math.round((up / total) * 100);
+
+            // Calculate average response time
+            const responseTimes = sitesData.filter(s => s.response_time).map(s => s.response_time);
+            const avgResponse = responseTimes.length ? Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length) : 0;
+
+            // Get SSL status
+            const sslExpiring = sslData && sslData.filter(s => s.days_until_expire <= 7).length || 0;
+
+            // Update values
+            document.getElementById('uptimeValue').textContent = uptimePercent + '%';
+            document.getElementById('responseValue').textContent = avgResponse + 'ms';
+            document.getElementById('sslValue').textContent = sslExpiring > 0 ? '⚠️ ' + sslExpiring : '✅ OK';
+
+            // Get colors
+            const uptimeColor = uptimePercent >= 99 ? '#10b981' : uptimePercent >= 95 ? '#f59e0b' : '#ef4444';
+            const responseColor = avgResponse <= 200 ? '#10b981' : avgResponse <= 500 ? '#f59e0b' : '#ef4444';
+            const sslColor = sslExpiring === 0 ? '#10b981' : '#f59e0b';
+
+            // Create or update gauges
+            if (!gaugeCharts.uptime) {
+                gaugeCharts.uptime = createGaugeChart('uptimeGauge', uptimePercent, uptimeColor);
+                gaugeCharts.response = createGaugeChart('responseGauge', Math.min(avgResponse / 5, 100), responseColor);
+                gaugeCharts.ssl = createGaugeChart('sslGauge', sslExpiring === 0 ? 100 : 50, sslColor);
+            } else {
+                gaugeCharts.uptime.data.datasets[0].data = [uptimePercent, 100 - uptimePercent];
+                gaugeCharts.uptime.data.datasets[0].backgroundColor = [uptimeColor, 'rgba(255,255,255,0.1)'];
+                gaugeCharts.uptime.update();
+
+                gaugeCharts.response.data.datasets[0].data = [Math.min(avgResponse / 5, 100), 100 - Math.min(avgResponse / 5, 100)];
+                gaugeCharts.response.data.datasets[0].backgroundColor = [responseColor, 'rgba(255,255,255,0.1)'];
+                gaugeCharts.response.update();
+
+                gaugeCharts.ssl.data.datasets[0].data = [sslExpiring === 0 ? 100 : 50, sslExpiring === 0 ? 0 : 50];
+                gaugeCharts.ssl.data.datasets[0].backgroundColor = [sslColor, 'rgba(255,255,255,0.1)'];
+                gaugeCharts.ssl.update();
+            }
+        }
+
+        // Theme Toggle
+        let isDarkTheme = localStorage.getItem('theme') !== 'light';
+
+        function toggleTheme() {
+            isDarkTheme = !isDarkTheme;
+            localStorage.setItem('theme', isDarkTheme ? 'dark' : 'light');
+            document.body.setAttribute('data-theme', isDarkTheme ? 'dark' : 'light');
+            document.getElementById('themeBtn').textContent = isDarkTheme ? '🌙' : '☀️';
+        }
+
+        // Initialize theme
+        document.body.setAttribute('data-theme', isDarkTheme ? 'dark' : 'light');
+        document.getElementById('themeBtn').textContent = isDarkTheme ? '🌙' : '☀️';
+
+        async function loadUptimeChart() {
+            const container = document.getElementById('uptimeChartContainer');
             if (!container) return;
-            
+
             try {
+                // Get server time first for synchronization
+                const timeResponse = await fetch('/api/server-time');
+                const serverTime = await timeResponse.json();
+                const serverNow = new Date(serverTime.timestamp * 1000);
+
                 const response = await fetch('/api/sites');
-                const sites = await response.json();
-                
+                let sites = await response.json();
+
                 if (sites.length === 0) {
-                    container.innerHTML = '<div style="color: var(--text-secondary); text-align: center;">Немає моніторів</div>';
+                    container.innerHTML = '<div style="color: var(--text-secondary); text-align: center; padding: 40px;">Немає моніторів</div>';
                     return;
                 }
-                
-                let html = '';
+
+                // Sort: DOWN first (priority), then slow/unknown, then UP
+                sites.sort((a, b) => {
+                    const statusOrder = { 'down': 0, 'slow': 1, 'paused': 2, 'unknown': 3, 'up': 4 };
+                    const orderA = statusOrder[a.status] ?? 5;
+                    const orderB = statusOrder[b.status] ?? 5;
+                    return orderA - orderB;
+                });
+
+                // 24h window aligned to "last 24 hours" from SERVER time
+                const now = serverNow;
+                const nowMs = now.getTime();
+                const windowStartMs = nowMs - (24 * 60 * 60 * 1000);
+                const chartWidth = Math.max(600, container.clientWidth - 200);
+                const chartHeight = 40;
+
+                // Generate hour markers with REAL time labels (server time)
+                const hourMarkers = [];
+                const timeLabels = [];
+                for (let h = 0; h <= 24; h += 4) {
+                    const x = (h / 24) * chartWidth;
+                    // Calculate actual time for this position (server time)
+                    const markerTime = new Date(windowStartMs + (h * 60 * 60 * 1000));
+                    const timeLabel = markerTime.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+                    hourMarkers.push(`<div style="position: absolute; left: ${x}px; top: 0; bottom: 0; width: 1px; background: rgba(100,100,100,0.3); z-index: 1;"></div>`);
+                    timeLabels.push(`<div style="position: absolute; left: ${x}px; top: 0; font-size: 10px; color: var(--text-secondary); transform: translateX(-50%); white-space: nowrap;">${timeLabel}</div>`);
+                }
+
+                // Current time marker - precise position with hours, minutes, seconds (SERVER time)
+                const currentHour = now.getHours();
+                const currentMinute = now.getMinutes();
+                const currentSecond = now.getSeconds();
+                const preciseCurrentHour = currentHour + (currentMinute / 60) + (currentSecond / 3600);
+                const nowX = (preciseCurrentHour / 24) * chartWidth;
+
+                let siteCharts = '';
+
                 for (const site of sites) {
-                    const historyRes = await fetch(`/api/sites/${site.id}/history?limit=50`);
+                    const historyRes = await fetch(`/api/sites/${site.id}/history?limit=200`);
                     const history = await historyRes.json();
-                    
-                    if (history.length === 0) continue;
-                    
-                    const barWidth = Math.max(4, Math.min(12, 600 / history.length));
-                    const barGap = 1;
-                    
-                    let barsHtml = history.map(h => {
-                        let color = '#6b7280';
-                        if (h.status === 'up') color = '#22c55e';
-                        else if (h.status === 'down') color = '#ef4444';
-                        else if (h.status === 'slow') color = '#eab308';
-                        return `<div style="width: ${barWidth}px; height: 24px; background: ${color}; margin-right: ${barGap}px; border-radius: 2px;" title="${h.status} - ${new Date(h.checked_at).toLocaleString()}"></div>`;
-                    }).join('');
-                    
-                    html += `<div style="margin-bottom: 12px;">
-                        <div style="font-size: 13px; color: var(--text-primary); margin-bottom: 4px; display: flex; justify-content: space-between;">
-                            <span>${site.name}</span>
-                            <span style="color: var(--text-secondary); font-size: 11px;">${history.filter(h => h.status === 'up').length}/${history.length} up</span>
+
+                    // Group by hour
+                    const hourlyData = {};
+                    for (let h = 0; h < 24; h++) {
+                        hourlyData[h] = {up: 0, down: 0, slow: 0, total: 0};
+                    }
+
+                    history.forEach(h => {
+                        const ts = new Date(h.checked_at).getTime();
+                        if (!Number.isFinite(ts) || ts < windowStartMs || ts > nowMs) return;
+                        const hour = Math.floor((ts - windowStartMs) / (60 * 60 * 1000));
+                        if (hourlyData[hour] !== undefined) {
+                            hourlyData[hour].total++;
+                            if (h.status === 'up') hourlyData[hour].up++;
+                            else if (h.status === 'down') hourlyData[hour].down++;
+                            else if (h.status === 'slow') hourlyData[hour].slow++;
+                        }
+                    });
+
+                    // Fill gaps for stable monitors
+                    const fallbackStatus = site.status === 'up' || site.status === 'down' || site.status === 'slow' ? site.status : null;
+                    const has24hSamples = Object.values(hourlyData).some(d => d.total > 0);
+                    if (!has24hSamples && fallbackStatus) {
+                        for (let h = 0; h < 24; h++) {
+                            hourlyData[h].total = 1;
+                            hourlyData[h][fallbackStatus] = 1;
+                        }
+                    } else {
+                        let carryStatus = null;
+                        for (let h = 0; h < 24; h++) {
+                            const d = hourlyData[h];
+                            if (d.total > 0) {
+                                if (d.up >= d.down && d.up >= d.slow) carryStatus = 'up';
+                                else if (d.down >= d.up && d.down >= d.slow) carryStatus = 'down';
+                                else carryStatus = 'slow';
+                                continue;
+                            }
+                            if (carryStatus) {
+                                d.total = 1;
+                                d[carryStatus] = 1;
+                            }
+                        }
+                    }
+
+                    // Build timeline bars
+                    let timelineBars = '';
+                    for (let h = 0; h < 24; h++) {
+                        const data = hourlyData[h];
+                        const x = (h / 24) * chartWidth;
+                        const barWidth = (chartWidth / 24) - 2;
+
+                        let color = '#6b7280'; // no data
+                        let tooltip = 'Немає даних';
+
+                        // Calculate hour of day label for this bar (aligned with axis markers)
+                        // Bar h represents hour h:00 to h+1:00 on the 24h clock
+                        const hourLabel = h.toString().padStart(2, '0') + ':00';
+                        const nextHour = (h + 1) % 24;
+                        const nextHourLabel = nextHour.toString().padStart(2, '0') + ':00';
+                        const timeLabel = `${hourLabel} - ${nextHourLabel}`;
+
+                        if (data.total > 0) {
+                            const uptime = (data.up / data.total) * 100;
+                            if (uptime >= 90) {
+                                color = '#22c55e'; // up
+                                tooltip = `UP: ${data.up}/${data.total}`;
+                            } else if (uptime >= 50) {
+                                color = '#eab308'; // slow
+                                tooltip = `SLOW: ${data.slow}/${data.total}`;
+                            } else {
+                                color = '#ef4444'; // down
+                                tooltip = `DOWN: ${data.down}/${data.total}`;
+                            }
+                        }
+
+                        timelineBars += `<div style="position: absolute; left: ${x}px; width: ${barWidth}px; height: 100%; background: ${color}; border-radius: 2px; cursor: pointer;" title="${timeLabel} - ${tooltip}"></div>`;
+                    }
+
+                    const statusColor = site.status === 'up' ? '#22c55e' : site.status === 'slow' ? '#eab308' : '#ef4444';
+                    const hourValues = Object.values(hourlyData);
+                    const samples = hourValues.reduce((acc, d) => acc + d.total, 0);
+                    const upSamples = hourValues.reduce((acc, d) => acc + d.up, 0);
+                    const uptime = samples > 0 ? ((upSamples / samples) * 100).toFixed(1) : 0;
+
+                    siteCharts += `<div style="position: relative; padding: 10px 0; border-bottom: 1px solid var(--border);">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                            <div style="width: 10px; height: 10px; border-radius: 50%; background: ${statusColor}; box-shadow: 0 0 8px ${statusColor};"></div>
+                            <div style="flex: 1; min-width: 120px;">
+                                <div style="font-size: 13px; font-weight: 500; color: var(--text-primary);">${site.name}</div>
+                            </div>
+                            <div style="min-width: 60px; text-align: right;">
+                                <div style="font-size: 14px; font-weight: bold; color: ${uptime >= 99 ? '#22c55e' : uptime >= 95 ? '#eab308' : '#ef4444'};">${uptime}%</div>
+                            </div>
                         </div>
-                        <div style="display: flex; overflow-x: auto; padding: 4px 0;">${barsHtml}</div>
+                        <div style="position: relative; height: ${chartHeight}px; background: rgba(30, 41, 59, 0.5); border-radius: 6px; overflow: visible;">
+                            <div style="position: absolute; top: -18px; left: 0; right: 0; height: 18px;">${timeLabels.join('')}</div>
+                            ${hourMarkers.join('')}
+                            <div style="position: absolute; left: ${nowX}px; top: 0; bottom: 0; width: 2px; background: #00d9ff; z-index: 10; box-shadow: 0 0 8px #00d9ff;"></div>
+                            ${timelineBars}
+                        </div>
                     </div>`;
                 }
-                
-                container.innerHTML = html || '<div style="color: var(--text-secondary); text-align: center;">Немає даних про перевірки</div>';
-            } catch(e) { 
-                console.error(e); 
-                container.innerHTML = '<div style="color: var(--text-secondary);">Помилка завантаження</div>';
+
+                container.innerHTML = `<div style="border-top: 1px solid var(--border); padding-top: 5px;">${siteCharts || '<div style="color: var(--text-secondary); padding: 20px; text-align: center;">Немає даних</div>'}</div>`;
+            } catch(e) {
+                console.error(e);
+                container.innerHTML = '<div style="color: var(--text-secondary); padding: 40px;">Помилка завантаження</div>';
             }
         }
 
         function renderMonitors() {
             const grid = document.getElementById('dashboardMonitors');
             if (!grid) return;
-            
-            const filtered = currentFilter === 'all' ? sitesData : sitesData.filter(s => s.monitor_type === currentFilter);
-            
+
+            let filtered = currentFilter === 'all' ? sitesData : sitesData.filter(s => s.monitor_type === currentFilter);
+
+            // Sort: DOWN first, then slow/paused, then UP
+            filtered.sort((a, b) => {
+                const statusOrder = { 'down': 0, 'slow': 1, 'paused': 2, 'unknown': 3, 'up': 4 };
+                const orderA = statusOrder[a.status] ?? 5;
+                const orderB = statusOrder[b.status] ?? 5;
+                return orderA - orderB;
+            });
+
             if (filtered.length === 0) {
                 grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-secondary);">Моніторів не знайдено.</div>';
                 return;
             }
-            
+
             let html = '';
             filtered.forEach(site => {
                 const statusClass = site.status === 'up' ? 'up' : (site.status === 'paused' ? 'paused' : 'down');
@@ -504,7 +738,7 @@
                 const statusColor = site.status === 'up' ? 'var(--success)' : 'var(--danger)';
                 const safeName = (site.name || '').replace(/'/g, "\'").replace(/"/g, '&quot;');
                 const safeUrl = (site.url || '').replace(/'/g, "\'").replace(/"/g, '&quot;');
-                
+
                 html += `
                 <div class="monitor-card ${statusClass}" data-id="${site.id}" data-name="${safeName}" data-url="${safeUrl}">
                     <div class="monitor-header">
@@ -522,7 +756,7 @@
                     </div>
                     <div class="monitor-actions">
                         <button class="btn btn-check" onclick="checkSite(${site.id})">Check</button>
-                        <button class="btn btn-edit" onclick="openEditModal(${site.id}, '${safeName}', '${encodeURIComponent(safeUrl)}', '${encodeURIComponent(JSON.stringify(site.notify_methods || []))}')">Edit</button>
+                        <button class="btn btn-edit" onclick="openEditModal(${site.id}, '${safeName}', '${encodeURIComponent(safeUrl)}', '${encodeURIComponent(JSON.stringify(site.notify_methods || []))}', ${site.check_interval || 60})">Edit</button>
                         <button class="btn btn-delete" onclick="deleteSite(${site.id})">Delete</button>
                     </div>
                 </div>`;
@@ -550,15 +784,30 @@
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.getElementById('tab-' + tabId).classList.add('active');
             document.querySelector(`.tab-btn[onclick="switchTab('${tabId}')"]`).classList.add('active');
-            
-            if (tabId === 'dashboard') { loadSites(); loadStatusHistory(); }
+
+            if (tabId === 'dashboard') { loadSites(); loadUptimeChart(); }
             if (tabId === 'ssl') loadSSLCertificates();
+            if (tabId === 'incidents') loadIncidents();
+        }
+
+        // Auto-refresh incidents every 30 seconds
+        let incidentsRefreshInterval = null;
+
+        function startIncidentsAutoRefresh() {
+            if (incidentsRefreshInterval) clearInterval(incidentsRefreshInterval);
+            incidentsRefreshInterval = setInterval(() => {
+                const incidentsTab = document.getElementById('tab-incidents');
+                if (incidentsTab && incidentsTab.classList.contains('active')) {
+                    loadIncidents();
+                }
+            }, 30000); // 30 seconds
         }
 
         async function addSite() {
             const name = document.getElementById('siteName').value;
             const url = document.getElementById('siteUrl').value;
             const monitor_type = document.getElementById('monitorType').value;
+            const check_interval = parseInt(document.getElementById('siteCheckInterval').value) || 60;
             const container = document.getElementById('siteNotifyOptions');
             const notify_methods = container ? Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(o => o.value) : [];
 
@@ -568,11 +817,12 @@
                 const response = await fetch('/api/sites', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({name, url, monitor_type, notify_methods})
+                    body: JSON.stringify({name, url, monitor_type, check_interval, notify_methods})
                 });
                 if (response.ok) {
                     document.getElementById('siteName').value = '';
                     document.getElementById('siteUrl').value = '';
+                    document.getElementById('siteCheckInterval').value = '60';
                     if (container) container.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
                     loadSites();
                     alert('Монітор додано!');
@@ -617,6 +867,7 @@
 
         async function loadDashboard() {
             loadSites();
+            loadUptimeChart();
             loadSSLCertificates();
             await loadResponseTimeStats();
             await loadIncidents();
@@ -635,7 +886,7 @@
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
             const data = responseTimeData;
-            
+
             if (data.length === 0) {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.fillStyle = '#6b7280';
@@ -644,33 +895,33 @@
                 ctx.fillText('Немає даних про час відповіді', canvas.width / 2, canvas.height / 2);
                 return;
             }
-            
+
             canvas.width = canvas.parentElement?.clientWidth || 600;
             canvas.height = 250;
-            
+
             const maxTime = Math.max(...data.map(d => d.max_time), 100);
             const barWidth = (canvas.width - 60) / data.length - 10;
             const scale = (canvas.height - 60) / maxTime;
-            
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
+
             data.forEach((item, i) => {
                 const x = 40 + i * (barWidth + 10);
                 const avgHeight = item.avg_time * scale;
                 const maxHeight = item.max_time * scale;
-                
+
                 ctx.fillStyle = 'rgba(0, 217, 255, 0.3)';
                 ctx.fillRect(x, canvas.height - 40 - maxHeight, barWidth, maxHeight);
-                
+
                 ctx.fillStyle = '#00d9ff';
                 ctx.fillRect(x, canvas.height - 40 - avgHeight, barWidth, avgHeight);
-                
+
                 ctx.fillStyle = '#9ca3af';
                 ctx.font = '10px Inter';
                 ctx.textAlign = 'center';
                 const name = item.site_name.length > 10 ? item.site_name.substring(0, 10) + '...' : item.site_name;
                 ctx.fillText(name, x + barWidth / 2, canvas.height - 10);
-                
+
                 ctx.fillStyle = '#00d9ff';
                 ctx.font = '11px Inter';
                 ctx.fillText(Math.round(item.avg_time) + 'ms', x + barWidth / 2, canvas.height - 45 - avgHeight);
@@ -696,25 +947,40 @@
         function renderIncidents() {
             const list = document.getElementById('incidentsList');
             if (!list) return;
-            
+
             if (incidentsData.length === 0) {
                 list.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">Немає інцидентів - всі монітори працюють!</div>';
                 return;
             }
-            
+
             let html = '<div style="display: flex; flex-direction: column; gap: 12px;">';
             incidentsData.forEach(inc => {
                 const date = new Date(inc.checked_at).toLocaleString('uk-UA');
+                const isDown = inc.status === 'down';
+                const isSlow = inc.status === 'slow';
+                const bgColor = isDown ? 'rgba(239, 68, 68, 0.15)' : isSlow ? 'rgba(234, 179, 8, 0.15)' : 'rgba(34, 197, 94, 0.1)';
+                const borderColor = isDown ? '#ef4444' : isSlow ? '#eab308' : '#22c55e';
+                const statusText = isDown ? '🔴 DOWN' : isSlow ? '🟡 SLOW' : '🟢 UP';
+                const prevText = inc.prev_status ? ` (було: ${inc.prev_status.toUpperCase()})` : '';
+
                 html += `
-                <div style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid var(--danger); padding: 12px 16px; border-radius: 8px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-weight: 600; color: var(--danger);">${inc.site_name}</span>
-                        <span style="font-size: 12px; color: var(--text-secondary);">${date}</span>
+                <div style="background: ${bgColor}; border-left: 4px solid ${borderColor}; padding: 16px; border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                <span style="font-weight: 600; font-size: 15px; color: var(--text-primary);">${inc.site_name}</span>
+                                <span style="font-size: 12px; padding: 2px 8px; background: ${borderColor}22; border-radius: 4px; color: ${borderColor};">${statusText}</span>
+                            </div>
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">${inc.site_url}</div>
+                            ${inc.duration ? `<div style="font-size: 12px; color: ${isDown ? '#ef4444' : '#eab308'}; font-weight: 500; margin-bottom: 4px;">⏱️ Тривалість: ${inc.duration}</div>` : ''}
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-top: 6px;">
+                                <span>🕐 ${date}</span>
+                                ${inc.response_time ? `<span style="margin-left: 12px;">⚡ ${Math.round(inc.response_time)}ms</span>` : ''}
+                                ${inc.status_code ? `<span style="margin-left: 12px;">📄 HTTP ${inc.status_code}</span>` : ''}
+                            </div>
+                        </div>
                     </div>
-                    <div style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">
-                        Код: ${inc.status_code} | Час: ${inc.response_time ? Math.round(inc.response_time) + 'ms' : '—'}
-                    </div>
-                    ${inc.error_message ? `<div style="font-size: 12px; color: var(--warning); margin-top: 4px;">${inc.error_message}</div>` : ''}
+                    ${inc.error_message ? `<div style="font-size: 12px; color: #ef4444; margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px; font-family: monospace;">${inc.error_message}</div>` : ''}
                 </div>`;
             });
             html += '</div>';
@@ -761,9 +1027,15 @@
             if (method === 'telegram') {
                 document.getElementById('telegramFields').style.display = 'block';
                 document.getElementById('webhookFields').style.display = 'none';
+                document.getElementById('emailFields').style.display = 'none';
+            } else if (method === 'email') {
+                document.getElementById('telegramFields').style.display = 'none';
+                document.getElementById('webhookFields').style.display = 'none';
+                document.getElementById('emailFields').style.display = 'block';
             } else {
                 document.getElementById('telegramFields').style.display = 'none';
                 document.getElementById('webhookFields').style.display = 'block';
+                document.getElementById('emailFields').style.display = 'none';
             }
         }
 
@@ -773,13 +1045,24 @@
             document.getElementById('newTelegramToken').value = '';
             document.getElementById('newTelegramChatId').value = '';
             document.getElementById('newWebhookUrl').value = '';
-            
+            document.getElementById('newEmailSmtp').value = '';
+            document.getElementById('newEmailPort').value = '';
+            document.getElementById('newEmailUser').value = '';
+            document.getElementById('newEmailPass').value = '';
+            document.getElementById('newEmailTo').value = '';
+
             if (method === 'telegram') {
                 document.getElementById('telegramFields').style.display = 'block';
                 document.getElementById('webhookFields').style.display = 'none';
+                document.getElementById('emailFields').style.display = 'none';
+            } else if (method === 'email') {
+                document.getElementById('telegramFields').style.display = 'none';
+                document.getElementById('webhookFields').style.display = 'none';
+                document.getElementById('emailFields').style.display = 'block';
             } else {
                 document.getElementById('telegramFields').style.display = 'none';
                 document.getElementById('webhookFields').style.display = 'block';
+                document.getElementById('emailFields').style.display = 'none';
             }
             document.getElementById('addChannelModal').classList.add('active');
         }
@@ -792,15 +1075,15 @@
             const method = document.getElementById('addChannelMethod').value;
             const name = document.getElementById('newChannelName').value.trim();
             if (!name) return alert('Введіть назву каналу!');
-            
+
             const channelId = 'ch_' + Date.now();
             let html = '';
-            
+
             if (method === 'telegram') {
                 const token = document.getElementById('newTelegramToken').value.trim();
                 const chat_id = document.getElementById('newTelegramChatId').value.trim();
                 if (!token || !chat_id) return alert('Введіть token та chat_id!');
-                
+
                 html = `<div class="channel-item" id="ch_${channelId}">
                     <div class="channel-header">
                         <span class="channel-name">📱 ${name}</span>
@@ -811,10 +1094,31 @@
                     <input type="hidden" id="${method}_${channelId}_token" value="${token}">
                     <input type="hidden" id="${method}_${channelId}_chat_id" value="${chat_id}">
                 </div>`;
+            } else if (method === 'email') {
+                const smtp_server = document.getElementById('newEmailSmtp').value.trim();
+                const smtp_port = document.getElementById('newEmailPort').value.trim();
+                const username = document.getElementById('newEmailUser').value.trim();
+                const password = document.getElementById('newEmailPass').value.trim();
+                const to_email = document.getElementById('newEmailTo').value.trim();
+                if (!smtp_server || !username || !to_email) return alert('Заповніть всі поля!');
+
+                html = `<div class="channel-item" id="ch_${channelId}">
+                    <div class="channel-header">
+                        <span class="channel-name">📧 ${name}</span>
+                        <button type="button" class="btn-remove-channel" onclick="removeChannel('${method}', '${channelId}')">✕</button>
+                    </div>
+                    <input type="hidden" name="${method}_channels" value="${channelId}">
+                    <input type="hidden" id="${method}_${channelId}_name" value="${name}">
+                    <input type="hidden" id="${method}_${channelId}_smtp_server" value="${smtp_server}">
+                    <input type="hidden" id="${method}_${channelId}_smtp_port" value="${smtp_port || 587}">
+                    <input type="hidden" id="${method}_${channelId}_username" value="${username}">
+                    <input type="hidden" id="${method}_${channelId}_password" value="${password}">
+                    <input type="hidden" id="${method}_${channelId}_to_email" value="${to_email}">
+                </div>`;
             } else {
                 const webhookUrl = document.getElementById('newWebhookUrl').value.trim();
                 if (!webhookUrl) return alert('Введіть URL webhook!');
-                
+
                 html = `<div class="channel-item" id="ch_${channelId}">
                     <div class="channel-header">
                         <span class="channel-name">🔗 ${name}</span>
@@ -825,14 +1129,16 @@
                     <input type="hidden" id="${method}_${channelId}_webhook_url" value="${webhookUrl}">
                 </div>`;
             }
-            
-            const container = document.getElementById('channels-' + method);
-            if (container) {
-                container.insertAdjacentHTML('beforeend', html);
-            }
+
+            document.getElementById('channels-' + method).insertAdjacentHTML('beforeend', html);
             document.getElementById('newTelegramToken').value = '';
             document.getElementById('newTelegramChatId').value = '';
             document.getElementById('newWebhookUrl').value = '';
+            document.getElementById('newEmailSmtp').value = '';
+            document.getElementById('newEmailPort').value = '';
+            document.getElementById('newEmailUser').value = '';
+            document.getElementById('newEmailPass').value = '';
+            document.getElementById('newEmailTo').value = '';
             closeAddChannelModal();
         }
 
@@ -846,17 +1152,10 @@
                 telegram: { enabled: document.getElementById('toggle-telegram')?.checked, channels: [] },
                 discord: { enabled: document.getElementById('toggle-discord')?.checked, channels: [] },
                 teams: { enabled: document.getElementById('toggle-teams')?.checked, channels: [] },
-                email: { 
-                    enabled: document.getElementById('toggle-email')?.checked, 
-                    smtp_server: document.getElementById('email-smtp_server')?.value, 
-                    smtp_port: parseInt(document.getElementById('email-smtp_port')?.value) || 587, 
-                    username: document.getElementById('email-username')?.value, 
-                    password: document.getElementById('email-password')?.value, 
-                    to_email: document.getElementById('email-to_email')?.value 
-                },
+                email: { enabled: document.getElementById('toggle-email')?.checked, channels: [] },
             };
-            
-            ['telegram', 'discord', 'teams'].forEach(method => {
+
+            ['telegram', 'discord', 'teams', 'email'].forEach(method => {
                 const container = document.getElementById('channels-' + method);
                 if (container) {
                     const items = container.querySelectorAll('.channel-item');
@@ -869,6 +1168,15 @@
                             if (name && token && chat_id) {
                                 settings[method].channels.push({ id, name, token, chat_id });
                             }
+                        } else if (method === 'email') {
+                            const smtp_server = document.getElementById(`${method}_${id}_smtp_server`)?.value;
+                            const smtp_port = document.getElementById(`${method}_${id}_smtp_port`)?.value || 587;
+                            const username = document.getElementById(`${method}_${id}_username`)?.value;
+                            const password = document.getElementById(`${method}_${id}_password`)?.value;
+                            const to_email = document.getElementById(`${method}_${id}_to_email`)?.value;
+                            if (name && smtp_server && username && to_email) {
+                                settings[method].channels.push({ id, name, smtp_server, smtp_port: parseInt(smtp_port), username, password, to_email });
+                            }
                         } else {
                             const webhook_url = document.getElementById(`${method}_${id}_webhook_url`)?.value;
                             if (name && webhook_url) {
@@ -878,7 +1186,7 @@
                     });
                 }
             });
-            
+
             try {
                 await fetch('/api/notify-settings', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(settings) });
                 alert('✅ Налаштування збережено!');
@@ -902,10 +1210,11 @@
             } catch(e) { console.error(e); }
         }
 
-        function openEditModal(id, name, url, notifyMethods) {
+        function openEditModal(id, name, url, notifyMethods, checkInterval) {
             document.getElementById('editSiteId').value = id;
             document.getElementById('editSiteName').value = name;
             document.getElementById('editSiteUrl').value = decodeURIComponent(url);
+            document.getElementById('editSiteInterval').value = checkInterval || 60;
             const methods = typeof notifyMethods === 'string' ? JSON.parse(decodeURIComponent(notifyMethods)) : notifyMethods;
             const container = document.getElementById('editSiteNotify');
             if (container) {
@@ -924,11 +1233,12 @@
             const id = document.getElementById('editSiteId').value;
             const name = document.getElementById('editSiteName').value.trim();
             const url = document.getElementById('editSiteUrl').value.trim();
+            const checkInterval = parseInt(document.getElementById('editSiteInterval').value) || 60;
             const container = document.getElementById('editSiteNotify');
             const notify_methods = container ? Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(o => o.value) : [];
             if (!name || !url) return alert('Заповніть всі поля!');
             try {
-                await fetch(`/api/sites/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name, url, notify_methods}) });
+                await fetch(`/api/sites/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name, url, check_interval: checkInterval, notify_methods}) });
                 closeEditModal();
                 loadSites();
             } catch(e) { console.error(e); }
@@ -941,43 +1251,15 @@
             } catch(e) { console.error(e); }
         }
 
-        function openAddChannelModal() {
-            document.getElementById('newChannelType').value = 'telegram';
-            document.getElementById('newChannelName').value = '';
-            document.getElementById('newChannelUrl').value = '';
-            document.getElementById('customChannelFields').style.display = 'none';
-            document.getElementById('addChannelModal').classList.add('active');
-        }
-
-        function closeAddChannelModal() {
-            document.getElementById('addChannelModal').classList.remove('active');
-        }
-
-        function addNewChannel() {
-            const type = document.getElementById('newChannelType').value;
-            const name = document.getElementById('newChannelName').value.trim();
-            if (!name) return alert('Введіть назву каналу!');
-            
-            if (type === 'custom') {
-                const url = document.getElementById('newChannelUrl').value.trim();
-                if (!url) return alert('Введіть URL webhook!');
-                alert('Канал "' + name + '" додано! (webhook: ' + url + ')');
-            } else {
-                alert('Канал "' + name + '" (' + type + ') додано! Налаштуйте його нижче.');
-            }
-            closeAddChannelModal();
-        }
-
-        document.getElementById('newChannelType')?.addEventListener('change', function() {
-            document.getElementById('customChannelFields').style.display = this.value === 'custom' ? 'block' : 'none';
-        });
 
         initNotifyUI();
         loadAppSettings();
         loadSites();
-        loadStatusHistory();
         loadSSLCertificates();
+        loadUptimeChart();
+        loadIncidents();
         setInterval(loadSites, 60000);
+        startIncidentsAutoRefresh();
     </script>
 </body>
 </html>

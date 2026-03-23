@@ -74,8 +74,8 @@ sudo /opt/uptime-monitor/scripts/backup-system.sh --dest /backup/uptime-monitor/
 ## 📋 Основні команди
 
 ```bash
-# Керування службою
-sudo systemctl start|stop|restart|status uptime-monitor
+# Керування службами
+sudo systemctl start|stop|restart|status uptime-monitor uptime-monitor-worker
 
 # Бекап
 sudo /opt/uptime-monitor/scripts/backup-system.sh --dest /backup/uptime-monitor/
@@ -85,6 +85,7 @@ sudo /opt/uptime-monitor/scripts/restore-system.sh --auto
 
 # Перегляд логів
 sudo journalctl -u uptime-monitor -f
+sudo journalctl -u uptime-monitor-worker -f
 ```
 
 ---

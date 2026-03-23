@@ -6,7 +6,7 @@
     <title>Uptime Monitor - Login</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { 
+        body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
             min-height: 100vh;
@@ -23,96 +23,47 @@
             width: 100%;
             max-width: 400px;
         }
-        .logo {
-            text-align: center;
-            margin-bottom: 30px;
-        }
+        .logo { text-align: center; margin-bottom: 30px; }
         .logo-icon {
-            width: 60px;
-            height: 60px;
+            width: 60px; height: 60px;
             background: linear-gradient(135deg, #00d9ff 0%, #00a8cc 100%);
             border-radius: 15px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 30px;
-            margin-bottom: 15px;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 30px; margin-bottom: 15px;
         }
-        h1 {
-            color: #fff;
-            font-size: 24px;
-            text-align: center;
+        h1 { color: #fff; font-size: 24px; text-align: center; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; color: #a0a0b0; font-weight: 500; }
+        input[type="text"], input[type="password"] {
+            width: 100%; padding: 12px; border: 1px solid #2a2a4a; background: #0f0f23;
+            color: #fff; border-radius: 8px; font-size: 14px; transition: border-color 0.3s;
         }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #a0a0b0;
-            font-weight: 500;
-        }
-        input[type="text"],
-        input[type="password"] {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #2a2a4a;
-            background: #0f0f23;
-            color: #fff;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: border-color 0.3s;
-        }
-        input[type="text"]:focus,
-        input[type="password"]:focus {
-            border-color: #00d9ff;
-            outline: none;
+        input[type="text"]:focus, input[type="password"]:focus {
+            border-color: #00d9ff; outline: none;
         }
         button {
-            width: 100%;
-            padding: 14px;
+            width: 100%; padding: 14px;
             background: linear-gradient(135deg, #00d9ff 0%, #00a8cc 100%);
-            color: #000;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            color: #000; border: none; border-radius: 8px; font-size: 16px;
+            font-weight: 600; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
         }
         button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(0, 217, 255, 0.4);
+            transform: translateY(-2px); box-shadow: 0 5px 20px rgba(0, 217, 255, 0.4);
         }
         .error {
-            background: rgba(255, 71, 87, 0.15);
-            color: #ff4757;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 14px;
-            border: 1px solid rgba(255, 71, 87, 0.3);
+            background: rgba(255, 71, 87, 0.15); color: #ff4757; padding: 12px;
+            border-radius: 8px; margin-bottom: 20px; font-size: 14px; border: 1px solid rgba(255, 71, 87, 0.3);
         }
         .warning {
-            background: rgba(255, 217, 61, 0.15);
-            color: #ffd93d;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 13px;
-            border: 1px solid rgba(255, 217, 61, 0.3);
-            text-align: center;
+            background: rgba(255, 217, 61, 0.15); color: #ffd93d; padding: 12px;
+            border-radius: 8px; margin-bottom: 20px; font-size: 13px;
+            border: 1px solid rgba(255, 217, 61, 0.3); text-align: center;
         }
-        .info {
-            background: rgba(0, 217, 255, 0.1);
-            color: #00d9ff;
-            padding: 12px;
-            border-radius: 8px;
-            margin-top: 20px;
-            font-size: 13px;
-            text-align: center;
-            border: 1px solid rgba(0, 217, 255, 0.3);
+        .forgot-link {
+            display: block; text-align: center; margin-top: 15px;
+            color: #00d9ff; text-decoration: none; font-size: 14px;
         }
+        .forgot-link:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -122,10 +73,10 @@
             <h1>Uptime Monitor</h1>
         </div>
         {% if error_message %}
-        <div class="error">{{ error_message }}</div>
+            {{ error_message|safe }}
         {% endif %}
         {% if warning_message %}
-        <div class="warning">{{ warning_message }}</div>
+            {{ warning_message|safe }}
         {% endif %}
         <form method="POST" action="/login">
             <div class="form-group">
@@ -138,6 +89,7 @@
             </div>
             <button type="submit">Login</button>
         </form>
+        <a href="/forgot-password" class="forgot-link">Забули пароль?</a>
     </div>
 </body>
 </html>

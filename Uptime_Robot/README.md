@@ -95,17 +95,13 @@ sudo /opt/uptime-monitor/scripts/backup-system.sh --status
 
 ```
 Uptime_Robot/
-├── main.py                 # Головна програма
+├── main.py                 # Веб-панель (FastAPI)
+├── worker.py               # Фоновий моніторинг (Окремий процес)
 ├── requirements.txt        # Залежності Python
-├── requirements-linux.txt  # Linux-специфічні залежності
-├── icon.ico               # Іконка програми
-├── install.bat            # Встановлення як служба (Windows)
-├── install.sh             # Встановлення як служба (Linux)
-├── build_exe.bat          # Збірка інсталятора
-├── create_task.ps1        # Створення Windows Task
-├── create_task_simple.ps1 # Простий скрипт створення Task
-├── uptime_monitor.spec    # Конфігурація PyInstaller
-├── README.md              # Цей файл
+├── routers/                # Модулі API та UI
+├── templates/              # HTML шаблони
+├── config_manager.py       # Керування конфігурацією
+├── database.py             # Асинхронна робота з БД
 └── sites.db               # База даних (створюється автоматично)
 ```
 
@@ -116,15 +112,18 @@ Uptime_Robot/
 pip install -r requirements.txt
 ```
 
-### 2. Запуск вручну
+### 2. Запуск Веб-панелі
 ```bash
 python main.py [port]
 ```
+За замовчуванням порт 8080.
 
-За замовчуванням порт 8080. Приклад:
+### 3. Запуск Моніторингу (ОБОВ'ЯЗКОВО)
+Щоб сайти перевірялися у фоні, запустіть окремий процес:
 ```bash
-python main.py 8080
+python worker.py
 ```
+*(Або `python -m Uptime_Robot.worker`, якщо запускаєте з корінного каталогу проекту)*
 
 ### 3. Вхід в систему
 Відкрийте браузер: http://localhost:8080 (або ваш порт)

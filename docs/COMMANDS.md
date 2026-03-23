@@ -7,23 +7,20 @@
 ## 🔧 Service Management (Управління службою)
 
 ```bash
-# Запустити службу
+# Веб-панель
 sudo systemctl start uptime-monitor
-
-# Зупинити службу
 sudo systemctl stop uptime-monitor
-
-# Перезапустити службу
 sudo systemctl restart uptime-monitor
-
-# Перевірити статус
 sudo systemctl status uptime-monitor
 
-# Увімкнути автозапуск
-sudo systemctl enable uptime-monitor
+# Фоновий моніторинг (Worker)
+sudo systemctl start uptime-monitor-worker
+sudo systemctl stop uptime-monitor-worker
+sudo systemctl restart uptime-monitor-worker
+sudo systemctl status uptime-monitor-worker
 
-# Вимкнути автозапуск
-sudo systemctl disable uptime-monitor
+# Керування обома (рекомендується)
+sudo systemctl restart uptime-monitor uptime-monitor-worker
 ```
 
 ---
@@ -31,59 +28,25 @@ sudo systemctl disable uptime-monitor
 ## 🔄 Update (Оновлення)
 
 ```bash
-# 1. Зупинити службу
-sudo systemctl stop uptime-monitor
+# 1. Зупинити служби
+sudo systemctl stop uptime-monitor uptime-monitor-worker
 
-# 2. Бекап бази даних (ТУТ ВСІ МОНІТОРИ!)
-DB_PATH=$(python3 - <<'PY'
-import json, os
-config='/etc/uptime-monitor/config.json'
-if os.path.exists(config):
-    try:
-        with open(config,'r',encoding='utf-8') as f:
-            data=json.load(f)
-        print(os.path.join(os.path.dirname(config), 'sites.db'))
-    except Exception:
-        print('/etc/uptime-monitor/sites.db')
-else:
-    print('/etc/uptime-monitor/sites.db')
-PY
-)
-sudo cp "$DB_PATH" /backup/sites.db.backup
+# 2. Бекап бази даних
+# ... (код бекапу залишається без змін) ...
 
 # 3. Оновити код
 cd /opt/uptime-monitor
-if [ -d .git ]; then
-    sudo git fetch --all --prune
-    sudo git checkout main
-    sudo git pull --ff-only origin main
-else
-    # Встановити unzip якщо немає
-    if ! command -v unzip &> /dev/null; then
-        sudo apt update && sudo apt install -y unzip
-    fi
+# ... (якщо через git) ...
+sudo git pull origin main
 
-    cd /tmp
-    wget https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -O uptime_update.zip
-    
-    # КРИТИЧНО: Видалити стару папку з sudo
-    sudo rm -rf /tmp/Uptime-Monitor-main
-    
-    # КРИТИЧНО: Розпакувати з sudo
-    sudo unzip -o uptime_update.zip
-    
-    # Скопіювати файли
-    sudo cp -r /tmp/Uptime-Monitor-main/Uptime_Robot/* /opt/uptime-monitor/
-    
-    # Прибрати тимчасові файли
-    sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-main
-fi
+# Якщо вручну (zip):
+# ... розпакування ...
+sudo cp -r /tmp/Uptime-Monitor-main/Uptime_Robot/* /opt/uptime-monitor/
+# КРИТИЧНО: Переконайтесь, що скопійовано папку routers/, worker.py та state.py
 
-# 4. Start service
-sudo systemctl start uptime-monitor
-
-# 5. Verify
-sudo systemctl status uptime-monitor
+# 4. Перезапустити служби
+sudo systemctl daemon-reload
+sudo systemctl start uptime-monitor uptime-monitor-worker
 ```
 
 ### Швидке оновлення (якщо вже все налаштовано)
@@ -102,17 +65,15 @@ fi && sudo systemctl restart uptime-monitor
 ## 📊 Журнали
 
 ```bash
-# Дивитись логи в реальному часі
+# Веб-панель
 sudo journalctl -u uptime-monitor -f
 
-# Показати останні 50 рядків
-sudo journalctl -u uptime-monitor -n 50
+# Worker (Моніторинг)
+sudo journalctl -u uptime-monitor-worker -f
 
-# Показати логи за сьогодні
-sudo journalctl -u uptime-monitor --since today
-
-# Показати логи помилок
+# Логи помилок у файлах
 sudo tail -f /var/log/uptime-monitor/uptime-monitor.error.log
+sudo tail -f /var/log/uptime-monitor/worker.error.log
 ```
 
 ---

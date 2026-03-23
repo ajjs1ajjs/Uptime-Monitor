@@ -47,7 +47,7 @@ bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 ```
 Uptime_Robot/
 ├── auth_module.py          # Авторизація з bcrypt + Jinja2
-├── config.py               # Конфігурація Pydantic
+├── config_manager.py       # Конфігурація JSON
 ├── database.py             # Пул з'єднань SQLite
 ├── logger.py               # Логування з ротацією
 ├── models.py               # ORM моделі БД (НОВЕ!)

@@ -8,7 +8,10 @@ import os
 from email.mime.text import MIMEText
 from typing import List, Dict, Any, Optional, Union
 from datetime import datetime
-from logger import logger
+try:
+    from .logger import logger
+except ImportError:
+    from logger import logger
 
 
 def format_telegram_message(data: Dict[str, Any], alert_type: str = "down") -> str:

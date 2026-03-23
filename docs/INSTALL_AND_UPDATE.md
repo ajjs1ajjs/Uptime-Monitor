@@ -50,55 +50,17 @@ sudo chown uptime-monitor:uptime-monitor uptime_monitor.log
 sudo chmod 644 uptime_monitor.log
 ```
 
-### 5. Створення symlink для ui_templates
+### 5. (Пропущено - більше не потрібно)
 
+### 6. Налаштування systemd сервісів
+
+Рекомендується використовувати автоматичний інсталятор `install.sh`, але якщо ви налаштовуєте вручну, створіть два сервіси: `uptime-monitor.service` та `uptime-monitor-worker.service`. Дивіться приклади в `install.sh`.
+
+### 7. Запуск
 ```bash
-cd /opt/Uptime-Monitor
-
-# Створіть symlink
-sudo ln -sf Uptime_Robot/ui_templates.py ui_templates.py
-```
-
-### 6. Налаштування systemd сервісу
-
-```bash
-# Створіть файл сервісу
-sudo nano /etc/systemd/system/uptime-monitor.service
-```
-
-**Вміст файлу:**
-```ini
-[Unit]
-Description=Uptime Monitor Service
-After=network.target
-
-[Service]
-Type=simple
-User=uptime-monitor
-Group=uptime-monitor
-WorkingDirectory=/opt/Uptime-Monitor
-ExecStart=/opt/Uptime-Monitor/venv/bin/python /opt/Uptime-Monitor/main.py
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-### 7. Запуск сервісу
-
-```bash
-# Перезавантажте systemd
 sudo systemctl daemon-reload
-
-# Увімкніть автозапуск
-sudo systemctl enable uptime-monitor
-
-# Запустіть
-sudo systemctl start uptime-monitor
-
-# Перевірте статус
-sudo systemctl status uptime-monitor
+sudo systemctl enable uptime-monitor uptime-monitor-worker
+sudo systemctl start uptime-monitor uptime-monitor-worker
 ```
 
 ### 8. Відкрийте веб-інтерфейс
@@ -108,8 +70,8 @@ http://YOUR_SERVER_IP:8080/
 ```
 
 **Логін за замовчуванням:**
-- Username: `test`
-- Password: `1234`
+- Username: `admin`
+- Password: `admin`
 
 ---
 
@@ -144,7 +106,6 @@ git reset --hard origin/main
 
 # 3. Видалити старі файли
 rm -f ui_templates.py page.html Uptime_Robot/page.html
-ln -sf Uptime_Robot/ui_templates.py ui_templates.py
 
 # 4. Видалити кеш
 find . -path ./venv -prune -o -name "__pycache__" -exec rm -rf {} + 2>/dev/null
@@ -153,9 +114,10 @@ find . -path ./venv -prune -o -name "*.pyc" -delete 2>/dev/null
 # 5. Виправити права
 sudo chown -R uptime-monitor:uptime-monitor main.py Uptime_Robot/main.py Uptime_Robot/ui_templates.py uptime_monitor.log ui_templates.py
 
-# 6. Запустити сервіс
-sudo systemctl start uptime-monitor
-sudo systemctl status uptime-monitor
+# 6. Запустити сервіси
+sudo systemctl daemon-reload
+sudo systemctl start uptime-monitor uptime-monitor-worker
+sudo systemctl status uptime-monitor uptime-monitor-worker
 ```
 
 ### Спосіб 4: Простий скрипт
@@ -172,26 +134,11 @@ sudo ./update.sh
 ### Керування сервісом
 
 ```bash
-# Статус
-sudo systemctl status uptime-monitor
+# Веб-панель
+sudo systemctl status|start|stop|restart uptime-monitor
 
-# Запустити
-sudo systemctl start uptime-monitor
-
-# Зупинити
-sudo systemctl stop uptime-monitor
-
-# Перезапустити
-sudo systemctl restart uptime-monitor
-
-# Перезавантажити systemd
-sudo systemctl daemon-reload
-
-# Увімкнути автозапуск
-sudo systemctl enable uptime-monitor
-
-# Вимкнути автозапуск
-sudo systemctl disable uptime-monitor
+# Worker
+sudo systemctl status|start|stop|restart uptime-monitor-worker
 ```
 
 ### Перегляд логів
@@ -289,16 +236,14 @@ sudo systemctl restart uptime-monitor
 
 ```
 /opt/uptime-monitor/
-├── main.py                    # Головний файл
-├── ui_templates.py            # Symlink → Uptime_Robot/ui_templates.py
-├── uptime_monitor.log         # Логи
-├── Uptime_Robot/
-│   ├── main.py               # API та маршрути
-│   ├── ui_templates.py       # HTML шаблони
-│   ├── monitoring.py         # Моніторинг
-│   └── ...
-├── venv/                     # Віртуальне середовище
-└── deploy_update.sh          # Скрипт оновлення
+├── main.py                    # Веб-сервер (FastAPI)
+├── worker.py                  # Фоновий моніторинг
+├── state.py                   # Глобальні налаштування
+├── routers/                   # Папка з API та UI маршрутами (auth.py, ui.py, api.py)
+├── templates/                 # Папка з HTML шаблонами (Jinja2)
+├── static/                    # Статичні файли (CSS, JS)
+├── venv/                      # Віртуальне середовище
+└── install.sh                 # Скрипт інсталяції
 ```
 
 ---

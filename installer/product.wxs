@@ -40,10 +40,6 @@
             <File Source="..\Uptime_Robot\main_service.py" KeyPath="yes" />
           </Component>
 
-          <Component Id="ConfigModule" Guid="F1A2B3C4-D5E6-7890-ABCD-EF1234567803">
-            <File Source="..\Uptime_Robot\config.py" KeyPath="yes" />
-          </Component>
-
           <Component Id="ConfigManager" Guid="F1A2B3C4-D5E6-7890-ABCD-EF1234567804">
             <File Source="..\Uptime_Robot\config_manager.py" KeyPath="yes" />
           </Component>
@@ -112,19 +108,11 @@
             <File Source="..\Uptime_Robot\README.md" KeyPath="yes" />
           </Component>
 
-          <Component Id="ConfigJSON" Guid="F1A2B3C4-D5E6-7890-ABCD-EF1234567815">
-            <File Source="..\Uptime_Robot\config.json" KeyPath="yes" />
-          </Component>
-
         </Directory>
       </Directory>
 
       <Directory Id="CommonAppDataFolder">
         <Directory Id="UptimeDataFolder" Name="UptimeMonitor">
-
-          <Component Id="DatabaseFile" Guid="B1A2B3C4-D5E6-7890-ABCD-EF1234567820">
-            <File Source="..\Uptime_Robot\sites.db" KeyPath="yes" />
-          </Component>
 
         </Directory>
       </Directory>
@@ -136,8 +124,8 @@
             <Shortcut Id="ApplicationStartShortcut"
                       Name="Uptime Monitor"
                       Description="Open Uptime Monitor web interface"
-                      Target="[INSTALLFOLDER]python.exe"
-                      Arguments="-m http.server [PORT_NUMBER] -d [INSTALLFOLDER]"
+                      Target="[SystemFolder]cmd.exe"
+                      Arguments='/c start "" "http://localhost:[PORT_NUMBER]"'
                       WorkingDirectory="INSTALLFOLDER" />
             <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
             <RegistryValue Root="HKCU"
@@ -171,7 +159,6 @@
     <Feature Id="MainApplication" Title="Uptime Monitor" Level="1">
       <ComponentRef Id="MainExecutable" />
       <ComponentRef Id="MainService" />
-      <ComponentRef Id="ConfigModule" />
       <ComponentRef Id="ConfigManager" />
       <ComponentRef Id="DatabaseModule" />
       <ComponentRef Id="MonitoringModule" />
@@ -189,8 +176,6 @@
       <ComponentRef Id="InstallServiceBat" />
       <ComponentRef Id="LicenseFile" />
       <ComponentRef Id="ReadmeFile" />
-      <ComponentRef Id="ConfigJSON" />
-      <ComponentRef Id="DatabaseFile" />
       <ComponentRef Id="StartMenuShortcut" />
       <ComponentRef Id="UninstallShortcut" />
     </Feature>
