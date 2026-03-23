@@ -192,23 +192,28 @@ async def add_site(site: SiteCreate, user: dict = Depends(require_admin)):
     m_type = site.monitor_type.lower()
     url = _normalize_and_validate_url(site.url, m_type)
 
-    async with get_db_connection() as conn:
-        await conn.execute(
-            "INSERT INTO sites (name, url, check_interval, is_active, notify_methods, monitor_type) VALUES (?, ?, ?, ?, ?, ?)",
-            (
-                site.name,
-                url,
-                site.check_interval,
-                site.is_active,
-                json.dumps(site.notify_methods),
-                m_type,
-            ),
-        )
-        await conn.commit()
-        # Find last inserted row id
-        async with conn.execute("SELECT last_insert_rowid()") as c:
-            row = await c.fetchone()
-            site_id = row[0]
+    try:
+        async with get_db_connection() as conn:
+            await conn.execute(
+                "INSERT INTO sites (name, url, check_interval, is_active, notify_methods, monitor_type) VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    site.name,
+                    url,
+                    site.check_interval,
+                    site.is_active,
+                    json.dumps(site.notify_methods),
+                    m_type,
+                ),
+            )
+            await conn.commit()
+            # Find last inserted row id
+            async with conn.execute("SELECT last_insert_rowid()") as c:
+                row = await c.fetchone()
+                site_id = row[0]
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=400, detail="Monitor with this URL already exists")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
     asyncio.create_task(
         monitoring.check_site_status(site_id, url, site.notify_methods, app_state.NOTIFY_SETTINGS)
