@@ -152,6 +152,30 @@ async def get_site_history(
         for h in history
     ]
 
+@router.get("/sites/history-all")
+async def get_all_sites_history(user: dict = Depends(require_viewer_or_higher)):
+    if not user:
+        raise HTTPException(status_code=401)
+    async with get_db_connection() as conn:
+        async with conn.execute("""
+            SELECT site_id, status, checked_at 
+            FROM status_history 
+            WHERE checked_at >= datetime('now', '-24 hours')
+            ORDER BY checked_at ASC
+        """) as c:
+            results_raw = await c.fetchall()
+            
+        history = {}
+        for r in results_raw:
+            sid = r["site_id"]
+            if sid not in history:
+                history[sid] = []
+            history[sid].append({
+                "status": r["status"],
+                "checked_at": r["checked_at"]
+            })
+    return history
+
 @router.get("/server-time")
 async def get_server_time():
     now = datetime.now()

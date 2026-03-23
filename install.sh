@@ -16,7 +16,7 @@ CONFIG_DIR="/etc/uptime-monitor"
 DATA_DIR="/var/lib/uptime-monitor"
 LOG_DIR="/var/log/uptime-monitor"
 SERVICE_NAME="uptime-monitor"
-USER="uptime-monitor"
+APP_USER="uptime-monitor"
 APP_VERSION="v1.1.0"
 
 echo -e "${GREEN}"
@@ -280,7 +280,7 @@ fi
 # Create default backup directory
 echo -e "${BLUE}Creating backup directories...${NC}"
 mkdir -p "/backup/uptime-monitor"
-chown -R "$USER:$USER" "/backup/uptime-monitor" 2>/dev/null || true
+chown -R "$APP_USER:$APP_USER" "/backup/uptime-monitor" 2>/dev/null || true
 
 # Create systemd services
 echo -e "${BLUE}Creating systemd services...${NC}"
@@ -294,8 +294,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=$USER
-Group=$USER
+User=$APP_USER
+Group=$APP_USER
 WorkingDirectory=$INSTALL_DIR
 Environment="PATH=$INSTALL_DIR/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="CONFIG_PATH=$CONFIG_DIR/config.json"
@@ -303,8 +303,8 @@ Environment="APP_VERSION=$APP_VERSION"
 ExecStart=$INSTALL_DIR/venv/bin/python $INSTALL_DIR/main.py
 Restart=always
 RestartSec=10
-StandardOutput=append:$LOG_DIR/uptime-monitor.log
-StandardError=append:$LOG_DIR/uptime-monitor.error.log
+StandardOutput=journal
+StandardError=journal
 
 NoNewPrivileges=true
 PrivateTmp=true
