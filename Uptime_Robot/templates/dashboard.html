@@ -499,7 +499,7 @@
             const avgResponse = responseTimes.length ? Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length) : 0;
 
             // Get SSL status
-            const sslExpiring = sslData && sslData.filter(s => s.days_until_expire <= 7).length || 0;
+            const sslExpiring = (sslCertificatesData || []).filter(s => s.days_until_expire <= 7).length || 0;
 
             // Update values
             document.getElementById('uptimeValue').textContent = uptimePercent + '%';
