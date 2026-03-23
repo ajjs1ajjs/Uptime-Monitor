@@ -84,17 +84,36 @@ def _normalize_and_validate_url(raw_url: str, monitor_type: str) -> str:
         raise HTTPException(400, "URL required")
 
     m_type = (monitor_type or "http").lower()
+    
+    # Pre-processing for HTTP/SSL if missing scheme
+    if m_type in ("http", "ssl") and not (url.startswith("http://") or url.startswith("https://")):
+        url = "http://" + url
+
     if m_type == "ssl":
         normalized = monitoring.normalize_ssl_url(url)
         if not normalized:
-            raise HTTPException(400, "Invalid URL")
+            raise HTTPException(400, "Invalid URL for SSL check")
         url = normalized
 
     parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https") or not parsed.netloc:
-        raise HTTPException(400, "URL must start with http:// or https://")
-    if not _is_valid_host(parsed.hostname):
-        raise HTTPException(400, "Invalid host in URL")
+    
+    # For HTTP/SSL, we require a scheme and netloc
+    if m_type in ("http", "ssl"):
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            raise HTTPException(400, "HTTP/SSL URL must start with http:// or https://")
+        if not _is_valid_host(parsed.hostname):
+            raise HTTPException(400, "Invalid host in URL")
+    else:
+        # For PING/PORT, any valid host (with port) is okay
+        # urlparse might put the host in path if no scheme
+        host = parsed.netloc or parsed.path.split("/")[0]
+        if ":" in host:
+            host_only = host.split(":")[0]
+            if not _is_valid_host(host_only):
+                raise HTTPException(400, "Invalid host")
+        elif not _is_valid_host(host):
+            raise HTTPException(400, "Invalid host/IP")
+            
     return url
 
 @router.get("/sites")
