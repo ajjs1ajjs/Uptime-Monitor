@@ -576,7 +576,6 @@
                 });
 
                 // 24h window aligned to "last 24 hours" from SERVER time
-                const now = serverNow;
                 const nowMs = now.getTime();
                 const windowStartMs = nowMs - (24 * 60 * 60 * 1000);
                 const chartWidth = Math.max(600, container.clientWidth - 200);
