@@ -63,23 +63,29 @@ if IS_WINDOWS:
             # Use fixed path for error logging to survive environment issues
             app_dir = os.path.dirname(os.path.abspath(__file__))
             error_log_path = os.path.join(app_dir, "service_error.log")
+            
             self.ReportServiceStatus(win32service.SERVICE_START_PENDING, waitHint=30000)
-            app_main.initialize_app()
-
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
+            
             try:
+                # Initialize app (Sync wrapper handles loop)
+                app_main.initialize_app()
+                
+                # Get the event loop created by initialize_app
+                loop = asyncio.get_event_loop()
+                
+                # Start monitoring in the background
                 asyncio.ensure_future(
                     app_main.monitoring.monitor_loop(
                         app_state.NOTIFY_SETTINGS, app_state.CHECK_INTERVAL
                     )
                 )
+                
+                # Configure and start uvicorn
                 ssl_context = app_main.config_manager.setup_ssl(app_main.CONFIG)
                 config = uvicorn.Config(
                     app,
-                    host=SERVER_HOST,
-                    port=DEFAULT_PORT,
+                    host=app_main.SERVER_HOST,
+                    port=app_main.DEFAULT_PORT,
                     ssl_keyfile=app_main.CONFIG["ssl"].get("key_path") if ssl_context else None,
                     ssl_certfile=app_main.CONFIG["ssl"].get("cert_path") if ssl_context else None,
                     log_level="error",
@@ -87,44 +93,37 @@ if IS_WINDOWS:
                     access_log=False,
                 )
                 self.server = uvicorn.Server(config)
+                
                 self.ReportServiceStatus(win32service.SERVICE_RUNNING)
                 loop.run_until_complete(self.server.serve())
+                
             except Exception:
                 err = traceback.format_exc()
                 try:
-                    os.makedirs(os.path.dirname(error_log_path), exist_ok=True)
                     with open(error_log_path, "a", encoding="utf-8") as f:
                         f.write(f"[{datetime.now().isoformat()}] Service runtime error\n")
                         f.write(err + "\n")
-                except Exception:
-                    pass
-                try:
-                    servicemanager.LogErrorMsg(err)
-                except Exception:
-                    pass
+                except: pass
+                try: servicemanager.LogErrorMsg(err)
+                except: pass
             finally:
-                self.server = None
-                try:
-                    pending = asyncio.all_tasks(loop)
-                    for task in pending:
-                        task.cancel()
-                    if pending:
-                        loop.run_until_complete(
-                            asyncio.gather(*pending, return_exceptions=True)
-                        )
-                except Exception:
-                    pass
-                loop.close()
                 self.ReportServiceStatus(win32service.SERVICE_STOPPED)
 
 
 def run_console():
+    """Run in console mode for testing"""
+    print("Starting Uptime Monitor in console mode...")
     app_main.initialize_app()
     app_main.main()
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 1 or sys.argv[1].lower() == "console":
+    if len(sys.argv) > 1 and sys.argv[1].lower() == "console":
+        # Remove 'console' from argv so argparse in main.py doesn't complain
+        sys.argv.pop(1)
+        run_console()
+    elif len(sys.argv) == 1:
+        # Default to console if no args
         run_console()
     elif not IS_WINDOWS:
         raise SystemExit("Windows service mode is only supported on Windows.")
