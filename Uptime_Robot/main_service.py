@@ -60,7 +60,9 @@ if IS_WINDOWS:
             self.main()
 
         def main(self):
-            error_log_path = os.path.join(os.path.dirname(DB_PATH), "service_error.log")
+            # Use fixed path for error logging to survive environment issues
+            app_dir = os.path.dirname(os.path.abspath(__file__))
+            error_log_path = os.path.join(app_dir, "service_error.log")
             self.ReportServiceStatus(win32service.SERVICE_START_PENDING, waitHint=30000)
             app_main.initialize_app()
 
