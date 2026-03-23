@@ -55,6 +55,9 @@ echo.
 
 cd /d "%~dp0"
 
+echo Ensuring pip is installed...
+!PYTHON_CMD! -m ensurepip --default-pip >nul 2>&1
+
 echo Installing Python dependencies...
 !PYTHON_CMD! -m pip install -r requirements.txt
 if not %errorlevel%==0 (
