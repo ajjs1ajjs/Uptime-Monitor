@@ -8,8 +8,8 @@
 # Linux (Bash)
 curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 
-# Windows (PowerShell)
-iwr https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -OutFile uptime.zip; Expand-Archive uptime.zip -DestinationPath . -Force; Remove-Item uptime.zip; cd Uptime-Monitor-main/Uptime_Robot; ./install.bat
+# Windows (PowerShell - Fully Automated)
+& { if (!(Get-Command python -ErrorAction SilentlyContinue)) { echo "Python not found, installing..."; winget install Python.Python.3.12 --silent --accept-package-agreements --accept-source-agreements }; iwr https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -OutFile uptime.zip; Expand-Archive uptime.zip -DestinationPath . -Force; Remove-Item uptime.zip; cd Uptime-Monitor-main/Uptime_Robot; ./install.bat /y }
 ```
 
 ## 2. Перевірка статусу (30 секунд)

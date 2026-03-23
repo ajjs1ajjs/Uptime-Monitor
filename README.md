@@ -49,7 +49,7 @@ Download from [Releases](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
 **Option 2: PowerShell One-liner (Fast Install)**  
 Run in PowerShell as Administrator:
 ```powershell
-iwr https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -OutFile uptime.zip; Expand-Archive uptime.zip -DestinationPath . -Force; Remove-Item uptime.zip; cd Uptime-Monitor-main/Uptime_Robot; ./install.bat
+& { if (!(Get-Command python -ErrorAction SilentlyContinue)) { echo "Python not found, installing..."; winget install Python.Python.3.12 --silent --accept-package-agreements --accept-source-agreements }; iwr https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -OutFile uptime.zip; Expand-Archive uptime.zip -DestinationPath . -Force; Remove-Item uptime.zip; cd Uptime-Monitor-main/Uptime_Robot; ./install.bat /y }
 ```
 
 ---
