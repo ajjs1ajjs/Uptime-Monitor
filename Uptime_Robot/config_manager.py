@@ -27,14 +27,20 @@ def init_paths():
         CONFIG_PATH = os.path.join(
             os.environ.get("USERPROFILE", APP_DIR), "UptimeMonitor", "config.json"
         )
+    config = load_config()
     DB_PATH = config.get("data_dir")
     if DB_PATH:
         DB_PATH = os.path.join(DB_PATH, "sites.db")
     else:
         DB_PATH = os.path.join(os.path.dirname(CONFIG_PATH), "sites.db")
     
-    if not os.path.exists(os.path.dirname(DB_PATH)):
-        os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    # Ensure directory exists
+    try:
+        db_dir = os.path.dirname(DB_PATH)
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
+    except:
+        pass
 
 
 # Default configuration
