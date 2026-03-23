@@ -43,7 +43,14 @@ http://YOUR_SERVER_IP:8080
 
 ### Windows
 
-Download MSI installer from [Releases](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
+**Option 1: MSI Installer**  
+Download from [Releases](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
+
+**Option 2: PowerShell One-liner (Fast Install)**  
+Run in PowerShell as Administrator:
+```powershell
+iwr https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -OutFile uptime.zip; Expand-Archive uptime.zip -DestinationPath .; Remove-Item uptime.zip; cd Uptime-Monitor-main/Uptime_Robot; ./install.bat
+```
 
 ---
 
