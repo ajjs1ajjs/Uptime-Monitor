@@ -94,7 +94,6 @@ async def initialize_app_async():
         await models.init_database(DB_PATH)
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
-        # Continue anyway, some parts might work or fail gracefully later
     
     import json
     # Load settings from DB
@@ -107,8 +106,6 @@ async def initialize_app_async():
                         app_state.NOTIFY_SETTINGS.update(json.loads(row["config"]))
                     except:
                         pass
-
-            # App settings
             async with conn.execute("SELECT display_address FROM app_settings WHERE id = 1") as c:
                 row = await c.fetchone()
                 if row:
@@ -116,11 +113,25 @@ async def initialize_app_async():
     except Exception as e:
         logger.error(f"Settings load failed: {e}")
 
-    # Init Auth tables
     try:
         await auth_module.init_auth_tables(DB_PATH)
     except Exception as e:
         logger.error(f"Auth tables initialization failed: {e}")
+
+def initialize_app():
+    """Синхронна обгортка для ініціалізації (використовується в Windows-сервісі)"""
+    config_manager.init_paths()
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
+    if loop.is_running():
+        # This shouldn't happen in service initialization, but just in case
+        asyncio.ensure_future(initialize_app_async())
+    else:
+        loop.run_until_complete(initialize_app_async())
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
