@@ -130,28 +130,6 @@ async def get_sites(user: dict = Depends(require_viewer_or_higher)):
             )
     return result
 
-@router.get("/sites/{site_id}/history")
-async def get_site_history(
-    site_id: int, limit: int = 50, user: dict = Depends(require_viewer_or_higher)
-):
-    if not user:
-        raise HTTPException(status_code=401)
-    async with get_db_connection() as conn:
-        async with conn.execute(
-            "SELECT status, status_code, checked_at FROM status_history WHERE site_id = ? ORDER BY checked_at DESC LIMIT ?",
-            (site_id, limit),
-        ) as c:
-            history_raw = await c.fetchall()
-            history = [dict(h) for h in history_raw]
-    return [
-        {
-            "status": h["status"],
-            "status_code": h["status_code"],
-            "checked_at": h["checked_at"],
-        }
-        for h in history
-    ]
-
 @router.get("/sites/history-all")
 async def get_all_sites_history(user: dict = Depends(require_viewer_or_higher)):
     if not user:
@@ -175,6 +153,28 @@ async def get_all_sites_history(user: dict = Depends(require_viewer_or_higher)):
                 "checked_at": r["checked_at"]
             })
     return history
+
+@router.get("/sites/{site_id}/history")
+async def get_site_history(
+    site_id: int, limit: int = 50, user: dict = Depends(require_viewer_or_higher)
+):
+    if not user:
+        raise HTTPException(status_code=401)
+    async with get_db_connection() as conn:
+        async with conn.execute(
+            "SELECT status, status_code, checked_at FROM status_history WHERE site_id = ? ORDER BY checked_at DESC LIMIT ?",
+            (site_id, limit),
+        ) as c:
+            history_raw = await c.fetchall()
+            history = [dict(h) for h in history_raw]
+    return [
+        {
+            "status": h["status"],
+            "status_code": h["status_code"],
+            "checked_at": h["checked_at"],
+        }
+        for h in history
+    ]
 
 @router.get("/server-time")
 async def get_server_time():
