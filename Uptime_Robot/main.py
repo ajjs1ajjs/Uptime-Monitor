@@ -99,43 +99,52 @@ async def add_cache_control(request: Request, call_next):
 async def https_redirect_middleware(request: Request, call_next):
     return await config_manager.https_redirect_middleware(request, call_next, CONFIG)
 
+from contextlib import asynccontextmanager
+
 # --- Initialization ---
 async def initialize_app_async():
     # Init DB and run migrations
-    await models.init_database(DB_PATH)
-
+    try:
+        await models.init_database(DB_PATH)
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
+        # Continue anyway, some parts might work or fail gracefully later
+    
     import json
     # Load settings from DB
-    async with get_db_connection() as conn:
-        async with conn.execute("SELECT config FROM notify_config WHERE id = 1") as c:
-            row = await c.fetchone()
-            if row:
-                try:
-                    app_state.NOTIFY_SETTINGS.update(json.loads(row["config"]))
-                except:
-                    pass
+    try:
+        async with get_db_connection() as conn:
+            async with conn.execute("SELECT config FROM notify_config WHERE id = 1") as c:
+                row = await c.fetchone()
+                if row:
+                    try:
+                        app_state.NOTIFY_SETTINGS.update(json.loads(row["config"]))
+                    except:
+                        pass
 
-        # App settings
-        async with conn.execute("SELECT display_address FROM app_settings WHERE id = 1") as c:
-            row = await c.fetchone()
-            if row:
-                app_state.DISPLAY_ADDRESS = row["display_address"] or ""
+            # App settings
+            async with conn.execute("SELECT display_address FROM app_settings WHERE id = 1") as c:
+                row = await c.fetchone()
+                if row:
+                    app_state.DISPLAY_ADDRESS = row["display_address"] or ""
+    except Exception as e:
+        logger.error(f"Settings load failed: {e}")
 
     # Init Auth tables
-    await auth_module.init_auth_tables(DB_PATH)
-
-def initialize_app():
     try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
+        await auth_module.init_auth_tables(DB_PATH)
+    except Exception as e:
+        logger.error(f"Auth tables initialization failed: {e}")
 
-    if loop and loop.is_running():
-        loop.create_task(initialize_app_async())
-    else:
-        asyncio.run(initialize_app_async())
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await initialize_app_async()
+    yield
+    # Shutdown (if needed)
 
-initialize_app()
+# FastAPI app
+app = FastAPI(title="Uptime Monitor", lifespan=lifespan)
 
 @app.get("/health")
 async def health_check():

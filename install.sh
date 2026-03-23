@@ -175,7 +175,7 @@ else
 fi
 
 # Copy Python files
-for f in main.py worker.py state.py auth_module.py database.py logger.py models.py notifications.py monitoring.py ssl_checker.py config_manager.py ui_templates.py; do
+for f in main.py worker.py state.py dependencies.py auth_module.py database.py logger.py models.py notifications.py monitoring.py ssl_checker.py config_manager.py ui_templates.py; do
     if [ -f "$SRC_DIR/$f" ]; then
         cp "$SRC_DIR/$f" "$INSTALL_DIR/"
     fi
