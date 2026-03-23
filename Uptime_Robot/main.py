@@ -63,7 +63,7 @@ def get_default_host():
     except Exception:
         return "0.0.0.0"
 
-SERVER_HOST = get_default_host() if DEFAULT_HOST == "auto" else DEFAULT_HOST
+SERVER_HOST = "0.0.0.0" if DEFAULT_HOST == "auto" else DEFAULT_HOST
 
 # FastAPI app
 app = FastAPI(title="Uptime Monitor")
