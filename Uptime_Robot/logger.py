@@ -4,8 +4,11 @@ from logging.handlers import RotatingFileHandler
 import os
 
 
-def setup_logger(name: str = "uptime_monitor", log_file: str = "uptime_monitor.log") -> logging.Logger:
+def setup_logger(name: str = "uptime_monitor", log_file: str = None) -> logging.Logger:
     """Налаштовує логер з ротацією файлів"""
+    
+    if log_file is None:
+        log_file = os.environ.get("UPTIME_MONITOR_LOG", "uptime_monitor.log")
     
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)

@@ -299,6 +299,7 @@ Group=$APP_USER
 WorkingDirectory=$INSTALL_DIR
 Environment="PATH=$INSTALL_DIR/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="CONFIG_PATH=$CONFIG_DIR/config.json"
+Environment="UPTIME_MONITOR_LOG=$LOG_DIR/uptime-monitor.log"
 Environment="APP_VERSION=$APP_VERSION"
 ExecStart=$INSTALL_DIR/venv/bin/python $INSTALL_DIR/main.py
 Restart=always
@@ -322,16 +323,17 @@ PartOf=$SERVICE_NAME.service
 
 [Service]
 Type=simple
-User=$USER
-Group=$USER
+User=$APP_USER
+Group=$APP_USER
 WorkingDirectory=$INSTALL_DIR
 Environment="PATH=$INSTALL_DIR/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="CONFIG_PATH=$CONFIG_DIR/config.json"
+Environment="UPTIME_MONITOR_LOG=$LOG_DIR/uptime-monitor-worker.log"
 ExecStart=$INSTALL_DIR/venv/bin/python $INSTALL_DIR/worker.py
 Restart=always
 RestartSec=10
-StandardOutput=append:$LOG_DIR/worker.log
-StandardError=append:$LOG_DIR/worker.error.log
+StandardOutput=journal
+StandardError=journal
 
 NoNewPrivileges=true
 PrivateTmp=true
@@ -342,7 +344,7 @@ EOF
 
 # Set permissions
 echo -e "${BLUE}Setting permissions...${NC}"
-chown -R "$USER:$USER" "$INSTALL_DIR" "$CONFIG_DIR" "$DATA_DIR" "$LOG_DIR"
+chown -R "$APP_USER:$APP_USER" "$INSTALL_DIR" "$CONFIG_DIR" "$DATA_DIR" "$LOG_DIR"
 chmod 600 "$CONFIG_DIR/config.json"
 
 # Setup firewall
