@@ -13,11 +13,31 @@ if not %errorlevel%==0 (
     exit /b 1
 )
 
-python --version >nul 2>&1
+set PYTHON_CMD=python
+!PYTHON_CMD! --version >nul 2>&1
 if not %errorlevel%==0 (
-    echo ERROR: Python is not installed or not in PATH.
-    pause
-    exit /b 1
+    set PYTHON_CMD=py -3
+    !PYTHON_CMD! --version >nul 2>&1
+    if not !errorlevel!==0 (
+        set PYTHON_CMD=py
+        !PYTHON_CMD! --version >nul 2>&1
+        if not !errorlevel!==0 (
+            echo ERROR: Python not found. 
+            set /p USER_PYTHON="Please enter the full path to python.exe (e.g. C:\Python39\python.exe): "
+            if "!USER_PYTHON!"=="" (
+                echo ERROR: No Python path provided.
+                pause
+                exit /b 1
+            )
+            set PYTHON_CMD="!USER_PYTHON!"
+            !PYTHON_CMD! --version >nul 2>&1
+            if not !errorlevel!==0 (
+                echo ERROR: The provided path is not a valid Python executable.
+                pause
+                exit /b 1
+            )
+        )
+    )
 )
 
 set /p PORT="Enter port (default 8080): "
@@ -30,7 +50,7 @@ echo.
 cd /d "%~dp0"
 
 echo Installing Python dependencies...
-python -m pip install -r requirements.txt
+!PYTHON_CMD! -m pip install -r requirements.txt
 if not %errorlevel%==0 (
     echo ERROR: Failed to install dependencies.
     pause
@@ -38,7 +58,7 @@ if not %errorlevel%==0 (
 )
 
 echo Installing pywin32 to system site-packages...
-python -m pip install --upgrade --force-reinstall --no-user pywin32
+!PYTHON_CMD! -m pip install --upgrade --force-reinstall --no-user pywin32
 if not %errorlevel%==0 (
     echo ERROR: Failed to install pywin32 in system site-packages.
     pause
@@ -46,7 +66,7 @@ if not %errorlevel%==0 (
 )
 
 echo Verifying pywin32 service modules...
-python -c "import servicemanager, win32serviceutil; print(servicemanager.__file__)"
+!PYTHON_CMD! -c "import servicemanager, win32serviceutil; print(servicemanager.__file__)"
 if not %errorlevel%==0 (
     echo ERROR: pywin32 modules are not available for service runtime.
     pause
@@ -54,7 +74,7 @@ if not %errorlevel%==0 (
 )
 
 echo Preparing pywin32 runtime files...
-python -c "import os,sys,shutil,glob,site; ver=f'{sys.version_info.major}{sys.version_info.minor}'; candidates=[]; [candidates.extend(glob.glob(os.path.join(p,'pywin32_system32'))) for p in site.getsitepackages()+[site.getusersitepackages()]]; src=next((d for d in candidates if os.path.isdir(d)), None); assert src, 'pywin32_system32 not found'; dst=sys.base_prefix; files=[f'pythoncom{ver}.dll', f'pywintypes{ver}.dll']; [print('exists:', os.path.join(dst,f)) if os.path.exists(os.path.join(dst,f)) else (shutil.copy2(os.path.join(src,f), os.path.join(dst,f)), print('copied:', os.path.join(dst,f))) for f in files if os.path.exists(os.path.join(src,f))]; print('pywin32 runtime check complete:', dst)"
+!PYTHON_CMD! -c "import os,sys,shutil,glob,site; ver=f'{sys.version_info.major}{sys.version_info.minor}'; candidates=[]; [candidates.extend(glob.glob(os.path.join(p,'pywin32_system32'))) for p in site.getsitepackages()+[site.getusersitepackages()]]; src=next((d for d in candidates if os.path.isdir(d)), None); assert src, 'pywin32_system32 not found'; dst=sys.base_prefix; files=[f'pythoncom{ver}.dll', f'pywintypes{ver}.dll']; [print('exists:', os.path.join(dst,f)) if os.path.exists(os.path.join(dst,f)) else (shutil.copy2(os.path.join(src,f), os.path.join(dst,f)), print('copied:', os.path.join(dst,f))) for f in files if os.path.exists(os.path.join(src,f))]; print('pywin32 runtime check complete:', dst)"
 if not %errorlevel%==0 (
     echo ERROR: Failed to prepare pywin32 runtime files.
     pause
@@ -62,7 +82,7 @@ if not %errorlevel%==0 (
 )
 
 echo Saving port to config...
-python -c "import config_manager as c; c.init_paths(); cfg=c.load_config(); cfg.setdefault('server', {})['port']=%PORT%; c.save_config(cfg)"
+!PYTHON_CMD! -c "import config_manager as c; c.init_paths(); cfg=c.load_config(); cfg.setdefault('server', {})['port']=%PORT%; c.save_config(cfg)"
 if not %errorlevel%==0 (
     echo ERROR: Failed to update config.
     pause
@@ -70,7 +90,7 @@ if not %errorlevel%==0 (
 )
 
 echo Installing Windows service...
-python main_service.py install
+!PYTHON_CMD! main_service.py install
 if not %errorlevel%==0 (
     echo ERROR: Service installation failed.
     pause
