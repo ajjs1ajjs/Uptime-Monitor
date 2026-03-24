@@ -33,7 +33,7 @@ def init_paths():
         DB_PATH = os.path.join(DB_PATH, "sites.db")
     else:
         DB_PATH = os.path.join(os.path.dirname(CONFIG_PATH), "sites.db")
-    
+
     # Ensure directory exists
     try:
         db_dir = os.path.dirname(DB_PATH)
@@ -74,9 +74,9 @@ DEFAULT_CONFIG = {
         "request_timeout_seconds": 60,
         "down_failures_threshold": 1,
         "up_success_threshold": 1,
-        "still_down_repeat_seconds": 600,
+        "still_down_repeat_seconds": 300,
         "treat_4xx_as_down": True,
-        "ssl_notification_days": 7,
+        "ssl_notification_days": 14,
         "ssl_notification_cooldown_seconds": 21600,
         "ssl_check_interval_hours": 6,
     },
@@ -85,9 +85,7 @@ DEFAULT_CONFIG = {
         "max_backups": 10,
         "backup_dir": "/etc/uptime-monitor/config.backups"
         if not IS_WINDOWS
-        else os.path.join(
-            os.environ.get("USERPROFILE", ""), "UptimeMonitor", "config.backups"
-        ),
+        else os.path.join(os.environ.get("USERPROFILE", ""), "UptimeMonitor", "config.backups"),
     },
 }
 
@@ -306,8 +304,6 @@ async def https_redirect_middleware(request, call_next, config):
 
     if ssl_config.get("enabled") and ssl_config.get("hsts"):
         max_age = ssl_config.get("hsts_max_age", 31536000)
-        response.headers["Strict-Transport-Security"] = (
-            f"max-age={max_age}; includeSubDomains"
-        )
+        response.headers["Strict-Transport-Security"] = f"max-age={max_age}; includeSubDomains"
 
     return response

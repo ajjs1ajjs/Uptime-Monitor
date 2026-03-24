@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 import aiohttp
+
 try:
     from .config_manager import load_config
     from .database import get_db_connection
@@ -20,14 +21,15 @@ except ImportError:
 # Чутливий профіль (конфігуровані значення з fallback)
 SENSITIVE_DEFAULTS = {
     "request_timeout_seconds": 60,
-    "down_failures_threshold": 3,
-    "up_success_threshold": 2,
-    "still_down_repeat_seconds": 600,
+    "down_failures_threshold": 1,
+    "up_success_threshold": 1,
+    "still_down_repeat_seconds": 300,
     "treat_4xx_as_down": True,
-    "ssl_notification_days": 7,
+    "ssl_notification_days": 14,
     "ssl_notification_cooldown_seconds": 21600,
     "ssl_check_interval_hours": 6,
 }
+
 
 def get_alert_policy() -> Dict[str, Any]:
     """Повертає політику алертів із конфіга (чутливий профіль за замовчуванням)."""
@@ -83,6 +85,7 @@ def get_alert_policy() -> Dict[str, Any]:
 
     result["treat_4xx_as_down"] = bool(result.get("treat_4xx_as_down", True))
     return result
+
 
 def normalize_ssl_url(url: str) -> Optional[str]:
     """Нормалізує URL для перевірки SSL (додає https:// якщо потрібно)"""
@@ -140,17 +143,23 @@ async def check_site_status(
 
     async with get_db_connection() as conn:
         async with conn.execute(
-            "SELECT name, status, failed_attempts, success_attempts, last_down_alert FROM sites WHERE id = ?", 
-            (site_id,)
+            "SELECT name, status, failed_attempts, success_attempts, last_down_alert FROM sites WHERE id = ?",
+            (site_id,),
         ) as c:
             row = await c.fetchone()
-            
+
         site_name = row["name"] if row else url
         prev_status = row["status"] if row else None
-        failed_attempts = row["failed_attempts"] if row and row["failed_attempts"] is not None else 0
-        success_attempts = row["success_attempts"] if row and row["success_attempts"] is not None else 0
+        failed_attempts = (
+            row["failed_attempts"] if row and row["failed_attempts"] is not None else 0
+        )
+        success_attempts = (
+            row["success_attempts"] if row and row["success_attempts"] is not None else 0
+        )
         last_down_alert_str = row["last_down_alert"] if row else None
-        last_down_alert = datetime.fromisoformat(last_down_alert_str) if last_down_alert_str else None
+        last_down_alert = (
+            datetime.fromisoformat(last_down_alert_str) if last_down_alert_str else None
+        )
 
         # Only save to history when status CHANGES
         if prev_status != status:
@@ -184,7 +193,8 @@ async def check_site_status(
             else:
                 if (
                     last_down_alert is None
-                    or (checked_at - last_down_alert).total_seconds() >= policy["still_down_repeat_seconds"]
+                    or (checked_at - last_down_alert).total_seconds()
+                    >= policy["still_down_repeat_seconds"]
                 ):
                     should_alert = True
                     alert_type = "REPEAT"
@@ -239,7 +249,7 @@ async def check_site_status(
         last_down_str = last_down_alert.isoformat() if last_down_alert else None
 
         await conn.execute(
-            """UPDATE sites SET 
+            """UPDATE sites SET
                status = ?, status_code = ?, response_time = ?,
                failed_attempts = ?, success_attempts = ?, last_down_alert = ?
                WHERE id = ?""",
@@ -301,7 +311,7 @@ async def check_site_certificate(
                 site_id,
             ),
         )
-        
+
         if cursor.rowcount == 0:
             await conn.execute(
                 """INSERT INTO ssl_certificates
@@ -325,17 +335,23 @@ async def check_site_certificate(
         policy = get_alert_policy()
         days = cert_info["days_until_expire"]
         if days <= policy["ssl_notification_days"] and notify_methods:
-            async with conn.execute("SELECT last_notified FROM ssl_certificates WHERE site_id = ?", (site_id,)) as c:
+            async with conn.execute(
+                "SELECT last_notified FROM ssl_certificates WHERE site_id = ?", (site_id,)
+            ) as c:
                 row = await c.fetchone()
 
             should_notify = True
             if row and row["last_notified"]:
                 last_notif = datetime.fromisoformat(row["last_notified"])
-                if (datetime.now() - last_notif).total_seconds() < policy["ssl_notification_cooldown_seconds"]:
+                if (datetime.now() - last_notif).total_seconds() < policy[
+                    "ssl_notification_cooldown_seconds"
+                ]:
                     should_notify = False
 
             if should_notify:
-                expire_date = datetime.fromisoformat(cert_info["expire_date"]).strftime("%Y-%m-%d %H:%M")
+                expire_date = datetime.fromisoformat(cert_info["expire_date"]).strftime(
+                    "%Y-%m-%d %H:%M"
+                )
 
                 if days <= 0 or days <= 3:
                     urgency = "КРИТИЧНО"
@@ -398,12 +414,21 @@ async def monitor_loop(notify_settings: Dict[str, Any], default_check_interval: 
                     sites = [dict(s) for s in sites_raw]
 
             for site in sites:
-                notify_methods = json.loads(site["notify_methods"]) if site["notify_methods"] else []
-                site_interval = site["check_interval"] if site["check_interval"] else default_check_interval
+                notify_methods = (
+                    json.loads(site["notify_methods"]) if site["notify_methods"] else []
+                )
+                site_interval = (
+                    site["check_interval"] if site["check_interval"] else default_check_interval
+                )
 
                 last_check = last_check_time.get(site["id"])
-                if last_check is None or (current_time - last_check).total_seconds() >= site_interval:
-                    await check_site_status(site["id"], site["url"], notify_methods, notify_settings)
+                if (
+                    last_check is None
+                    or (current_time - last_check).total_seconds() >= site_interval
+                ):
+                    await check_site_status(
+                        site["id"], site["url"], notify_methods, notify_settings
+                    )
                     last_check_time[site["id"]] = current_time
 
             # Перевірка SSL сертифікатів
