@@ -1,21 +1,24 @@
 # 🚀 Швидке оновлення на Production
 
-## ⚡ Спосіб 1: Оновлення лише файлів конфігурації (НАЙШВИДШИЙ)
+## ⚡ Спосіб 1: Оновлення лише файлів моніторингу (НАЙШВИДШИЙ)
 
 Якщо потрібно оновити лише налаштування моніторингу без повного оновлення системи:
 
 ```bash
-# 1. Завантажте оновлені файли
-cd /opt/Uptime-Monitor
-sudo git pull origin main
+cd /opt/uptime-monitor
 
-# 2. Перевірте зміни (опціонально)
-git diff HEAD~1 Uptime_Robot/config_manager.py Uptime_Robot/monitoring.py
+# Завантажте оновлені файли
+sudo wget -O config_manager.py https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/Uptime_Robot/config_manager.py
+sudo wget -O monitoring.py https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/Uptime_Robot/monitoring.py
 
-# 3. Перезапустіть сервіс
+# Перезапустіть сервіс
 sudo systemctl restart uptime-monitor
 
-# 4. Переконайтеся що сервіс працює
+# Перевірте нові значення
+grep "still_down_repeat_seconds" config_manager.py
+grep "ssl_notification_days" config_manager.py
+
+# Переконайтеся що сервіс працює
 sudo systemctl status uptime-monitor
 ```
 
