@@ -61,15 +61,15 @@ def get_alert_policy() -> Dict[str, Any]:
 
     try:
         result["still_down_repeat_seconds"] = max(
-            60, int(result.get("still_down_repeat_seconds", 600))
+            60, int(result.get("still_down_repeat_seconds", 300))
         )
     except Exception:
-        result["still_down_repeat_seconds"] = 600
+        result["still_down_repeat_seconds"] = 300
 
     try:
-        result["ssl_notification_days"] = max(1, int(result.get("ssl_notification_days", 21)))
+        result["ssl_notification_days"] = max(1, int(result.get("ssl_notification_days", 14)))
     except Exception:
-        result["ssl_notification_days"] = 21
+        result["ssl_notification_days"] = 14
 
     try:
         result["ssl_notification_cooldown_seconds"] = max(
