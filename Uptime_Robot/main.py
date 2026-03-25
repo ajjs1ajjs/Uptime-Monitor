@@ -10,19 +10,19 @@ from fastapi.middleware.cors import CORSMiddleware
 
 try:
     from . import auth_module, config_manager, models, monitoring
+    from . import state as app_state
     from .database import get_db_connection
     from .logger import logger
-    from .routers import auth, ui, api
-    from . import state as app_state
+    from .routers import api, auth, ui
 except ImportError:
     import auth_module
     import config_manager
     import models
     import monitoring
+    import state as app_state
     from database import get_db_connection
     from logger import logger
-    from routers import auth, ui, api
-    import state as app_state
+    from routers import api, auth, ui
 
 IS_WINDOWS = sys.platform == "win32"
 if IS_WINDOWS:
@@ -45,9 +45,11 @@ APP_VERSION = datetime.now().strftime("%Y%m%d%H%M%S")
 DEFAULT_HOST = CONFIG.get("server", {}).get("host", "auto")
 DEFAULT_PORT = CONFIG.get("server", {}).get("port", 8080)
 
+
 def get_default_host():
     """Повертає 0.0.0.0 для біндінгу на всі інтерфейси"""
     return "0.0.0.0"
+
 
 SERVER_HOST = "0.0.0.0" if DEFAULT_HOST == "auto" else DEFAULT_HOST
 
@@ -61,6 +63,7 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Content-Type", "Authorization"],
 )
+
 
 # Add cache-control middleware to prevent HTML caching
 @app.middleware("http")
@@ -80,12 +83,15 @@ async def add_cache_control(request: Request, call_next):
         response.headers["Expires"] = "0"
     return response
 
+
 # Middleware for HTTPS redirect and HSTS
 @app.middleware("http")
 async def https_redirect_middleware(request: Request, call_next):
     return await config_manager.https_redirect_middleware(request, call_next, CONFIG)
 
+
 from contextlib import asynccontextmanager
+
 
 # --- Initialization ---
 async def initialize_app_async():
@@ -94,8 +100,9 @@ async def initialize_app_async():
         await models.init_database(DB_PATH)
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
-    
+
     import json
+
     # Load settings from DB
     try:
         async with get_db_connection() as conn:
@@ -118,6 +125,7 @@ async def initialize_app_async():
     except Exception as e:
         logger.error(f"Auth tables initialization failed: {e}")
 
+
 def initialize_app():
     """Синхронна обгортка для ініціалізації (використовується в Windows-сервісі)"""
     config_manager.init_paths()
@@ -126,12 +134,13 @@ def initialize_app():
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-    
+
     if loop.is_running():
         # This shouldn't happen in service initialization, but just in case
         asyncio.ensure_future(initialize_app_async())
     else:
         loop.run_until_complete(initialize_app_async())
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -140,20 +149,33 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown (if needed)
 
+
 # FastAPI app
 app = FastAPI(title="Uptime Monitor", lifespan=lifespan)
+
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint for Docker and monitoring"""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
+
 # --- Include Routers ---
 app.include_router(auth.router)
 app.include_router(ui.router)
 app.include_router(api.router)
 
+
 # --- Background Task & Service ---
+async def run_monitor_in_background():
+    """Запускає моніторинг у фоновому режимі разом із веб-сервером"""
+    try:
+        logger.info("Starting background monitoring loop...")
+        await monitoring.monitor_loop(app_state.NOTIFY_SETTINGS, CHECK_INTERVAL)
+    except Exception as e:
+        logger.error(f"Background monitoring error: {e}")
+
+
 def main():
     """Entry point for package and script запуску."""
     import argparse
@@ -161,6 +183,11 @@ def main():
     parser = argparse.ArgumentParser(description="Uptime Monitor")
     parser.add_argument("--host", type=str, default=DEFAULT_HOST, help="Host to bind to")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="Port to bind to")
+    parser.add_argument(
+        "--no-monitor",
+        action="store_true",
+        help="Disable background monitoring (use separate worker service)",
+    )
     parser.add_argument(
         "command",
         nargs="?",
@@ -180,8 +207,20 @@ def main():
     port = args.port
     print(f"Uptime Monitor starting on {host}:{port}...")
 
-    # Background monitoring is now handled independently in worker.py
-    print(f"To start background monitoring, run: python -m Uptime_Robot.worker")
+    # Start background monitoring unless disabled
+    if not args.no_monitor:
+        logger.info("Background monitoring enabled")
+        import threading
+
+        def run_monitor():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(run_monitor_in_background())
+
+        monitor_thread = threading.Thread(target=run_monitor, daemon=True)
+        monitor_thread.start()
+    else:
+        print("Background monitoring disabled (use worker.py separately)")
 
     ssl_context = config_manager.setup_ssl(CONFIG)
     uvicorn.run(
@@ -192,6 +231,7 @@ def main():
         ssl_certfile=CONFIG["ssl"].get("cert_path") if ssl_context else None,
         log_level="info",
     )
+
 
 if __name__ == "__main__":
     main()

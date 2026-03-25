@@ -1,49 +1,76 @@
 import asyncio
+import json
 import os
 import sys
 
-# Ensure import paths work both when run as a module or as a script
-try:
-    from . import config_manager, models, monitoring
-    from .database import get_db_connection
-    from .logger import logger
-    from .state import CONFIG, DB_PATH, NOTIFY_SETTINGS, CHECK_INTERVAL
-except ImportError:
-    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-    from Uptime_Robot import config_manager, models, monitoring
-    from Uptime_Robot.database import get_db_connection
-    from Uptime_Robot.logger import logger
-    from Uptime_Robot.state import CONFIG, DB_PATH, NOTIFY_SETTINGS, CHECK_INTERVAL
+# Get paths
+CONFIG_PATH = os.environ.get("CONFIG_PATH", "/etc/uptime-monitor/config.json")
+
+# Load config to get DB path
+with open(CONFIG_PATH, "r") as f:
+    config = json.load(f)
+
+DB_PATH = config.get("data_dir", "/var/lib/uptime-monitor")
+DB_PATH = os.path.join(DB_PATH, "sites.db")
+
+# Add installation directory to path
+INSTALL_DIR = "/opt/uptime-monitor"
+sys.path.insert(0, INSTALL_DIR)
+
+# Now import local modules
+# Import models for database init
+import models
+
+# Import monitoring
+import monitoring
+from config_manager import load_config
+from database import get_db_connection
+
+# Import monitoring
+import monitoring
+
 
 async def initialize_worker():
-    """Ініціалізує базу даних і зчитує налаштування для воркера."""
+    """Initialize database and load notification settings"""
+    # Initialize database tables
     await models.init_database(DB_PATH)
-    import json
+    logger.info("Database initialized")
+
+    # Load notification settings from DB
     async with get_db_connection() as conn:
         async with conn.execute("SELECT config FROM notify_config WHERE id = 1") as c:
             row = await c.fetchone()
             if row:
                 try:
-                    NOTIFY_SETTINGS.update(json.loads(row["config"]))
-                except:
-                    pass
+                    loaded = json.loads(row["config"])
+                    NOTIFY_SETTINGS.update(loaded)
+                    logger.info(f"Loaded notification settings from DB")
+                except Exception as e:
+                    logger.error(f"Failed to parse notification settings: {e}")
+
 
 def run_worker():
-    """Точка входу для 독립ного воркера (моніторинг-сервісу)."""
-    config_manager.init_paths()
-    print("Starting standalone background worker for Uptime Monitor...")
-    
-    # Initialize DB and settings
+    """Entry point for background worker"""
+    print("Starting Uptime Monitor Background Worker...")
+    print(f"Database: {DB_PATH}")
+    print(f"Config: {CONFIG_PATH}")
+
+    # Initialize
     asyncio.run(initialize_worker())
-    
-    # Run the monitor loop
+
+    print(f"Starting monitoring loop (interval: {CHECK_INTERVAL}s)...")
+    logger.info("Worker monitoring loop starting...")
+
+    # Run monitoring
     try:
         asyncio.run(monitoring.monitor_loop(NOTIFY_SETTINGS, CHECK_INTERVAL))
     except KeyboardInterrupt:
-        print("Worker stopped manually.")
+        print("Worker stopped by user")
         sys.exit(0)
     except Exception as e:
         logger.error(f"Worker crashed: {e}")
+        sys.exit(1)
+
         sys.exit(1)
 
 if __name__ == "__main__":

@@ -392,11 +392,26 @@ async def check_all_certificates(notify_settings: Dict[str, Any]):
         await asyncio.sleep(1)
 
 
+async def load_notify_settings_from_db() -> Dict[str, Any]:
+    """Завантажує налаштування сповіщень з БД"""
+    try:
+        async with get_db_connection() as conn:
+            async with conn.execute("SELECT config FROM notify_config WHERE id = 1") as c:
+                row = await c.fetchone()
+                if row:
+                    return json.loads(row["config"])
+    except Exception as e:
+        logger.error(f"Failed to load notify settings from DB: {e}")
+    return {}
+
+
 async def monitor_loop(notify_settings: Dict[str, Any], default_check_interval: int = 60):
     """Основний цикл моніторингу з підтримкою індивідуальних інтервалів і Stateless Storage в БД"""
     policy = get_alert_policy()
     ssl_check_interval = policy["ssl_check_interval_hours"] * 3600  # конвертація в секунди
     last_cert_check = datetime.now() - timedelta(hours=25)
+    last_notify_settings_reload = datetime.now()
+    notify_settings_reload_interval = 30  # Перезавантажувати налаштування кожні 30 секунд
 
     # Track last check time for each site locally in memory (just for pacing)
     # The actual failure/success state is now entirely in the DB.
@@ -405,6 +420,18 @@ async def monitor_loop(notify_settings: Dict[str, Any], default_check_interval: 
     while True:
         try:
             current_time = datetime.now()
+
+            # Periodically reload notification settings from DB
+            if (
+                current_time - last_notify_settings_reload
+            ).total_seconds() >= notify_settings_reload_interval:
+                db_settings = await load_notify_settings_from_db()
+                if db_settings:
+                    # Merge DB settings into the passed notify_settings dict
+                    for key, value in db_settings.items():
+                        notify_settings[key] = value
+                    last_notify_settings_reload = current_time
+                    logger.debug("Reloaded notification settings from DB")
 
             async with get_db_connection() as conn:
                 async with conn.execute(
