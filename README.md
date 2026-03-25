@@ -133,46 +133,6 @@ sudo journalctl -u uptime-monitor-worker -f
 sudo /opt/uptime-monitor/check-notifications.sh
 ```
 
----
-
-## 🔌 API Examples
-
-### Python
-
-```python
-import requests
-
-# Login
-session = requests.Session()
-session.post('http://localhost:8080/login',
-             data={'username': 'admin', 'password': 'admin'})
-
-# Get sites
-resp = session.get('http://localhost:8080/api/sites')
-sites = resp.json()
-
-# Add site
-session.post('http://localhost:8080/api/sites', json={
-    'name': 'My Site',
-    'url': 'https://mysite.com',
-    'check_interval': 60
-})
-```
-
-### cURL
-
-```bash
-# Login
-curl -X POST http://localhost:8080/login \
-  -d "username=admin&password=admin" -c cookies.txt
-
-# Get sites
-curl -X GET http://localhost:8080/api/sites -b cookies.txt
-```
-
-More examples: [examples/api_examples.py](examples/api_examples.py)
-
----
 
 ## 🔔 Notifications
 
@@ -196,18 +156,6 @@ Configure alerts for:
 
 ---
 
-## 📈 Comparison
-
-| Feature | Uptime Monitor | Uptime.com | Pingdom |
-|---------|---------------|------------|---------|
-| **Self-hosted** | ✅ Yes | ❌ No | ❌ No |
-| **Free** | ✅ Open-source | ❌ Paid | ❌ Paid |
-| **Backups** | ✅ Built-in | ⚠️ Limited | ⚠️ Limited |
-| **SSL Monitoring** | ✅ Yes | ✅ Yes | ✅ Yes |
-| **Multi-channel** | ✅ 6+ channels | ✅ Yes | ✅ Yes |
-| **Customizable** | ✅ Full control | ❌ Limited | ❌ Limited |
-
----
 
 ## 🤝 Contributing
 
