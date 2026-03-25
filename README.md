@@ -233,25 +233,6 @@ MIT License — see [LICENSE](LICENSE) file.
 
 ---
 
-## 🎯 Roadmap
-
-### v2.1.0 (Q2 2026)
-- [ ] Real-time WebSocket updates
-- [ ] Dark/Light theme toggle
-- [ ] Export reports (CSV/PDF)
-
-### v2.2.0 (Q3 2026)
-- [ ] Maintenance windows
-- [ ] Multi-language support (i18n)
-- [ ] Audit logging
-
-### v3.0.0 (Q4 2026)
-- [ ] PostgreSQL support
-- [ ] Clustering/HA
-- [ ] Mobile app
-
----
-
 **⭐ Star this repo if you find it useful!**
 
 **📢 Questions? Open an issue or join the discussion!**
