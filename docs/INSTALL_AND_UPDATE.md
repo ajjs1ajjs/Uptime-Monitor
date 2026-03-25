@@ -1,284 +1,52 @@
-# Uptime Monitor — Повна інструкція
+# Installation and Update Guide
 
-## 📦 Встановлення з нуля
+**For complete installation instructions, see:**
 
-### 1. Підготовка сервера (Ubuntu/Debian)
-
-```bash
-# Оновіть систему
-sudo apt update && sudo apt upgrade -y
-
-# Встановіть залежності
-sudo apt install -y python3 python3-pip python3-venv git curl wget
-
-# Створіть користувача для сервісу
-sudo useradd -r -s /bin/false uptime-monitor
-```
-
-### 2. Завантаження додатку
-
-```bash
-# Перейдіть в /opt
-cd /opt
-
-# Завантажте з GitHub
-sudo git clone https://github.com/ajjs1ajjs/Uptime-Monitor.git
-cd Uptime-Monitor
-
-# Виправте права
-sudo chown -R uptime-monitor:uptime-monitor .
-```
-
-### 3. Налаштування середовища
-
-```bash
-# Створіть віртуальне середовище
-sudo -u uptime-monitor python3 -m venv venv
-
-# Актибуйте та встановіть залежності
-sudo -u uptime-monitor /opt/Uptime-Monitor/venv/bin/pip install -r Uptime_Robot/requirements.txt
-```
-
-### 4. Створення лог-файлу
-
-```bash
-cd /opt/Uptime-Monitor
-
-# Створіть лог-файл
-sudo touch uptime_monitor.log
-sudo chown uptime-monitor:uptime-monitor uptime_monitor.log
-sudo chmod 644 uptime_monitor.log
-```
-
-### 5. (Пропущено - більше не потрібно)
-
-### 6. Налаштування systemd сервісів
-
-Рекомендується використовувати автоматичний інсталятор `install.sh`, але якщо ви налаштовуєте вручну, створіть два сервіси: `uptime-monitor.service` та `uptime-monitor-worker.service`. Дивіться приклади в `install.sh`.
-
-### 7. Запуск
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable uptime-monitor uptime-monitor-worker
-sudo systemctl start uptime-monitor uptime-monitor-worker
-```
-
-### 8. Відкрийте веб-інтерфейс
-
-```
-http://YOUR_SERVER_IP:8080/
-```
-
-**Логін за замовчуванням:**
-- Username: `admin`
-- Password: `admin`
+- **[INSTALL.md](../INSTALL.md)** — Full installation guide (Ukrainian)
+- **[QUICKSTART_UK.md](../QUICKSTART_UK.md)** — Quick start (5 minutes)
+- **[UPDATE_PRODUCTION.md](../UPDATE_PRODUCTION.md)** — Production update guide
 
 ---
 
-## 🔄 Оновлення існуючої установки
-
-### Спосіб 1: Глобальна команда (найпростіший)
+## Quick Install (Linux)
 
 ```bash
-# З будь-якої папки
-sudo uptime-update
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 ```
 
-### Спосіб 2: Через deploy_update.sh
-
-```bash
-cd /opt/uptime-monitor
-sudo ./deploy_update.sh
-```
-
-### Спосіб 3: Вручну
-
-```bash
-cd /opt/uptime-monitor
-
-# 1. Зупинити сервіс
-sudo systemctl stop uptime-monitor
-
-# 2. Оновити код
-sudo chown -R sa:sa .git/
-git fetch origin
-git reset --hard origin/main
-
-# 3. Видалити старі файли
-rm -f ui_templates.py page.html Uptime_Robot/page.html
-
-# 4. Видалити кеш
-find . -path ./venv -prune -o -name "__pycache__" -exec rm -rf {} + 2>/dev/null
-find . -path ./venv -prune -o -name "*.pyc" -delete 2>/dev/null
-
-# 5. Виправити права
-sudo chown -R uptime-monitor:uptime-monitor main.py Uptime_Robot/main.py Uptime_Robot/ui_templates.py uptime_monitor.log ui_templates.py
-
-# 6. Запустити сервіси
-sudo systemctl daemon-reload
-sudo systemctl start uptime-monitor uptime-monitor-worker
-sudo systemctl status uptime-monitor uptime-monitor-worker
-```
-
-### Спосіб 4: Простий скрипт
-
-```bash
-cd /opt/uptime-monitor
-sudo ./update.sh
-```
+Access: `http://YOUR_SERVER_IP:8080`  
+Login: `admin` / Password: `admin`
 
 ---
 
-## 🛠️ Корисні команди
-
-### Керування сервісом
+## Update (Production)
 
 ```bash
-# Веб-панель
-sudo systemctl status|start|stop|restart uptime-monitor
-
-# Worker
-sudo systemctl status|start|stop|restart uptime-monitor-worker
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 ```
 
-### Перегляд логів
+Or see **[UPDATE_PRODUCTION.md](../UPDATE_PRODUCTION.md)** for safe update with backup.
+
+---
+
+## Basic Commands
 
 ```bash
-# Логи сервісу
+# Service management
+sudo systemctl start|stop|restart|status uptime-monitor
+sudo systemctl start|stop|restart|status uptime-monitor-worker
+
+# Backup
+sudo /opt/uptime-monitor/scripts/backup-system.sh --dest /backup/
+
+# Logs
 sudo journalctl -u uptime-monitor -f
-
-# Логи сервісу (останні 50 рядків)
-sudo journalctl -u uptime-monitor -n 50 --no-pager
-
-# Логи додатку
-tail -f /opt/uptime-monitor/uptime_monitor.log
-
-# Логи додатку (останні 100 рядків)
-tail -100 /opt/uptime-monitor/uptime_monitor.log
-```
-
-### Перевірка роботи
-
-```bash
-# Перевірити API
-curl http://localhost:8080/api/server-time
-
-# Перевірити монітори
-curl http://localhost:8080/api/sites
-
-# Перевірити процес
-ps aux | grep uptime-monitor
-
-# Перевірити порт
-sudo netstat -tlnp | grep 8080
 ```
 
 ---
 
-## 🚨 Вирішення проблем
+## Troubleshooting
 
-### Сервіс не запускається
-
-```bash
-# Перевірте статус
-sudo systemctl status uptime-monitor
-
-# Подивіться логи
-sudo journalctl -u uptime-monitor -n 50 --no-pager
-
-# Спробуйте запустити вручну
-cd /opt/uptime-monitor
-sudo -u uptime-monitor /opt/uptime-monitor/venv/bin/python /opt/uptime-monitor/main.py
-```
-
-### Помилка "Permission denied: uptime_monitor.log"
-
-```bash
-cd /opt/uptime-monitor
-sudo touch uptime_monitor.log
-sudo chown uptime-monitor:uptime-monitor uptime_monitor.log
-sudo chmod 644 uptime_monitor.log
-sudo systemctl restart uptime-monitor
-```
-
-### Помилка "ModuleNotFoundError: ui_templates"
-
-```bash
-cd /opt/uptime-monitor
-rm -f ui_templates.py
-ln -sf Uptime_Robot/ui_templates.py ui_templates.py
-sudo chown uptime-monitor:uptime-monitor ui_templates.py
-sudo systemctl restart uptime-monitor
-```
-
-### Браузер показує стару версію
-
-1. **Ctrl + Shift + R** (очистка кешу)
-2. Або **Ctrl + Shift + N** (режим інкогніто)
-3. Або повна очистка: **Ctrl + Shift + Delete**
-
----
-
-## 📌 Шпаргалка команд
-
-| Дія | Команда |
-|-----|---------|
-| **Оновити** | `sudo uptime-update` |
-| **Статус** | `sudo systemctl status uptime-monitor` |
-| **Перезапустити** | `sudo systemctl restart uptime-monitor` |
-| **Логи** | `sudo journalctl -u uptime-monitor -f` |
-| **Перевірити API** | `curl http://localhost:8080/api/server-time` |
-| **В браузері** | `Ctrl + Shift + R` |
-
----
-
-## 📁 Структура файлів
-
-```
-/opt/uptime-monitor/
-├── main.py                    # Веб-сервер (FastAPI)
-├── worker.py                  # Фоновий моніторинг
-├── state.py                   # Глобальні налаштування
-├── routers/                   # Папка з API та UI маршрутами (auth.py, ui.py, api.py)
-├── templates/                 # Папка з HTML шаблонами (Jinja2)
-├── static/                    # Статичні файли (CSS, JS)
-├── venv/                      # Віртуальне середовище
-└── install.sh                 # Скрипт інсталяції
-```
-
----
-
-## 🔐 Безпека
-
-### Змінити пароль за замовчуванням
-
-1. Увійдіть з `test` / `1234`
-2. Перейдіть в **Користувачі**
-3. Змініть пароль
-
-### Налаштувати HTTPS
-
-```bash
-# Встановіть certbot
-sudo apt install certbot python3-certbot-nginx -y
-
-# Отримайте сертифікат
-sudo certbot --nginx -d your-domain.com
-```
-
-### Змінити порт
-
-Відредагуйте `config.json`:
-```json
-{
-    "server": {
-        "port": 8080
-    }
-}
-```
-
----
-
-**Останнє оновлення:** 2026-03-17  
-**Версія:** main branch  
-**GitHub:** https://github.com/ajjs1ajjs/Uptime-Monitor
+- **[docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md)** — General issues
+- **[docs/BACKUP.md](BACKUP.md)** — Backup problems
+- **[NOTIFICATION_TROUBLESHOOTING_UK.md](../NOTIFICATION_TROUBLESHOOTING_UK.md)** — Notification issues
