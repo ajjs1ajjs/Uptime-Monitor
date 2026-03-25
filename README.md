@@ -29,8 +29,6 @@ http://YOUR_SERVER_IP:8080
 
 ### Windows
 
-**MSI Installer:** Download from [Releases](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
-
 **PowerShell One-liner:**
 ```powershell
 & { if (!(Get-Command python -ErrorAction SilentlyContinue)) { echo "Python..."; winget install Python.Python.3.12 --silent }; iwr https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -OutFile uptime.zip; Expand-Archive uptime.zip -DestinationPath . -Force; Remove-Item uptime.zip; cd Uptime-Monitor-main/Uptime_Robot; ./install.bat /y }
