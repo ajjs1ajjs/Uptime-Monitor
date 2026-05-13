@@ -30,6 +30,10 @@ async def init_auth_tables(db_path):
             FOREIGN KEY (user_id) REFERENCES users(id)
         )""")
 
+        # Migration: force password change for existing admin users with default/old passwords
+        await conn.execute("""UPDATE users SET must_change_password = 1 
+            WHERE must_change_password IS NULL OR must_change_password = 0""")
+
         async with conn.execute("SELECT id FROM users WHERE username = 'admin'") as c:
             admin_exists = await c.fetchone()
             
