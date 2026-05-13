@@ -3,6 +3,7 @@
 
 import argparse
 import os
+import secrets
 import sqlite3
 import sys
 from datetime import datetime
@@ -69,12 +70,15 @@ def init_auth(db_path):
 
     c.execute("SELECT id FROM users WHERE username = 'admin'")
     if not c.fetchone():
-        password_hash = hash_password("admin")
+        default_password = secrets.token_urlsafe(16)
+        password_hash = hash_password(default_password)
         c.execute(
-            "INSERT INTO users (username, password_hash, role, must_change_password, created_at) VALUES (?, ?, 'admin', 0, datetime('now'))",
+            "INSERT INTO users (username, password_hash, role, must_change_password, created_at) VALUES (?, ?, 'admin', 1, datetime('now'))",
             ("admin", password_hash),
         )
-        print("[OK] Created default user: admin / admin")
+        print("[OK] Created default user: admin")
+        print(f"[SECURITY] Temporary password: {default_password}")
+        print("[SECURITY] CHANGE THIS PASSWORD IMMEDIATELY AFTER LOGIN!")
     else:
         print("[OK] User 'admin' already exists")
 

@@ -1332,10 +1332,65 @@ sudo systemctl status uptime-monitor
 
 # 4. Відкрити у браузері
 http://YOUR_SERVER_IP:8080
-# Login: admin / Password: admin
+# Login: admin / Password: (random, check install output)
 
 # 5. Змінити пароль за замовчуванням!
 ```
+
+---
+
+## Windows Installation
+
+### Windows Service (рекомендовано)
+
+```powershell
+# 1. Завантажити проект
+git clone https://github.com/ajjs1ajjs/Uptime-Monitor.git
+cd Uptime-Monitor\Uptime_Robot
+
+# 2. Запустити інсталятор (від Адміністратора)
+.\install_service.bat
+```
+
+### Встановлення вручну
+
+```powershell
+# Як Адміністратор:
+cd Uptime-Monitor\Umpire_Robot
+
+# Встановити залежності
+python -m pip install -r requirements.txt
+
+# Або через інсталятор
+.\install.bat
+```
+
+### Команди для Windows
+
+```powershell
+# Запуск служби
+net start UptimeMonitor
+
+# Зупинка служби
+net stop UptimeMonitor
+
+# Видалення служби
+python main_service.py remove
+
+# Запуск в консолі (для тестування)
+python main_service.py console
+
+# Прямий запуск
+python -m Uptime_Robot.main --host 0.0.0.0 --port 8080
+```
+
+### Створення Scheduled Task (замість служби)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File create_task_simple.ps1
+```
+
+> **Note (v2.0.0+):** Пароль адміністратора генерується випадково при першому запуску. Шукайте в виводі консолі або `service_error.log`.
 
 ---
 

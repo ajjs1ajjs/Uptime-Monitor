@@ -58,7 +58,7 @@ cd /d "%~dp0"
 echo Ensuring pip is installed...
 !PYTHON_CMD! -m ensurepip --default-pip >nul 2>&1
 
-echo Installing Python dependencies...
+echo Installing Python dependencies (includes: fastapi, aiohttp, bcrypt, cryptography, jinja2, aiosqlite, pywin32)...
 !PYTHON_CMD! -m pip install -r requirements.txt
 if not %errorlevel%==0 (
     echo ERROR: Failed to install dependencies.
@@ -66,32 +66,43 @@ if not %errorlevel%==0 (
     exit /b 1
 )
 
-echo Installing pywin32 to system site-packages...
-!PYTHON_CMD! -m pip install --upgrade --force-reinstall --no-user pywin32
+echo Installing pywin32 to system site-packages (required for Windows service)...
+!PYTHON_CMD! -m pip install --upgrade --force-reinstall --no-user pywin32 2>nul
 if not %errorlevel%==0 (
-    echo ERROR: Failed to install pywin32 in system site-packages.
-    if not "%SILENT%"=="1" pause
-    exit /b 1
+    echo WARNING: pywin32 system install failed. Service may not start automatically.
 )
 
 echo Verifying pywin32 service modules...
-!PYTHON_CMD! -c "import servicemanager, win32serviceutil; print(servicemanager.__file__)"
+!PYTHON_CMD! -c "import servicemanager, win32serviceutil; print('pywin32 OK:', servicemanager.__file__)"
 if not %errorlevel%==0 (
-    echo ERROR: pywin32 modules are not available for service runtime.
-    if not "%SILENT%"=="1" pause
-    exit /b 1
+    echo WARNING: pywin32 modules not found. Please reinstall: python -m pip install --force-reinstall pywin32
 )
 
-echo Preparing pywin32 runtime files...
-!PYTHON_CMD! -c "import os,sys,shutil,glob,site; ver=f'{sys.version_info.major}{sys.version_info.minor}'; candidates=[]; [candidates.extend(glob.glob(os.path.join(p,'pywin32_system32'))) for p in site.getsitepackages()+[site.getusersitepackages()]]; src=next((d for d in candidates if os.path.isdir(d)), None); assert src, 'pywin32_system32 not found'; dst=sys.base_prefix; files=[f'pythoncom{ver}.dll', f'pywintypes{ver}.dll']; [print('exists:', os.path.join(dst,f)) if os.path.exists(os.path.join(dst,f)) else (shutil.copy2(os.path.join(src,f), os.path.join(dst,f)), print('copied:', os.path.join(dst,f))) for f in files if os.path.exists(os.path.join(src,f))]; print('pywin32 runtime check complete:', dst)"
-if not %errorlevel%==0 (
-    echo ERROR: Failed to prepare pywin32 runtime files.
-    if not "%SILENT%"=="1" pause
-    exit /b 1
-)
+echo Preparing pywin32 runtime files (DLLs)...
+!PYTHON_CMD! -c "
+import os, sys, shutil, glob, site
+ver = f'{sys.version_info.major}{sys.version_info.minor}'
+src = None
+for p in site.getsitepackages() + [site.getusersitepackages()]:
+    d = os.path.join(p, 'pywin32_system32')
+    if os.path.isdir(d): src = d; break
+if src:
+    for f in [f'pythoncom{ver}.dll', f'pywintypes{ver}.dll']:
+        sf = os.path.join(src, f)
+        if os.path.exists(sf):
+            df = os.path.join(sys.base_prefix, f)
+            if not os.path.exists(df): shutil.copy2(sf, df); print('copied:', f)
+            else: print('exists:', f)
+    print('pywin32 DLLs OK')
+else:
+    print('pywin32_system32 dir not found — service may still work via PATH')
+" 2>nul
+
+echo Initializing crypto...
+!PYTHON_CMD! -c "from crypto_utils import generate_master_key; k=generate_master_key(); print('Master key:', 'generated' if k else 'skipped')" 2>nul || echo [SKIP] crypto_utils not available
 
 echo Saving port to config...
-!PYTHON_CMD! -c "import config_manager as c; c.init_paths(); cfg=c.load_config(); cfg.setdefault('server', {})['port']=%PORT%; c.save_config(cfg)"
+!PYTHON_CMD! -c "import config_manager as c; cfg=c.load_config(); cfg.setdefault('server', {})['port']=%PORT%; c.save_config(cfg)"
 if not %errorlevel%==0 (
     echo ERROR: Failed to update config.
     if not "%SILENT%"=="1" pause

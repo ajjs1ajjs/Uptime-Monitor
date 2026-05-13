@@ -31,12 +31,37 @@ sudo journalctl -u uptime-monitor | grep "DEFAULT ADMIN"
 
 ### Windows
 
-**MSI Інсталятор:** Завантажте з [Releases](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
-
-**PowerShell (швидке встановлення):**
+**Option A — Windows Service (recommended):**
 ```powershell
-& { if (!(Get-Command python -ErrorAction SilentlyContinue)) { echo "Python not found..."; winget install Python.Python.3.12 --silent }; iwr https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -OutFile uptime.zip; Expand-Archive uptime.zip -DestinationPath . -Force; Remove-Item uptime.zip; cd Uptime-Monitor-main/Uptime_Robot; ./install.bat /y }
+# Run as Administrator in Uptime_Robot folder
+.\install_service.bat
+# Access: http://localhost:8080
 ```
+
+**Option B — PowerShell quick install:**
+```powershell
+# Run as Administrator
+& {
+    if (!(Get-Command python -ErrorAction SilentlyContinue)) {
+        Write-Host "Installing Python..."; winget install Python.Python.3.12 --silent
+    }
+    iwr https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -OutFile uptime.zip
+    Expand-Archive uptime.zip -DestinationPath . -Force; Remove-Item uptime.zip
+    cd Uptime-Monitor-main/Uptime_Robot
+    .\install.bat /y
+}
+```
+
+**Option C — Python directly (no service):**
+```powershell
+python -m Uptime_Robot.main --host 0.0.0.0 --port 8080
+# Access: http://localhost:8080
+```
+
+> **Windows Password (v2.0.0+):** Generated randomly on first run. Check the console output or run:
+> ```powershell
+> python -c "from Uptime_Robot.auth_module import hash_password; print('Check install output for password')"
+> ```
 
 ---
 

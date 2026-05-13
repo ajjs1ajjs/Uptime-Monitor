@@ -351,16 +351,86 @@ sudo systemctl restart uptime-monitor
 - Linux: `/etc/uptime-monitor/sites.db` (default; computed from `CONFIG_PATH`)
 - Windows: `%USERPROFILE%\UptimeMonitor\data\sites.db`
 
-## 📍 Шляхи до файлів
+---
+
+## 🪟 Windows-Specific Commands
+
+### Windows Service (рекомендовано)
+
+```powershell
+# Встановлення служби (від Адміністратора)
+.\install_service.bat
+
+# Або вручну:
+python main_service.py install
+sc config UptimeMonitor start= auto
+net start UptimeMonitor
+
+# Управління
+net start UptimeMonitor
+net stop UptimeMonitor
+python main_service.py remove     # Видалити службу
+python main_service.py console    # Запустити в консолі (тест)
+
+# Прямий запуск Python
+python -m Uptime_Robot.main --host 0.0.0.0 --port 8080
+```
+
+### Windows Scheduled Task
+
+```powershell
+# Інтерактивний (обере 1=Service, 2=Task)
+powershell -ExecutionPolicy Bypass -File create_task_simple.ps1
+
+# Або напряму як Task:
+powershell -ExecutionPolicy Bypass -File create_task.ps1 -UsePython
+```
+
+### Windows: Build EXE
+
+```powershell
+.\build_exe.bat
+```
+Створює `UptimeMonitor_EXE\UptimeMonitor.exe`
+
+### Windows: Усунення несправностей
+
+```powershell
+# Перевірити чи служба встановлена
+sc query UptimeMonitor
+
+# Логи помилок служби
+type "C:\ProgramData\UptimeMonitor\service_error.log" 2>$null
+
+# Перевірити порт
+netstat -ano | findstr :8080
+
+# Перевірити Python
+python --version
+python -c "import fastapi, uvicorn, bcrypt, cryptography; print('Dependencies OK')"
+```
+
+---
+
+## 📍 Шляхи до файлів (Linux)
 
 | Файл | Шлях |
 |------|------|
 | Конфігурація | `/etc/uptime-monitor/config.json` |
-| База даних (монітори) | `/etc/uptime-monitor/sites.db` |
+| База даних (монітори) | `/var/lib/uptime-monitor/sites.db` |
 | Логи | `/var/log/uptime-monitor/` |
 | Скрипти | `/opt/uptime-monitor/scripts/` |
 | Бекапи | `/backup/uptime-monitor/` |
 | Служба systemd | `/etc/systemd/system/uptime-monitor.service` |
+
+### 📍 Шляхи до файлів (Windows)
+
+| Файл | Шлях |
+|------|------|
+| Конфігурація | `%USERPROFILE%\UptimeMonitor\config.json` |
+| База даних | `%USERPROFILE%\UptimeMonitor\data\sites.db` |
+| Логи | `%USERPROFILE%\UptimeMonitor\logs\` |
+| Проект | `C:\Uptime-Monitor\Uptime_Robot\` (або ваш шлях) |
 
 ---
 
