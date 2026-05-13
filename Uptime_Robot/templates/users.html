@@ -113,7 +113,10 @@ function renderUsers(users) {
         <td class="p-4"><span class="px-3 py-1 rounded-full text-xs font-semibold ${u.role === 'admin' ? 'bg-accent/10 text-accent' : 'bg-slate-500/10 text-slate-400'}">${u.role}</span></td>
         <td class="p-4 text-sm text-slate-400 hidden md:table-cell">${formatDate(u.created_at)}</td>
         <td class="p-4 text-sm text-slate-400 hidden md:table-cell">${u.last_login ? formatDate(u.last_login) : 'Never'}</td>
-        <td class="p-4"><div class="flex gap-2">${u.username !== currentUser?.username ? `<button onclick="showEditModal('${u.username}','${u.role}')" class="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium">Edit</button><button onclick="deleteUser('${u.username}')" class="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-xs font-medium">Delete</button>` : '<span class="text-xs text-slate-500">—</span>'}</div></td>
+        <td class="p-4"><div class="flex gap-2">
+            <button onclick="showEditModal('${u.username}','${u.role}')" class="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium">Edit</button>
+            ${u.username !== currentUser?.username ? `<button onclick="deleteUser('${u.username}')" class="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-xs font-medium">Delete</button>` : ''}
+        </div></td>
     </tr>`).join('');
 }
 function formatDate(d) { if (!d) return 'Never'; try { return new Date(d).toLocaleDateString('uk-UA', {year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); } catch { return d; } }
