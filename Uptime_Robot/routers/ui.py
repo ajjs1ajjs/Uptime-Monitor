@@ -1,5 +1,4 @@
 import json
-import sqlite3
 from datetime import datetime
 from pathlib import Path
 
@@ -11,17 +10,121 @@ try:
     from .. import ui_templates
     from ..database import get_db_connection
     from ..dependencies import get_current_user, require_admin
-    from ..state import NOTIFY_SETTINGS
+    from ..state import NOTIFY_SETTINGS, CONFIG
 except ImportError:
     import ui_templates
     from database import get_db_connection
     from dependencies import get_current_user, require_admin
-    from state import NOTIFY_SETTINGS
+    from state import NOTIFY_SETTINGS, CONFIG
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 router = APIRouter()
+
+
+def _monitor_card_html(site: dict) -> str:
+    status = (site.get("status") or "unknown").lower()
+    sclass = "up" if status == "up" else ("paused" if status == "paused" else "down")
+    scolor = "#10b981" if status == "up" else ("#f59e0b" if status == "paused" else "#ef4444")
+    stext = status.upper()
+    mtype = site.get("monitor_type", "http")
+    methods = json.loads(site.get("notify_methods", "[]")) if isinstance(site.get("notify_methods"), str) else (site.get("notify_methods") or [])
+    uptime = site.get("uptime", 100)
+    if isinstance(uptime, str):
+        try: uptime = float(uptime)
+        except: uptime = 100.0
+    border = "border-emerald-500" if sclass == "up" else ("border-amber-500" if sclass == "paused" else "border-red-500")
+    name = (site.get("name") or "").replace("'", "\\'")
+    url = (site.get("url") or "").replace("'", "\\'")
+    sid = site.get("id", 0)
+    rt = site.get("response_time") or "—"
+    sc = site.get("status_code") or "—"
+
+    return f"""<div class="gradient-card rounded-xl p-5 border-l-4 {border} border border-slate-700/30 card-hover transition">
+        <div class="flex justify-between items-start mb-4">
+            <div class="min-w-0 flex-1">
+                <div class="text-base font-semibold truncate" title="{name}">{site.get("name", "")}</div>
+                <div class="text-xs text-slate-400 truncate mt-0.5" title="{url}">{site.get("url", "")}</div>
+            </div>
+            <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-accent/10 text-accent">{mtype}</span>
+        </div>
+        <div class="grid grid-cols-4 gap-2 py-3 border-y border-slate-700/30 text-center text-xs">
+            <div><div class="text-sm font-bold" style="color:{scolor}">{stext}</div><div class="text-slate-500 mt-0.5">Status</div></div>
+            <div><div class="text-sm font-bold text-slate-200">{rt}ms</div><div class="text-slate-500 mt-0.5">Time</div></div>
+            <div><div class="text-sm font-bold text-slate-200">{uptime:.1f}%</div><div class="text-slate-500 mt-0.5">Uptime</div></div>
+            <div><div class="text-sm font-bold text-slate-200">{sc}</div><div class="text-slate-500 mt-0.5">HTTP</div></div>
+        </div>
+        <div class="flex gap-2 mt-4">
+            <button onclick="checkSite({sid})" class="flex-1 py-2.5 rounded-lg gradient-accent text-black text-xs font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">🔄 Check</button>
+            <button onclick="openEditModal({sid},'{name}','{url}','[]',{site.get("check_interval",60)})" class="flex-1 py-2.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium">✏️ Edit</button>
+            <button onclick="deleteSite({sid})" class="flex-1 py-2.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-xs font-medium">🗑️ Delete</button>
+        </div>
+    </div>"""
+
+
+def _hero_stat_html(label: str, value, color: str = "text-accent") -> str:
+    return f"""<div class="glass rounded-2xl p-6 text-center">
+        <div class="text-4xl md:text-5xl font-bold {color} mb-2">{value}</div>
+        <div class="text-slate-400 text-xs md:text-sm uppercase tracking-wider">{label}</div>
+    </div>"""
+
+
+@router.get("/api/htmx/hero-stats", response_class=HTMLResponse)
+async def htmx_hero_stats(user: dict = Depends(get_current_user)):
+    if not user:
+        return HTMLResponse("")
+    async with get_db_connection() as conn:
+        async with conn.execute("SELECT COUNT(*) FROM sites") as c:
+            total = (await c.fetchone())[0]
+        async with conn.execute("SELECT COUNT(*) FROM sites WHERE status = 'up'") as c:
+            up = (await c.fetchone())[0]
+        async with conn.execute("SELECT COUNT(*) FROM sites WHERE status = 'down'") as c:
+            down = (await c.fetchone())[0]
+        async with conn.execute("SELECT COUNT(*) FROM sites WHERE status = 'slow'") as c:
+            slow = (await c.fetchone())[0]
+    incidents = down + slow
+    return HTMLResponse(
+        _hero_stat_html("Monitors", total) +
+        _hero_stat_html("Online", up, "text-emerald-400") +
+        _hero_stat_html("Offline", down, "text-red-400") +
+        _hero_stat_html("Incidents", incidents, "text-amber-400")
+    )
+
+
+@router.get("/api/htmx/monitors", response_class=HTMLResponse)
+async def htmx_monitors(user: dict = Depends(get_current_user)):
+    if not user:
+        return HTMLResponse("")
+    async with get_db_connection() as conn:
+        async with conn.execute(
+            "SELECT s.*, (SELECT COUNT(*) FROM status_history sh WHERE sh.site_id = s.id AND sh.checked_at >= datetime('now', '-24 hours')) as checks_24h FROM sites s ORDER BY s.id"
+        ) as c:
+            sites_raw = await c.fetchall()
+            sites = [dict(s) for s in sites_raw]
+
+    for site in sites:
+        sid = site["id"]
+        async with conn.execute(
+            "SELECT status FROM status_history WHERE site_id = ? ORDER BY checked_at DESC LIMIT 1", (sid,)
+        ) as c:
+            last = await c.fetchone()
+        site["status"] = last["status"] if last else "unknown"
+        async with conn.execute(
+            "SELECT COUNT(*) as total, SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count FROM status_history WHERE site_id = ?", (sid,)
+        ) as c:
+            st = await c.fetchone()
+        site["uptime"] = round((st["up_count"] / st["total"] * 100), 1) if st and st["total"] > 0 else 100.0
+        site["notify_methods"] = json.loads(site.get("notify_methods") or "[]")
+
+    status_order = {"down": 0, "slow": 1, "paused": 2, "unknown": 3, "up": 4}
+    sites.sort(key=lambda s: status_order.get((s.get("status") or "unknown").lower(), 5))
+
+    if not sites:
+        return HTMLResponse('<div class="col-span-full text-center py-10 text-slate-500">No monitors yet. Add one in Settings.</div>')
+
+    html = "".join(_monitor_card_html(s) for s in sites)
+    return HTMLResponse(html)
 
 @router.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, user: dict = Depends(get_current_user)):

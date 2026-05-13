@@ -35,22 +35,15 @@
 </div>
 
 <div id="tab-dashboard" class="tab-content active mt-6 px-4 md:px-8">
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8">
+    <div id="heroStatsContainer"
+        hx-get="/api/htmx/hero-stats"
+        hx-trigger="every 30s, load"
+        hx-target="this"
+        hx-swap="innerHTML"
+        class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8">
         <div class="glass rounded-2xl p-6 text-center animate-fade-in">
-            <div class="text-4xl md:text-5xl font-bold text-accent mb-2" id="totalSites">0</div>
-            <div class="text-slate-400 text-xs md:text-sm uppercase tracking-wider">Monitors</div>
-        </div>
-        <div class="glass rounded-2xl p-6 text-center animate-fade-in" style="animation-delay: 0.1s;">
-            <div class="text-4xl md:text-5xl font-bold text-emerald-400 mb-2" id="upSites">0</div>
-            <div class="text-slate-400 text-xs md:text-sm uppercase tracking-wider">Online</div>
-        </div>
-        <div class="glass rounded-2xl p-6 text-center animate-fade-in" style="animation-delay: 0.2s;">
-            <div class="text-4xl md:text-5xl font-bold text-red-400 mb-2" id="downSites">0</div>
-            <div class="text-slate-400 text-xs md:text-sm uppercase tracking-wider">Offline</div>
-        </div>
-        <div class="glass rounded-2xl p-6 text-center animate-fade-in" style="animation-delay: 0.3s;">
-            <div class="text-4xl md:text-5xl font-bold text-amber-400 mb-2" id="incidentCount">0</div>
-            <div class="text-slate-400 text-xs md:text-sm uppercase tracking-wider">Incidents</div>
+            <div class="text-4xl md:text-5xl font-bold text-slate-500 mb-2 pulse">···</div>
+            <div class="text-slate-400 text-xs md:text-sm uppercase tracking-wider">Loading...</div>
         </div>
     </div>
 
@@ -73,6 +66,20 @@
     </div>
 
     <div class="space-y-6">
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <div class="glass rounded-2xl p-6 card-hover transition">
+                <h3 class="text-lg font-semibold mb-4">📈 Response Time (24h)</h3>
+                <div class="relative h-64">
+                    <canvas id="responseTimeChart"></canvas>
+                </div>
+            </div>
+            <div class="glass rounded-2xl p-6 card-hover transition">
+                <h3 class="text-lg font-semibold mb-4">🔒 SSL Expiry Timeline</h3>
+                <div class="relative h-64">
+                    <canvas id="sslTimelineChart"></canvas>
+                </div>
+            </div>
+        </div>
         <div class="glass rounded-2xl p-6 card-hover transition">
             <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">📊 Monitors Timeline (24h)</h3>
             <div class="flex gap-4 mb-4 text-xs">
@@ -96,9 +103,16 @@
         <div class="glass rounded-2xl p-6 card-hover transition">
             <h3 class="text-lg font-semibold mb-4">📊 All Monitors</h3>
             <div class="flex flex-wrap gap-2 mb-4" id="monitorFilters">
-                <button class="monitor-type-btn px-4 py-2 rounded-lg bg-accent/10 text-accent font-medium text-xs active" data-filter="all" onclick="setFilter('all')">All</button>
+                <button class="monitor-type-btn px-4 py-2 rounded-lg bg-accent/10 text-accent font-medium text-xs" data-filter="all" onclick="setFilter('all')">All</button>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" id="dashboardMonitors"></div>
+            <div id="dashboardMonitors"
+                class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
+                hx-get="/api/htmx/monitors"
+                hx-trigger="every 60s, load"
+                hx-target="this"
+                hx-swap="innerHTML">
+                <div class="col-span-full text-center py-10 text-slate-500">Loading monitors...</div>
+            </div>
         </div>
     </div>
 </div>
@@ -550,7 +564,7 @@ function switchTab(tabId) {
     document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('bg-accent', 'text-black'); b.classList.add('text-slate-400'); });
     document.getElementById('tab-' + tabId).classList.remove('hidden');
     document.querySelector(`.tab-btn[onclick*="${tabId}"]`).classList.add('bg-accent', 'text-black');
-    if (tabId === 'dashboard') { loadSites(); loadUptimeChart(); }
+    if (tabId === 'dashboard') { loadSites(); loadUptimeChart(); loadResponseTimeChart(); loadSSLTimelineChart(); }
     if (tabId === 'ssl') loadSSLCertificates();
     if (tabId === 'incidents') loadIncidents();
 }
@@ -589,7 +603,79 @@ function renderSSLCertificates() {
     grid.innerHTML = html;
 }
 
-async function loadDashboard() { loadSites(); loadUptimeChart(); loadSSLCertificates(); await loadIncidents(); }
+async function loadDashboard() { loadSites(); loadUptimeChart(); loadSSLCertificates(); await loadResponseTimeChart(); await loadSSLTimelineChart(); await loadIncidents(); }
+
+async function loadResponseTimeChart() {
+    try {
+        const resp = await fetch('/api/stats/response-time');
+        const data = await resp.json();
+        const canvas = document.getElementById('responseTimeChart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (window._respChart) window._respChart.destroy();
+        if (!data || data.length === 0) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#6b7280'; ctx.font = '14px Inter'; ctx.textAlign = 'center';
+            ctx.fillText('No response time data yet', canvas.width/2, canvas.height/2);
+            return;
+        }
+        window._respChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.map(d => d.site_name?.length > 12 ? d.site_name.substring(0,12)+'…' : d.site_name),
+                datasets: [
+                    { label: 'Avg (ms)', data: data.map(d => d.avg_time || 0), backgroundColor: '#00d9ff', borderRadius: 4 },
+                    { label: 'Max (ms)', data: data.map(d => d.max_time || 0), backgroundColor: 'rgba(239,68,68,0.6)', borderRadius: 4 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#94a3b8' } } },
+                scales: {
+                    x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.1)' } },
+                    y: { beginAtZero: true, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.1)' } }
+                }
+            }
+        });
+    } catch(e) { console.error(e); }
+}
+
+async function loadSSLTimelineChart() {
+    try {
+        const resp = await fetch('/api/ssl-certificates');
+        const certs = await resp.json();
+        const canvas = document.getElementById('sslTimelineChart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (window._sslChart) window._sslChart.destroy();
+        if (!certs || certs.length === 0) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#6b7280'; ctx.font = '14px Inter'; ctx.textAlign = 'center';
+            ctx.fillText('No SSL data yet', canvas.width/2, canvas.height/2);
+            return;
+        }
+        const labels = certs.map(c => c.site_name?.length > 15 ? c.site_name.substring(0,15)+'…' : c.site_name);
+        const days = certs.map(c => c.days_until_expire || 0);
+        const colors = days.map(d => d <= 0 ? '#ef4444' : d <= 7 ? '#f59e0b' : d <= 30 ? '#00d9ff' : '#10b981');
+
+        window._sslChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{ label: 'Days until expiry', data: days, backgroundColor: colors, borderRadius: 4 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.1)' } },
+                    y: { ticks: { color: '#94a3b8' }, grid: { display: false } }
+                }
+            }
+        });
+    } catch(e) { console.error(e); }
+}
 
 async function loadIncidents() {
     try { const resp = await fetch('/api/incidents'); incidentsData = await resp.json(); renderIncidents(); document.getElementById('incidentCount').textContent = incidentsData.length; } catch(e) { console.error(e); }
@@ -765,9 +851,11 @@ async function saveEdit() {
 function saveDisplayAddress() { return saveAddress(); }
 initNotifyUI();
 loadAppSettings();
-loadSites();
 loadSSLCertificates();
 loadIncidents();
-setInterval(loadSites, 60000);
+loadResponseTimeChart();
+loadSSLTimelineChart();
+// Manual load once (HTMX handles auto-refresh)
+loadSites();
 </script>
 {% endblock %}

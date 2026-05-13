@@ -5,7 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Uptime Monitor{% endblock %}</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⏱️</text></svg>">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#00d9ff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Uptime Monitor">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script>
+        document.addEventListener('htmx:beforeSwap', function(evt) {
+            if (evt.detail.xhr.status === 429) {
+                alert('Rate limited. Please wait.');
+                evt.detail.shouldSwap = false;
+            }
+        });
+    </script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -42,12 +56,55 @@
     </style>
     {% block head %}{% endblock %}
 </head>
-<body class="bg-[#0f172a] text-white">
+<body class="bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] text-white">
     {% block content %}{% endblock %}
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/static/sw.js').catch(function(err) {
+                console.log('SW registration failed:', err);
+            });
+        }
+    </script>
+    <script>
+        (function() {
             const theme = localStorage.getItem('theme') || 'dark';
-            document.documentElement.classList.toggle('dark', theme === 'dark');
+            const isDark = theme === 'dark';
+            document.documentElement.classList.toggle('dark', isDark);
+            if (!isDark) {
+                document.body.className = 'bg-gradient-to-br from-slate-100 via-white to-slate-100 text-slate-900';
+            }
+            window.__isDark = isDark;
+        })();
+
+        function toggleTheme() {
+            const isDark = !window.__isDark;
+            window.__isDark = isDark;
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            document.documentElement.classList.toggle('dark', isDark);
+            if (isDark) {
+                document.body.className = 'bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] text-white';
+            } else {
+                document.body.className = 'bg-gradient-to-br from-slate-100 via-white to-slate-100 text-slate-900';
+            }
+            const btn = document.getElementById('themeBtn');
+            if (btn) btn.textContent = isDark ? '🌙' : '☀️';
+            const glass = document.querySelectorAll('.glass');
+            glass.forEach(el => {
+                if (isDark) {
+                    el.style.background = 'rgba(30,41,59,0.6)';
+                } else {
+                    el.style.background = 'rgba(255,255,255,0.8)';
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const btn = document.getElementById('themeBtn');
+            if (btn) btn.textContent = window.__isDark ? '🌙' : '☀️';
+            const glass = document.querySelectorAll('.glass');
+            if (!window.__isDark) {
+                glass.forEach(el => el.style.background = 'rgba(255,255,255,0.8)');
+            }
         });
     </script>
     {% block scripts %}{% endblock %}

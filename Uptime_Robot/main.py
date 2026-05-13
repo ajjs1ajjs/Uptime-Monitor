@@ -1,12 +1,15 @@
 import asyncio
+import os
 import socket
 import sys
 import threading
 from datetime import datetime
+from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 try:
     from . import auth_module, config_manager, models, monitoring
@@ -55,6 +58,12 @@ SERVER_HOST = "0.0.0.0" if DEFAULT_HOST == "auto" else DEFAULT_HOST
 
 # FastAPI app
 app = FastAPI(title="Uptime Monitor")
+
+# Static files (for PWA manifest, service worker, icons)
+BASE_DIR = Path(__file__).resolve().parent
+static_dir = BASE_DIR / "static"
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 # CORS
 app.add_middleware(
