@@ -1,21 +1,21 @@
 {% extends "base.html" %}
-{% block title %}Uptime Monitor - Users{% endblock %}
+{% block title %}Uptime Monitor - Користувачі{% endblock %}
 {% block content %}
 <header class="glass px-4 md:px-8 py-4 flex items-center justify-between">
     <div class="flex items-center gap-3">
         <div class="w-10 h-10 gradient-accent rounded-xl flex items-center justify-center text-xl shadow-lg shadow-cyan-500/20">⚡</div>
-        <span class="text-lg font-bold">User Management</span>
+        <span class="text-lg font-bold">Керування користувачами</span>
     </div>
     <div class="flex items-center gap-3">
-        <a href="/" class="text-slate-400 hover:text-white transition text-sm">📊 Dashboard</a>
-        <a href="/logout" class="text-red-400 hover:text-red-300 transition text-sm">🚪 Logout</a>
+        <a href="/" class="text-slate-400 hover:text-white transition text-sm">📊 Дашборд</a>
+        <a href="/logout" class="text-red-400 hover:text-red-300 transition text-sm">🚪 Вийти</a>
     </div>
 </header>
 
 <div class="max-w-5xl mx-auto px-4 md:px-8 py-8">
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-        <h1 class="text-2xl font-bold">Users</h1>
-        <button onclick="showCreateModal()" class="px-5 py-2.5 rounded-xl gradient-accent text-black font-semibold text-sm hover:shadow-lg hover:shadow-cyan-500/30 transition">+ Add User</button>
+        <h1 class="text-2xl font-bold">Користувачі</h1>
+        <button onclick="showCreateModal()" class="px-5 py-2.5 rounded-xl gradient-accent text-black font-semibold text-sm hover:shadow-lg hover:shadow-cyan-500/30 transition">+ Додати користувача</button>
     </div>
 
     <div class="glass rounded-2xl overflow-hidden">
@@ -42,27 +42,27 @@
 <!-- Create Modal -->
 <div id="createModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
     <div class="glass rounded-2xl p-6 md:p-8 max-w-md w-full animate-fade-in">
-        <h3 class="text-xl font-bold mb-6">Add User</h3>
+        <h3 class="text-xl font-bold mb-6">Додати користувача</h3>
         <div class="space-y-4">
             <div>
-                <label class="text-slate-400 text-sm mb-1.5 block">Username</label>
-                <input type="text" id="newUsername" placeholder="Enter username" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent outline-none transition">
+                <label class="text-slate-400 text-sm mb-1.5 block">Ім'я користувача</label>
+                <input type="text" id="newUsername" placeholder="Введіть ім'я" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent outline-none transition">
             </div>
             <div>
-                <label class="text-slate-400 text-sm mb-1.5 block">Password</label>
-                <input type="password" id="newPassword" placeholder="Min. 12 chars" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent outline-none transition">
+                <label class="text-slate-400 text-sm mb-1.5 block">Пароль</label>
+                <input type="password" id="newPassword" placeholder="Мін. 12 символів" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent outline-none transition">
             </div>
             <div>
-                <label class="text-slate-400 text-sm mb-1.5 block">Role</label>
+                <label class="text-slate-400 text-sm mb-1.5 block">Роль</label>
                 <select id="newRole" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent outline-none transition">
-                    <option value="viewer">Viewer (read-only)</option>
-                    <option value="admin">Admin</option>
+                    <option value="viewer">Перегляд (тільки читання)</option>
+                    <option value="admin">Адміністратор</option>
                 </select>
             </div>
         </div>
         <div class="flex gap-3 mt-8">
-            <button onclick="closeModal('createModal')" class="flex-1 py-3.5 rounded-xl bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition font-medium">Cancel</button>
-            <button onclick="createUser()" class="flex-1 py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">Create</button>
+            <button onclick="closeModal('createModal')" class="flex-1 py-3.5 rounded-xl bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition font-medium">Скасувати</button>
+            <button onclick="createUser()" class="flex-1 py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">Створити</button>
         </div>
     </div>
 </div>
@@ -70,24 +70,24 @@
 <!-- Edit Modal -->
 <div id="editModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
     <div class="glass rounded-2xl p-6 md:p-8 max-w-md w-full animate-fade-in">
-        <h3 class="text-xl font-bold mb-6">Edit User</h3>
+        <h3 class="text-xl font-bold mb-6">Редагувати користувача</h3>
         <input type="hidden" id="editUsername">
         <div class="space-y-4">
             <div>
-                <label class="text-slate-400 text-sm mb-1.5 block">Role</label>
+                <label class="text-slate-400 text-sm mb-1.5 block">Роль</label>
                 <select id="editRole" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent outline-none transition">
-                    <option value="viewer">Viewer (read-only)</option>
-                    <option value="admin">Admin</option>
+                    <option value="viewer">Перегляд (тільки читання)</option>
+                    <option value="admin">Адміністратор</option>
                 </select>
             </div>
             <div>
-                <label class="text-slate-400 text-sm mb-1.5 block">New Password <span class="text-slate-500">(optional)</span></label>
-                <input type="password" id="editPassword" placeholder="Leave empty to keep current" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent outline-none transition">
+                <label class="text-slate-400 text-sm mb-1.5 block">Новий пароль <span class="text-slate-500">(необов'язково)</span></label>
+                <input type="password" id="editPassword" placeholder="Залиште порожнім, щоб не змінювати" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent outline-none transition">
             </div>
         </div>
         <div class="flex gap-3 mt-8">
-            <button onclick="closeModal('editModal')" class="flex-1 py-3.5 rounded-xl bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition font-medium">Cancel</button>
-            <button onclick="updateUser()" class="flex-1 py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">Save</button>
+            <button onclick="closeModal('editModal')" class="flex-1 py-3.5 rounded-xl bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition font-medium">Скасувати</button>
+            <button onclick="updateUser()" class="flex-1 py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">Зберегти</button>
         </div>
     </div>
 </div>
@@ -124,7 +124,7 @@ async function createUser() {
     const username = document.getElementById('newUsername').value.trim();
     const password = document.getElementById('newPassword').value;
     const role = document.getElementById('newRole').value;
-    if (!username || !password) return alert('Username and password required');
+    if (!username || !password) return alert('Ім\'я та пароль обов\'язкові');
     try { const r = await fetch('/api/users', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,password,role})}); const d = await r.json(); if (r.ok) { alert(d.message); closeModal('createModal'); loadUsers(); } else { alert(d.detail || 'Error'); } } catch(e) { alert('Error creating user'); }
 }
 async function updateUser() {

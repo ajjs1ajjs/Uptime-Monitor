@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Uptime Monitor - Dashboard{% endblock %}
+{% block title %}Uptime Monitor - Панель керування{% endblock %}
 {% block head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
@@ -19,23 +19,23 @@
     <div class="flex items-center gap-2 md:gap-4">
         <span id="lastUpdate" class="text-slate-400 text-xs md:text-sm hidden md:block"></span>
         <button onclick="toggleTheme()" id="themeBtn" class="px-3 py-2 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-400 hover:border-accent hover:text-white transition text-sm">🌙</button>
-        <a href="/status" target="_blank" class="px-3 py-2 rounded-xl bg-accent/10 text-accent hover:bg-accent/20 transition text-sm font-medium hidden md:block">📄 Status</a>
-        <a href="/users" class="px-3 py-2 rounded-xl bg-accent/10 text-accent hover:bg-accent/20 transition text-sm font-medium">👥 Users</a>
-        <a href="/logout" class="px-3 py-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-sm font-medium">🚪 Logout</a>
+        <a href="/status" target="_blank" class="px-3 py-2 rounded-xl bg-accent/10 text-accent hover:bg-accent/20 transition text-sm font-medium hidden md:block">📄 Статус</a>
+        <a href="/users" class="px-3 py-2 rounded-xl bg-accent/10 text-accent hover:bg-accent/20 transition text-sm font-medium">👥 Користувачі</a>
+        <a href="/logout" class="px-3 py-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-sm font-medium">🚪 Вийти</a>
     </div>
 </header>
 
 <div class="px-4 md:px-8 mt-6">
     <div class="flex gap-2 p-1 bg-slate-900/60 rounded-xl border border-slate-700/30 w-fit overflow-x-auto">
-        <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap active" onclick="switchTab('dashboard')">📊 Dashboard</button>
+        <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap active" onclick="switchTab('dashboard')">📊 Дашборд</button>
         <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('ssl')">🔒 SSL</button>
-        <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('incidents')">⚠️ Incidents</button>
-        <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('settings')">⚙️ Settings</button>
+        <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('incidents')">⚠️ Інциденти</button>
+        <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('settings')">⚙️ Налаштування</button>
     </div>
 </div>
 
 <div id="tab-dashboard" class="tab-content active mt-6 px-4 md:px-8">
-    <div id="heroStatsContainer"
+        <div id="heroStatsContainer"
         hx-get="/api/htmx/hero-stats"
         hx-trigger="every 30s, load"
         hx-target="this"
@@ -43,23 +43,23 @@
         class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8">
         <div class="glass rounded-2xl p-6 text-center animate-fade-in">
             <div class="text-4xl md:text-5xl font-bold text-slate-500 mb-2 pulse">···</div>
-            <div class="text-slate-400 text-xs md:text-sm uppercase tracking-wider">Loading...</div>
+            <div class="text-slate-400 text-xs md:text-sm uppercase tracking-wider">Завантаження...</div>
         </div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div class="gauge-card glass rounded-xl p-5 text-center">
-            <h3 class="text-slate-400 text-sm uppercase tracking-wider mb-3">📊 Uptime (24h)</h3>
+            <h3 class="text-slate-400 text-sm uppercase tracking-wider mb-3">📊 Аптайм (24год)</h3>
             <canvas id="uptimeGauge" width="150" height="75" class="mx-auto gauge-chart"></canvas>
             <div class="text-2xl font-bold text-emerald-400 mt-2" id="uptimeValue">100%</div>
         </div>
         <div class="gauge-card glass rounded-xl p-5 text-center">
-            <h3 class="text-slate-400 text-sm uppercase tracking-wider mb-3">⚡ Avg Response</h3>
+            <h3 class="text-slate-400 text-sm uppercase tracking-wider mb-3">⚡ Сер. відповідь</h3>
             <canvas id="responseGauge" width="150" height="75" class="mx-auto gauge-chart"></canvas>
             <div class="text-2xl font-bold text-accent mt-2" id="responseValue">0ms</div>
         </div>
         <div class="gauge-card glass rounded-xl p-5 text-center">
-            <h3 class="text-slate-400 text-sm uppercase tracking-wider mb-3">🔒 SSL Status</h3>
+            <h3 class="text-slate-400 text-sm uppercase tracking-wider mb-3">🔒 Статус SSL</h3>
             <canvas id="sslGauge" width="150" height="75" class="mx-auto gauge-chart"></canvas>
             <div class="text-2xl font-bold text-emerald-400 mt-2" id="sslValue">OK</div>
         </div>
@@ -68,42 +68,42 @@
     <div class="space-y-6">
         <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <div class="glass rounded-2xl p-6 card-hover transition">
-                <h3 class="text-lg font-semibold mb-4">📈 Response Time (24h)</h3>
+                <h3 class="text-lg font-semibold mb-4">📈 Час відповіді (24год)</h3>
                 <div class="relative h-64">
                     <canvas id="responseTimeChart"></canvas>
                 </div>
             </div>
             <div class="glass rounded-2xl p-6 card-hover transition">
-                <h3 class="text-lg font-semibold mb-4">🔒 SSL Expiry Timeline</h3>
+                <h3 class="text-lg font-semibold mb-4">🔒 Термін SSL</h3>
                 <div class="relative h-64">
                     <canvas id="sslTimelineChart"></canvas>
                 </div>
             </div>
         </div>
         <div class="glass rounded-2xl p-6 card-hover transition">
-            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">📊 Monitors Timeline (24h)</h3>
+            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">📊 Часова шкала (24год)</h3>
             <div class="flex gap-4 mb-4 text-xs">
                 <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-emerald-500"></span> UP</span>
                 <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-500"></span> DOWN</span>
                 <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-amber-500"></span> SLOW</span>
-                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-slate-500"></span> NO DATA</span>
+                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-slate-500"></span> НЕМАЄ ДАНИХ</span>
             </div>
             <div id="uptimeChartContainer" class="max-h-[500px] overflow-y-auto scrollbar-thin"></div>
         </div>
 
         <div class="glass rounded-2xl p-6 card-hover transition">
-            <h3 class="text-lg font-semibold mb-4">🎯 Quick Actions</h3>
+            <h3 class="text-lg font-semibold mb-4">🎯 Швидкі дії</h3>
             <div class="flex flex-wrap gap-3">
-                <button onclick="checkAllMonitors()" class="px-5 py-2.5 rounded-xl gradient-accent text-black font-semibold text-sm hover:shadow-lg hover:shadow-cyan-500/30 transition">🔄 Check All</button>
-                <button onclick="loadDashboard()" class="px-5 py-2.5 rounded-xl bg-accent/10 text-accent hover:bg-accent/20 transition text-sm font-medium">📊 Refresh Data</button>
-                <button onclick="switchTab('incidents')" class="px-5 py-2.5 rounded-xl bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-sm font-medium">⚠️ Incidents</button>
+                <button onclick="checkAllMonitors()" class="px-5 py-2.5 rounded-xl gradient-accent text-black font-semibold text-sm hover:shadow-lg hover:shadow-cyan-500/30 transition">🔄 Перевірити всі</button>
+                <button onclick="loadDashboard()" class="px-5 py-2.5 rounded-xl bg-accent/10 text-accent hover:bg-accent/20 transition text-sm font-medium">📊 Оновити</button>
+                <button onclick="switchTab('incidents')" class="px-5 py-2.5 rounded-xl bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-sm font-medium">⚠️ Інциденти</button>
             </div>
         </div>
 
         <div class="glass rounded-2xl p-6 card-hover transition">
-            <h3 class="text-lg font-semibold mb-4">📊 All Monitors</h3>
+            <h3 class="text-lg font-semibold mb-4">📊 Всі монітори</h3>
             <div class="flex flex-wrap gap-2 mb-4" id="monitorFilters">
-                <button class="monitor-type-btn px-4 py-2 rounded-lg bg-accent/10 text-accent font-medium text-xs" data-filter="all" onclick="setFilter('all')">All</button>
+                <button class="monitor-type-btn px-4 py-2 rounded-lg bg-accent/10 text-accent font-medium text-xs" data-filter="all" onclick="setFilter('all')">Всі</button>
             </div>
             <div id="dashboardMonitors"
                 class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
@@ -111,7 +111,7 @@
                 hx-trigger="every 60s, load"
                 hx-target="this"
                 hx-swap="innerHTML">
-                <div class="col-span-full text-center py-10 text-slate-500">Loading monitors...</div>
+                <div class="col-span-full text-center py-10 text-slate-500">Завантаження моніторів...</div>
             </div>
         </div>
     </div>
@@ -120,8 +120,8 @@
 <div id="tab-ssl" class="tab-content mt-6 px-4 md:px-8 hidden">
     <div class="glass rounded-2xl p-6">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-            <h3 class="text-lg font-semibold">🔒 SSL Certificates</h3>
-            <button onclick="checkSSLCertificates()" class="px-5 py-2.5 rounded-xl gradient-accent text-black font-semibold text-sm hover:shadow-lg hover:shadow-cyan-500/30 transition">🔄 Check Now</button>
+            <h3 class="text-lg font-semibold">🔒 SSL Сертифікати</h3>
+            <button onclick="checkSSLCertificates()" class="px-5 py-2.5 rounded-xl gradient-accent text-black font-semibold text-sm hover:shadow-lg hover:shadow-cyan-500/30 transition">🔄 Перевірити зараз</button>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" id="sslGrid"></div>
     </div>
@@ -129,33 +129,33 @@
 
 <div id="tab-incidents" class="tab-content mt-6 px-4 md:px-8 hidden">
     <div class="glass rounded-2xl p-6">
-        <h3 class="text-lg font-semibold mb-4">⚠️ Incident History</h3>
-        <div id="incidentsList" class="text-center py-10 text-slate-500">No incidents — all monitors operational!</div>
+        <h3 class="text-lg font-semibold mb-4">⚠️ Історія інцидентів</h3>
+        <div id="incidentsList" class="text-center py-10 text-slate-500">Немає інцидентів — всі монітори працюють!</div>
     </div>
 </div>
 
 <div id="tab-settings" class="tab-content mt-6 px-4 md:px-8 hidden">
     <div class="max-w-4xl mx-auto space-y-6">
         <div class="glass rounded-2xl p-6">
-            <h3 class="text-lg font-semibold mb-4">➕ Add Monitor</h3>
+            <h3 class="text-lg font-semibold mb-4">➕ Додати монітор</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <input type="text" id="siteName" placeholder="Name" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                <input type="text" id="siteName" placeholder="Назва" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
                 <input type="url" id="siteUrl" placeholder="URL" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                 <select id="monitorType" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
                     <option value="http">🌐 HTTP(S)</option>
-                    <option value="port">🔌 Port</option>
-                    <option value="ping">📡 Ping</option>
+                    <option value="port">🔌 Порт</option>
+                    <option value="ping">📡 Пінг</option>
                     <option value="ssl">🔒 SSL</option>
                 </select>
                 <div class="flex items-center gap-3">
                     <input type="number" id="siteCheckInterval" value="60" min="10" max="3600" step="10" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
-                    <span class="text-slate-400 text-xs whitespace-nowrap">sec interval</span>
+                    <span class="text-slate-400 text-xs whitespace-nowrap">інтервал (сек)</span>
                 </div>
             </div>
             <div class="mt-4">
-                <label class="text-slate-400 text-sm mb-2 block">Notification Methods</label>
+                <label class="text-slate-400 text-sm mb-2 block">Способи сповіщень</label>
                 <div class="flex flex-wrap gap-3" id="siteNotifyOptions">
                     <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
                         <input type="checkbox" value="telegram" class="accent-accent w-4 h-4"> 📱 Telegram
@@ -171,34 +171,34 @@
                     </label>
                 </div>
             </div>
-            <button onclick="addSite()" class="mt-6 w-full py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">➕ Add Monitor</button>
+            <button onclick="addSite()" class="mt-6 w-full py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">➕ Додати монітор</button>
         </div>
 
         <div class="glass rounded-2xl p-6">
-            <h3 class="text-lg font-semibold mb-4">🔗 Display Address</h3>
+            <h3 class="text-lg font-semibold mb-4">🔗 Адреса відображення</h3>
             <div class="flex gap-3">
-                <input type="text" id="displayAddress" placeholder="Display address"
+                <input type="text" id="displayAddress" placeholder="Адреса для відображення"
                     class="flex-1 px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
-                <button onclick="saveAddress()" class="px-6 py-3 rounded-xl gradient-accent text-black font-semibold hover:shadow-lg hover:shadow-cyan-500/30 transition">💾 Save</button>
+                <button onclick="saveAddress()" class="px-6 py-3 rounded-xl gradient-accent text-black font-semibold hover:shadow-lg hover:shadow-cyan-500/30 transition">💾 Зберегти</button>
             </div>
         </div>
 
         <div class="glass rounded-2xl p-6">
-            <h3 class="text-lg font-semibold mb-4">🔔 Notification Settings</h3>
+            <h3 class="text-lg font-semibold mb-4">🔔 Налаштування сповіщень</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="notifyGrid">{{ notification_cards | safe }}</div>
-            <button onclick="saveNotifySettings()" class="mt-6 w-full py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">💾 Save Settings</button>
+            <button onclick="saveNotifySettings()" class="mt-6 w-full py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">💾 Зберегти налаштування</button>
         </div>
     </div>
 </div>
 
-<!-- Edit Modal -->
+<!-- Modal редагування -->
 <div id="editModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
     <div class="glass rounded-2xl p-6 md:p-8 max-w-lg w-full animate-fade-in">
-        <h3 class="text-xl font-bold mb-6">✏️ Edit Monitor</h3>
+        <h3 class="text-xl font-bold mb-6">✏️ Редагувати монітор</h3>
         <input type="hidden" id="editSiteId">
         <div class="space-y-4">
             <div>
-                <label class="text-slate-400 text-sm mb-1.5 block">Name</label>
+                <label class="text-slate-400 text-sm mb-1.5 block">Назва</label>
                 <input type="text" id="editSiteName" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
             </div>
             <div>
@@ -206,12 +206,12 @@
                 <input type="url" id="editSiteUrl" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
             </div>
             <div>
-                <label class="text-slate-400 text-sm mb-1.5 block">Check Interval (sec)</label>
+                <label class="text-slate-400 text-sm mb-1.5 block">Інтервал перевірки (сек)</label>
                 <input type="number" id="editSiteInterval" min="10" max="3600" step="10" value="60" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
-                <p class="text-slate-500 text-xs mt-1">Min: 10s, Max: 60min</p>
+                <p class="text-slate-500 text-xs mt-1">Мін: 10с, Макс: 60хв</p>
             </div>
             <div>
-                <label class="text-slate-400 text-sm mb-2 block">Notifications</label>
+                <label class="text-slate-400 text-sm mb-2 block">Сповіщення</label>
                 <div class="flex flex-wrap gap-3" id="editSiteNotify">
                     <label class="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
                         <input type="checkbox" value="telegram" class="accent-accent"> 📱 Telegram
@@ -229,19 +229,19 @@
             </div>
         </div>
         <div class="flex gap-3 mt-8">
-            <button onclick="closeEditModal()" class="flex-1 py-3.5 rounded-xl bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition font-medium">Cancel</button>
-            <button onclick="saveEdit()" class="flex-1 py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">💾 Save</button>
+            <button onclick="closeEditModal()" class="flex-1 py-3.5 rounded-xl bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition font-medium">Скасувати</button>
+            <button onclick="saveEdit()" class="flex-1 py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">💾 Зберегти</button>
         </div>
     </div>
 </div>
 
-<!-- Add Channel Modal -->
+<!-- Modal додавання каналу -->
 <div id="addChannelModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
     <div class="glass rounded-2xl p-6 md:p-8 max-w-lg w-full animate-fade-in">
-        <h3 class="text-xl font-bold mb-6">➕ Add Notification Channel</h3>
+        <h3 class="text-xl font-bold mb-6">➕ Додати канал сповіщень</h3>
         <div class="space-y-4">
             <div>
-                <label class="text-slate-400 text-sm mb-1.5 block">Type</label>
+                <label class="text-slate-400 text-sm mb-1.5 block">Тип</label>
                 <select id="addChannelMethod" onchange="updateChannelFields()" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent outline-none transition">
                     <option value="telegram">📱 Telegram</option>
                     <option value="discord">🎮 Discord</option>
@@ -250,12 +250,12 @@
                 </select>
             </div>
             <div>
-                <label class="text-slate-400 text-sm mb-1.5 block">Channel Name</label>
-                <input type="text" id="newChannelName" placeholder="e.g. Main Telegram" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent outline-none transition">
+                <label class="text-slate-400 text-sm mb-1.5 block">Назва каналу</label>
+                <input type="text" id="newChannelName" placeholder="напр. Основний Telegram" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent outline-none transition">
             </div>
             <div id="telegramFields">
                 <div class="mb-4">
-                    <label class="text-slate-400 text-sm mb-1.5 block">Bot Token</label>
+                    <label class="text-slate-400 text-sm mb-1.5 block">Токен бота</label>
                     <input type="text" id="newTelegramToken" placeholder="123456789:ABCdef..." class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent outline-none transition">
                 </div>
                 <div>
@@ -270,31 +270,31 @@
             <div id="emailFields" style="display:none">
                 <div class="grid grid-cols-2 gap-4 mb-4">
                     <div>
-                        <label class="text-slate-400 text-sm mb-1.5 block">SMTP Server</label>
+                        <label class="text-slate-400 text-sm mb-1.5 block">SMTP Сервер</label>
                         <input type="text" id="newEmailSmtp" placeholder="smtp.gmail.com" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent outline-none transition">
                     </div>
                     <div>
-                        <label class="text-slate-400 text-sm mb-1.5 block">Port</label>
+                        <label class="text-slate-400 text-sm mb-1.5 block">Порт</label>
                         <input type="text" id="newEmailPort" value="587" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent outline-none transition">
                     </div>
                 </div>
                 <div class="mb-4">
-                    <label class="text-slate-400 text-sm mb-1.5 block">Username</label>
+                    <label class="text-slate-400 text-sm mb-1.5 block">Ім'я користувача</label>
                     <input type="text" id="newEmailUser" placeholder="your@email.com" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent outline-none transition">
                 </div>
                 <div class="mb-4">
-                    <label class="text-slate-400 text-sm mb-1.5 block">Password</label>
-                    <input type="password" id="newEmailPass" placeholder="App password" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent outline-none transition">
+                    <label class="text-slate-400 text-sm mb-1.5 block">Пароль</label>
+                    <input type="password" id="newEmailPass" placeholder="Пароль додатку" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent outline-none transition">
                 </div>
                 <div>
-                    <label class="text-slate-400 text-sm mb-1.5 block">Recipient</label>
+                    <label class="text-slate-400 text-sm mb-1.5 block">Отримувач</label>
                     <input type="text" id="newEmailTo" placeholder="to@email.com" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent outline-none transition">
                 </div>
             </div>
         </div>
         <div class="flex gap-3 mt-8">
-            <button onclick="closeAddChannelModal()" class="flex-1 py-3.5 rounded-xl bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition font-medium">Cancel</button>
-            <button onclick="addNewChannel()" class="flex-1 py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">Add</button>
+            <button onclick="closeAddChannelModal()" class="flex-1 py-3.5 rounded-xl bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition font-medium">Скасувати</button>
+            <button onclick="addNewChannel()" class="flex-1 py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">Додати</button>
         </div>
     </div>
 </div>
@@ -557,7 +557,7 @@ function renderMonitors() {
 }
 
 async function checkSite(id) { try { await fetch('/api/sites/' + id + '/check', {method:'POST'}); loadSites(); } catch(e) { console.error(e); } }
-async function deleteSite(id) { if (!confirm('Delete this monitor?')) return; try { await fetch('/api/sites/' + id, {method:'DELETE'}); loadSites(); } catch(e) { console.error(e); } }
+async function deleteSite(id) { if (!confirm('Видалити цей монітор?')) return; try { await fetch('/api/sites/' + id, {method:'DELETE'}); loadSites(); } catch(e) { console.error(e); } }
 
 function switchTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
@@ -576,10 +576,10 @@ async function addSite() {
     const check_interval = parseInt(document.getElementById('siteCheckInterval').value) || 60;
     const container = document.getElementById('siteNotifyOptions');
     const notify_methods = container ? Array.from(container.querySelectorAll('input:checked')).map(o => o.value) : [];
-    if (!name || !url) return alert('Fill name and URL');
+    if (!name || !url) return alert('Заповніть назву та URL');
     try {
         const resp = await fetch('/api/sites', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, url, monitor_type, check_interval, notify_methods})});
-        if (resp.ok) { document.getElementById('siteName').value = ''; document.getElementById('siteUrl').value = ''; loadSites(); alert('Monitor added!'); }
+        if (resp.ok) { document.getElementById('siteName').value = ''; document.getElementById('siteUrl').value = ''; loadSites(); alert('Монітор додано!'); }
     } catch(e) { console.error(e); }
 }
 
@@ -624,8 +624,8 @@ async function loadResponseTimeChart() {
             data: {
                 labels: data.map(d => d.site_name?.length > 12 ? d.site_name.substring(0,12)+'…' : d.site_name),
                 datasets: [
-                    { label: 'Avg (ms)', data: data.map(d => d.avg_time || 0), backgroundColor: '#00d9ff', borderRadius: 4 },
-                    { label: 'Max (ms)', data: data.map(d => d.max_time || 0), backgroundColor: 'rgba(239,68,68,0.6)', borderRadius: 4 }
+                    { label: 'Середній (мс)', data: data.map(d => d.avg_time || 0), backgroundColor: '#00d9ff', borderRadius: 4 },
+                    { label: 'Макс (мс)', data: data.map(d => d.max_time || 0), backgroundColor: 'rgba(239,68,68,0.6)', borderRadius: 4 }
                 ]
             },
             options: {
@@ -662,7 +662,7 @@ async function loadSSLTimelineChart() {
             type: 'bar',
             data: {
                 labels,
-                datasets: [{ label: 'Days until expiry', data: days, backgroundColor: colors, borderRadius: 4 }]
+                datasets: [{ label: 'Днів до завершення', data: days, backgroundColor: colors, borderRadius: 4 }]
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
@@ -734,7 +734,7 @@ function closeAddChannelModal() { document.getElementById('addChannelModal').cla
 function addNewChannel() {
     const method = document.getElementById('addChannelMethod').value;
     const name = document.getElementById('newChannelName').value.trim();
-    if (!name) return alert('Enter channel name!');
+    if (!name) return alert('Введіть назву каналу!');
     const channelId = 'ch_' + Date.now();
     const container = document.getElementById('channels-' + method);
     if (!container) return;
@@ -742,7 +742,7 @@ function addNewChannel() {
     if (method === 'telegram') {
         const token = document.getElementById('newTelegramToken').value.trim();
         const chat_id = document.getElementById('newTelegramChatId').value.trim();
-        if (!token || !chat_id) return alert('Enter token and chat_id!');
+        if (!token || !chat_id) return alert('Введіть токен та chat_id!');
         html = `<div class="channel-item p-3 rounded-lg bg-slate-800/50 border border-slate-700/50 mb-2" id="ch_${channelId}">
             <div class="flex justify-between items-center"><span class="text-sm font-medium">📱 ${name}</span>
             <button onclick="removeChannel('${method}','${channelId}')" class="text-red-400 hover:text-red-300 text-xs">✕</button></div>
@@ -756,7 +756,7 @@ function addNewChannel() {
         const username = document.getElementById('newEmailUser').value.trim();
         const password = document.getElementById('newEmailPass').value;
         const to_email = document.getElementById('newEmailTo').value.trim();
-        if (!smtp_server || !username || !to_email) return alert('Fill all email fields!');
+        if (!smtp_server || !username || !to_email) return alert('Заповніть всі поля email!');
         html = `<div class="channel-item p-3 rounded-lg bg-slate-800/50 border border-slate-700/50 mb-2" id="ch_${channelId}">
             <div class="flex justify-between items-center"><span class="text-sm font-medium">📧 ${name}</span>
             <button onclick="removeChannel('${method}','${channelId}')" class="text-red-400 hover:text-red-300 text-xs">✕</button></div>
@@ -769,7 +769,7 @@ function addNewChannel() {
         </div>`;
     } else {
         const webhookUrl = document.getElementById('newWebhookUrl').value.trim();
-        if (!webhookUrl) return alert('Enter webhook URL!');
+        if (!webhookUrl) return alert('Введіть URL webhook!');
         html = `<div class="channel-item p-3 rounded-lg bg-slate-800/50 border border-slate-700/50 mb-2" id="ch_${channelId}">
             <div class="flex justify-between items-center"><span class="text-sm font-medium">🔗 ${name}</span>
             <button onclick="removeChannel('${method}','${channelId}')" class="text-red-400 hover:text-red-300 text-xs">✕</button></div>
@@ -812,7 +812,7 @@ async function saveNotifySettings() {
     });
     try {
         await fetch('/api/notify-settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(settings)});
-        alert('✅ Settings saved!');
+        alert('✅ Налаштування збережено!');
     } catch(e) { console.error(e); }
 }
 

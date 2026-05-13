@@ -1483,10 +1483,10 @@ DASHBOARD_JS = """
 
 def get_notification_cards_html(config):
     methods = [
-        ("telegram", "📱", "Telegram", "Instant notifications"),
-        ("discord", "🎮", "Discord", "Gaming communities"),
-        ("teams", "🏢", "MS Teams", "Work groups"),
-        ("email", "📧", "Email", "Email notifications"),
+        ("telegram", "📱", "Telegram", "Миттєві сповіщення"),
+        ("discord", "🎮", "Discord", "Геймерські спільноти"),
+        ("teams", "🏢", "MS Teams", "Робочі групи"),
+        ("email", "📧", "Email", "Електронна пошта"),
     ]
 
     html = ""
