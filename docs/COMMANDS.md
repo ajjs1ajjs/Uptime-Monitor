@@ -278,26 +278,65 @@ sudo systemctl restart uptime-monitor
 
 ---
 
-## 🧹 Cleanup (Очищення)
+## 🧹 Cleanup / Видалення
+
+### Linux (повне видалення)
 
 ```bash
-# Перевірити розмір бекапів
-sudo du -sh /backup/uptime-monitor/*
+# === 1. Backup даних (якщо потрібно) ===
+sudo cp /var/lib/uptime-monitor/sites.db /tmp/sites.db.backup
+sudo cp /etc/uptime-monitor/config.json /tmp/config.json.backup
 
-# Видалити старі бекапи
-sudo /opt/uptime-monitor/scripts/backup-rotation.sh
+# === 2. Зупинити та вимкнути служби ===
+sudo systemctl stop uptime-monitor uptime-monitor-worker
+sudo systemctl disable uptime-monitor uptime-monitor-worker
 
-# Видалити службу
-sudo systemctl stop uptime-monitor
-sudo systemctl disable uptime-monitor
-sudo rm /etc/systemd/system/uptime-monitor.service
+# === 3. Видалити systemd файли ===
+sudo rm -f /etc/systemd/system/uptime-monitor.service
+sudo rm -f /etc/systemd/system/uptime-monitor-worker.service
 sudo systemctl daemon-reload
 
-# Видалити програму
+# === 4. Видалити проект та дані ===
 sudo rm -rf /opt/uptime-monitor
 sudo rm -rf /etc/uptime-monitor
 sudo rm -rf /var/lib/uptime-monitor
-sudo userdel uptime-monitor
+sudo rm -rf /var/log/uptime-monitor
+
+# === 5. Видалити бекапи ===
+sudo rm -rf /backup/uptime-monitor
+
+# === 6. Видалити системного користувача ===
+sudo userdel -r uptime-monitor 2>/dev/null || echo "Користувач видалений"
+
+# === 7. Перевірка ===
+sudo systemctl status uptime-monitor 2>/dev/null && echo "⚠ Служба ще існує" || echo "✓ Служба видалена"
+ls -la /opt/uptime-monitor 2>/dev/null && echo "⚠ Проект ще існує" || echo "✓ Проект видалений"
+```
+
+### Windows (повне видалення)
+
+```powershell
+# === 1. Backup даних (якщо потрібно) ===
+Copy-Item "$env:USERPROFILE\UptimeMonitor\data\sites.db" "$env:TEMP\sites.db.backup"
+Copy-Item "$env:USERPROFILE\UptimeMonitor\config.json" "$env:TEMP\config.json.backup"
+
+# === 2. Зупинити та видалити службу ===
+net stop UptimeMonitor
+python main_service.py remove
+
+# === 3. Видалити Scheduled Task (якщо використовувався) ===
+Unregister-ScheduledTask -TaskName 'UptimeMonitor' -Confirm:$false 2>$null
+
+# === 4. Видалити папку проекту ===
+cd ..
+rm -r -Force Uptime-Monitor
+
+# === 5. Видалити дані ===
+rm -r -Force "$env:USERPROFILE\UptimeMonitor"
+
+# === 6. Перевірка ===
+sc query UptimeMonitor 2>$null | Out-Null
+if ($?) { Write-Warning "Служба ще існує" } else { Write-Host "✓ Служба видалена" }
 ```
 
 ---
