@@ -21,7 +21,28 @@ curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/insta
 http://YOUR_SERVER_IP:8080
 ```
 
-> **Security:** Since v2.0.0, the default admin password is randomly generated on first run — check the install output or `/var/log/uptime-monitor/` for the initial credentials.
+### Install (Windows — Service)
+
+```powershell
+# Run as Administrator in Uptime_Robot folder
+git clone https://github.com/ajjs1ajjs/Uptime-Monitor.git
+cd Uptime-Monitor\Uptime_Robot
+.\install_service.bat
+
+# Or quick install:
+.\install.bat /y
+```
+
+### Run directly (any platform)
+
+```bash
+python -m Uptime_Robot.main --host 0.0.0.0 --port 8080
+```
+
+> **Security (v2.0.0+):** Admin password is randomly generated on first run. Check console output or:
+> ```bash
+> sudo journalctl -u uptime-monitor | grep "DEFAULT ADMIN"
+> ```
 
 ---
 
@@ -110,15 +131,18 @@ Starting from v2.0.0, the project includes enterprise-grade security:
 
 | Method | Platform | Command |
 |--------|----------|---------|
-| **Curl** | Linux | `curl -fsSL https://raw.githubusercontent.com/... \| sudo bash` |
+| **Curl** | Linux | `curl -fsSL https://... \| sudo bash` |
 | **Git** | Linux | `git clone && cd Uptime-Monitor && sudo ./install.sh` |
+| **Service** | Windows | `cd Uptime_Robot && .\install_service.bat` |
+| **Quick** | Windows | `cd Uptime_Robot && .\install.bat /y` |
 | **Docker** | Any | `docker compose up -d --build` |
-| **MSI** | Windows | Download from Releases |
-| **APT** | Debian/Ubuntu | `sudo apt install uptime-monitor` |
+| **APT** | Debian | `sudo apt install uptime-monitor` |
 
 ---
 
 ## 🔧 Basic Commands
+
+### Linux (systemd)
 
 ```bash
 # Service management
@@ -129,10 +153,8 @@ sudo systemctl start|stop|restart|status uptime-monitor-worker
 sudo /opt/uptime-monitor/deploy_update.sh
 sudo /opt/uptime-monitor/deploy_update.sh --rollback
 
-# Backup
+# Backup & Restore
 sudo /opt/uptime-monitor/scripts/backup-system.sh --dest /backup/ --verify
-
-# Restore
 sudo /opt/uptime-monitor/scripts/restore-system.sh --from /backup/...
 
 # Logs
@@ -141,6 +163,29 @@ sudo journalctl -u uptime-monitor-worker -f
 
 # Diagnostics
 sudo /opt/uptime-monitor/check-notifications.sh
+```
+
+### Windows (Service)
+
+```powershell
+# Service management
+net start UptimeMonitor
+net stop UptimeMonitor
+python main_service.py remove
+
+# Install service
+.\install_service.bat
+.\install.bat /y
+
+# Test mode
+python main_service.py console
+python -m Uptime_Robot.main --host 0.0.0.0 --port 8080
+
+# Scheduled Task (alternative to service)
+powershell -ExecutionPolicy Bypass -File create_task_simple.ps1
+
+# Build EXE
+.\build_exe.bat
 ```
 
 ---
