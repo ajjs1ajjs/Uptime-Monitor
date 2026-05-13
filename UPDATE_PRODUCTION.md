@@ -391,6 +391,125 @@ sudo /opt/uptime-monitor/deploy_update.sh --rollback
 
 ---
 
+---
+
+## 🌐 Production Deployment Guide
+
+### 1. Прямий доступ (без проксі)
+
+Після встановлення сервіс доступний на `http://IP:8080`
+
+```json
+{
+  "server": {
+    "host": "auto",    // 0.0.0.0 — всі інтерфейси
+    "port": 8080
+  }
+}
+```
+
+### 2. Nginx reverse proxy (рекомендовано для продакшну)
+
+```nginx
+# /etc/nginx/sites-available/uptime-monitor
+server {
+    listen 80;
+    server_name ваш-домен.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket (для майбутніх оновлень)
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+```
+
+```bash
+# Активувати
+sudo ln -s /etc/nginx/sites-available/uptime-monitor /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### 3. SSL / HTTPS (Let's Encrypt)
+
+```bash
+# Встановити certbot
+sudo apt install -y certbot python3-certbot-nginx
+
+# Отримати сертифікат
+sudo certbot --nginx -d ваш-домен.com
+
+# Авто-поновлення (вмикається автоматично)
+sudo certbot renew --dry-run
+```
+
+Або вручну без nginx — змінити `config.json`:
+
+```json
+{
+  "server": { "port": 443 },
+  "ssl": {
+    "enabled": true,
+    "type": "custom",
+    "cert_path": "/etc/letsencrypt/live/ваш-домен.com/fullchain.pem",
+    "key_path": "/etc/letsencrypt/live/ваш-домен.com/privkey.pem",
+    "redirect_http": true,
+    "hsts": true
+  }
+}
+```
+
+### 4. CORS для доменного доступу
+
+```json
+{
+  "cors": {
+    "allow_origins": [
+      "https://ваш-домен.com",
+      "https://моніторинг.ваш-домен.com"
+    ]
+  }
+}
+```
+
+> **Безпека:** Не використовуйте `["*"]` на продакшні, якщо не потрібен публічний API.
+
+### 5. Firewall
+
+```bash
+# ufw
+sudo ufw allow 80/tcp       # HTTP
+sudo ufw allow 443/tcp      # HTTPS
+sudo ufw allow 8080/tcp     # Прямий доступ (якщо без nginx)
+sudo ufw enable
+
+# Або iptables
+sudo iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+sudo iptables -A INPUT -p tcp --dport 443 -j ACCEPT
+```
+
+### 6. Перевірка після деплою
+
+```bash
+# Локально
+curl http://localhost:8080/health
+
+# Через nginx (якщо налаштовано)
+curl https://ваш-домен.com/health
+
+# Зовнішня перевірка
+curl http://IP_СЕРВЕРА:8080/health
+```
+
+---
+
 ## 📝 Чекліст оновлення
 
 - [ ] Прочитано CHANGELOG.md
