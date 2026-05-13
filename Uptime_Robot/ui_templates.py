@@ -1483,16 +1483,15 @@ DASHBOARD_JS = """
 
 def get_notification_cards_html(config):
     methods = [
-        ("telegram", "📱", "Telegram", "Миттєві сповіщення"),
-        ("discord", "🎮", "Discord", "Геймерські спільноти"),
-        ("teams", "🏢", "MS Teams", "Робочі групи"),
-        ("email", "📧", "Email", "Електронна пошта"),
+        ("telegram", "📱", "Telegram", "Instant notifications"),
+        ("discord", "🎮", "Discord", "Gaming communities"),
+        ("teams", "🏢", "MS Teams", "Work groups"),
+        ("email", "📧", "Email", "Email notifications"),
     ]
 
     html = ""
     for key, icon, name, desc in methods:
         enabled = config.get(key, {}).get("enabled", False)
-        enabled_class = "enabled" if enabled else ""
         checked = "checked" if enabled else ""
 
         channels = config.get(key, {}).get("channels", [])
@@ -1500,27 +1499,23 @@ def get_notification_cards_html(config):
         channels_html = ""
         for ch in channels:
             ch_id = ch.get("id", "")
-            ch_name = ch.get("name", "Канал")
+            ch_name = ch.get("name", "Channel")
+            border_cls = "border-emerald-500/30" if enabled else "border-slate-700/30"
+
+            base = f"""<div class="p-3 rounded-lg bg-slate-800/50 border {border_cls} mb-2" id="ch_{ch_id}">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-sm font-medium">{icon} {ch_name}</span>
+                    <button onclick="removeChannel('{key}','{ch_id}')" class="text-red-400 hover:text-red-300 text-xs transition">✕</button>
+                </div>"""
+
             if key == "telegram":
-                channels_html += f"""
-                <div class="channel-item" id="ch_{ch_id}">
-                    <div class="channel-header">
-                        <span class="channel-name">📱 {ch_name}</span>
-                        <button type="button" class="btn-remove-channel" onclick="removeChannel('{key}', '{ch_id}')">✕</button>
-                    </div>
-                    <input type="hidden" name="{key}_channels" value="{ch_id}">
+                channels_html += base + f"""
                     <input type="hidden" id="{key}_{ch_id}_name" value="{ch_name}">
                     <input type="hidden" id="{key}_{ch_id}_token" value="{ch.get("token", "")}">
                     <input type="hidden" id="{key}_{ch_id}_chat_id" value="{ch.get("chat_id", "")}">
                 </div>"""
             elif key == "email":
-                channels_html += f"""
-                <div class="channel-item" id="ch_{ch_id}">
-                    <div class="channel-header">
-                        <span class="channel-name">📧 {ch_name}</span>
-                        <button type="button" class="btn-remove-channel" onclick="removeChannel('{key}', '{ch_id}')">✕</button>
-                    </div>
-                    <input type="hidden" name="{key}_channels" value="{ch_id}">
+                channels_html += base + f"""
                     <input type="hidden" id="{key}_{ch_id}_name" value="{ch_name}">
                     <input type="hidden" id="{key}_{ch_id}_smtp_server" value="{ch.get("smtp_server", "")}">
                     <input type="hidden" id="{key}_{ch_id}_smtp_port" value="{ch.get("smtp_port", 587)}">
@@ -1529,54 +1524,30 @@ def get_notification_cards_html(config):
                     <input type="hidden" id="{key}_{ch_id}_to_email" value="{ch.get("to_email", "")}">
                 </div>"""
             else:
-                channels_html += f"""
-                <div class="channel-item" id="ch_{ch_id}">
-                    <div class="channel-header">
-                        <span class="channel-name">🔗 {ch_name}</span>
-                        <button type="button" class="btn-remove-channel" onclick="removeChannel('{key}', '{ch_id}')">✕</button>
-                    </div>
-                    <input type="hidden" name="{key}_channels" value="{ch_id}">
+                channels_html += base + f"""
                     <input type="hidden" id="{key}_{ch_id}_name" value="{ch_name}">
                     <input type="hidden" id="{key}_{ch_id}_webhook_url" value="{ch.get("webhook_url", "")}">
                 </div>"""
 
-        if key == "email":
-            card = f"""
-            <div class="notify-card {enabled_class}" id="card-{key}">
-                <div class="notify-header">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <span style="font-size:24px;">{icon}</span>
-                        <div><div style="font-weight:600;">{name}</div><div style="font-size:12px; color:var(--text-secondary);">{desc}</div></div>
+        border_cls = "border-emerald-500/40" if enabled else "border-slate-700/30"
+        card = f"""
+        <div class="gradient-card rounded-xl p-5 border {border_cls} transition" id="card-{key}" style="border-color: {('rgba(16,185,129,0.4)' if enabled else 'rgba(148,163,184,0.1)')};">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">{icon}</span>
+                    <div>
+                        <div class="font-semibold text-sm">{name}</div>
+                        <div class="text-xs text-slate-400">{desc}</div>
                     </div>
-                    <label class="toggle">
-                        <input type="checkbox" id="toggle-{key}" onchange="toggleNotify('{key}')" {checked}>
-                        <span class="toggle-slider"></span>
-                    </label>
                 </div>
-                <div class="channels-list" id="channels-{key}">
-                    {channels_html}
-                </div>
-                <button type="button" class="btn-add-channel-inline" onclick="openAddChannelModal('{key}')">➕ Додати канал</button>
-            </div>"""
-        else:
-            card = f"""
-            <div class="notify-card {enabled_class}" id="card-{key}">
-                <div class="notify-header">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <span style="font-size:24px;">{icon}</span>
-                        <div><div style="font-weight:600;">{name}</div><div style="font-size:12px; color:var(--text-secondary);">{desc}</div></div>
-                    </div>
-                    <label class="toggle">
-                        <input type="checkbox" id="toggle-{key}" onchange="toggleNotify('{key}')" {checked}>
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-                <div class="channels-list" id="channels-{key}">
-                    {channels_html}
-                </div>
-                <button type="button" class="btn-add-channel-inline" onclick="openAddChannelModal('{key}')">➕ Додати канал</button>
-            </div>"""
-
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="toggle-{key}" class="sr-only peer" onchange="toggleNotify('{key}')" {checked}>
+                    <div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-accent peer-focus:ring-1 peer-focus:ring-accent transition after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+                </label>
+            </div>
+            <div id="channels-{key}" class="mb-3">{channels_html}</div>
+            <button onclick="openAddChannelModal('{key}')" class="w-full py-2.5 rounded-lg border border-dashed border-slate-600 text-slate-400 hover:border-accent hover:text-accent transition text-xs font-medium bg-transparent">➕ Add Channel</button>
+        </div>"""
         html += card
     return html
 

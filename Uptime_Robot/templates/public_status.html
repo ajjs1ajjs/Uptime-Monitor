@@ -1,62 +1,69 @@
-<!DOCTYPE html>
-<html lang="uk">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Status - Uptime Monitor</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', sans-serif; background: #0f0f23; color: #fff; min-height: 100vh; }
-        .header { background: linear-gradient(135deg, #1a1a2e, #0f0f23); padding: 40px; text-align: center; border-bottom: 1px solid #2a2a4a; }
-        .logo { font-size: 32px; font-weight: 700; margin-bottom: 20px; }
-        .logo-icon { display: inline-block; width: 50px; height: 50px; background: linear-gradient(135deg, #00d9ff, #00ff88); border-radius: 12px; line-height: 50px; font-size: 24px; margin-right: 10px; }
-        .overall-status { font-size: 48px; font-weight: 700; margin: 30px 0; }
-        .overall-status.up { color: #00ff88; }
-        .overall-status.down { color: #ff4757; }
-        .stats { display: flex; justify-content: center; gap: 40px; margin: 20px 0; }
-        .stat { text-align: center; }
-        .stat-value { font-size: 36px; font-weight: 700; }
-        .stat-label { color: #a0a0b0; font-size: 14px; }
-        .container { max-width: 1000px; margin: 0 auto; padding: 40px; }
-        .monitor { background: linear-gradient(145deg, #1a1a2e, #16213e); padding: 20px; margin-bottom: 15px; border-radius: 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #2a2a4a; }
-        .monitor.up { border-left: 4px solid #00ff88; }
-        .monitor.down { border-left: 4px solid #ff4757; }
-        .monitor.unknown { border-left: 4px solid #94a3b8; }
-        .monitor-name { font-size: 18px; font-weight: 600; }
-        .monitor-url { color: #a0a0b0; font-size: 13px; margin-top: 5px; }
-        .status-badge { padding: 8px 20px; border-radius: 20px; font-weight: 600; font-size: 14px; }
-        .status-badge.up { background: rgba(0,255,136,0.15); color: #00ff88; }
-        .status-badge.down { background: rgba(255,71,87,0.15); color: #ff4757; }
-        .status-badge.unknown { background: rgba(148,163,184,0.15); color: #94a3b8; }
-        .footer { text-align: center; padding: 40px; color: #a0a0b0; font-size: 14px; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <div class="logo"><span class="logo-icon">⚡</span>Uptime Monitor</div>
-        <div class="overall-status {{ overall_status_class }}">
+{% extends "base.html" %}
+{% block title %}Uptime Monitor - Status Page{% endblock %}
+{% block head %}
+<style>
+    .pulse-dot { animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+</style>
+{% endblock %}
+{% block content %}
+<div class="min-h-screen">
+    <header class="glass py-8 md:py-12 px-4 text-center border-b border-slate-700/30">
+        <div class="w-14 h-14 mx-auto gradient-accent rounded-2xl flex items-center justify-center text-2xl shadow-lg shadow-cyan-500/30 mb-4">⏱️</div>
+        <h1 class="text-3xl md:text-4xl font-bold mb-2">Uptime Monitor</h1>
+        <p class="text-slate-400 text-sm">Real-time system status</p>
+
+        <div class="text-4xl md:text-5xl font-bold mt-8 mb-4 {{ 'text-emerald-400' if overall_status_class == 'up' else 'text-red-400' }}">
             {{ overall_status_text }}
         </div>
-        <div class="stats">
-            <div class="stat"><div class="stat-value" style="color: #00d9ff;">{{ total }}</div><div class="stat-label">Моніторів</div></div>
-            <div class="stat"><div class="stat-value" style="color: #00ff88;">{{ up_count }}</div><div class="stat-label">Онлайн</div></div>
-            <div class="stat"><div class="stat-value" style="color: #ff4757;">{{ down_count }}</div><div class="stat-label">Офлайн</div></div>
-        </div>
-    </div>
-    <div class="container">
-        {% for site in sites %}
-        <div class="monitor {{ site.status_class }}">
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <div style="width: 10px; height: 10px; border-radius: 50%; background: {{ site.dot_color }}; box-shadow: 0 0 8px {{ site.dot_color }};"></div>
-                <div>
-                    <div class="monitor-name">{{ site.name }}</div>
-                    <div class="monitor-url">{{ site.url }}</div>
-                </div>
+
+        <div class="flex justify-center gap-8 md:gap-12 mt-6">
+            <div class="text-center">
+                <div class="text-3xl font-bold text-accent">{{ total }}</div>
+                <div class="text-xs text-slate-400 uppercase tracking-wider mt-1">Total</div>
             </div>
-            <span class="status-badge {{ site.status_class }}">{{ site.status_text }}</span>
+            <div class="text-center">
+                <div class="text-3xl font-bold text-emerald-400">{{ up_count }}</div>
+                <div class="text-xs text-slate-400 uppercase tracking-wider mt-1">Operational</div>
+            </div>
+            <div class="text-center">
+                <div class="text-3xl font-bold text-red-400">{{ down_count }}</div>
+                <div class="text-xs text-slate-400 uppercase tracking-wider mt-1">Issues</div>
+            </div>
         </div>
-        {% endfor %}
+    </header>
+
+    <div class="max-w-3xl mx-auto px-4 py-8">
+        <div class="text-xs text-slate-500 text-center mb-6">Last updated: {{ timestamp }}</div>
+
+        <div class="space-y-3">
+            {% for site in sites %}
+            <div class="glass rounded-xl p-4 md:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-l-4 animate-fade-in"
+                style="border-left-color: {{ site.dot_color }};">
+                <div class="flex items-center gap-3 min-w-0 flex-1">
+                    <div class="pulse-dot w-3 h-3 rounded-full flex-shrink-0" style="background: {{ site.dot_color }}; box-shadow: 0 0 8px {{ site.dot_color }};"></div>
+                    <div class="min-w-0">
+                        <div class="font-semibold text-sm truncate">{{ site.name }}</div>
+                        <div class="text-xs text-slate-400 truncate">{{ site.url }}</div>
+                    </div>
+                </div>
+                <span class="px-4 py-1.5 rounded-full text-xs font-bold {{ 'bg-status-up/10 text-emerald-400' if site.status_class == 'up' else 'bg-status-down/10 text-red-400' }}">
+                    {{ site.status_text }}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if sites|length == 0 %}
+        <div class="text-center py-16 text-slate-500 glass rounded-2xl">
+            <div class="text-4xl mb-4">📡</div>
+            <p class="text-lg">No monitors configured yet</p>
+        </div>
+        {% endif %}
     </div>
-    <div class="footer"><p>Оновлено: {{ timestamp }}</p></div>
-</body>
-</html>
+
+    <footer class="text-center py-8 text-slate-600 text-xs">
+        Powered by Uptime Monitor v2.0.0
+    </footer>
+</div>
+{% endblock %}
