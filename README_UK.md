@@ -24,7 +24,9 @@ curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/insta
 
 # Доступ до панелі
 http://YOUR_SERVER_IP:8080
-# Логін: admin / Пароль: admin
+# Пароль генерується випадково при першому запуску
+# Шукайте в виводі інсталятора або в логах:
+sudo journalctl -u uptime-monitor | grep "DEFAULT ADMIN"
 ```
 
 ### Windows

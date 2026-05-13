@@ -7,11 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.0.0] - 2026-03-19
+## [2.0.0] - 2026-05-13
 
-### 🎉 Major Release - Enhanced Monitoring & Backup System
+### 🎉 Major Release - Enterprise Security & Production Hardening
 
 #### Added
+
+##### Enterprise Security
+- **Rate Limiting** — `/login` endpoint: 5 attempts per 15 min per IP
+- **Password Policy** — Min 12 chars, requires uppercase + lowercase + digit
+- **Random Admin Password** — Generated on first install (no more `admin/admin`)
+- **Encrypted Secrets** — Email passwords encrypted via Fernet (`cryptography`)
+- **Configurable CORS** — `cors.allow_origins` in `config.json`
+- **SSL Verification** — Configurable `verify_ssl` in `alert_policy`
+- **Security Headers** — X-Content-Type-Options, X-Frame-Options, X-XSS-Protection
+
+##### Deployment
+- **Enterprise deploy script** — `deploy_update.sh` with full backup + rollback
+- **Database migrations** — Automatic schema migration support
+- **Pre-update checklist** — Verification before any update
 
 ##### Backup System
 - **Automatic backups** - Daily, weekly, monthly, yearly schedules
@@ -33,9 +47,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **HSTS headers** - Enhanced security
 
 ##### Notifications
-- **Improved SSL alerts** - Notify 7 days before expiry (was 21)
+- **Improved SSL alerts** - Notify 14 days before expiry
 - **Multi-channel** - Telegram, Email, Slack, Discord, Teams, SMS
 - **Configurable thresholds** - Customize when to alert
+- **Slack/SMS dispatch** — Fixed missing Slack/SMS in send_notification
 
 #### Changed
 
@@ -43,13 +58,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Host detection** - Auto-detect server IP
 - **SSL check interval** - Every 6 hours
 - **Documentation** - Comprehensive Ukrainian documentation
+- **Updated CI/CD** — Removed `|| true` suppression, pinned actions to v4/v5
+- **Version sync** — All version references updated to 2.0.0
+- **Requirements pinned** — All dependencies have minimum version constraints
+
+#### Fixed
+
+- **CORS** — `allow_origins=["*"]` → configurable via `config.json`
+- **SSL disabled** — `ssl=False` → configurable `verify_ssl` policy
+- **Duplicate code** — Removed duplicate `init_paths()`, `import monitoring`, `sys.exit(1)`
+- **Unused imports** — Removed `aiohttp` from `ssl_checker.py`
+- **Bare excepts** — Replaced `except: pass` with specific exception handlers
+- **print() → logger** — All production `print()` calls migrated to structured logging
+- **Async/sync wrappers** — Removed fragile `iscoroutinefunction()` pattern (12 locations)
+- **`deploy_update.sh`** — Fixed hardcoded `sa:sa` user, improved backup scope
+- **Notification dispatch** — Fixed missing Slack/SMS dispatch in `send_notification()`
+- **Type safety** — Fixed `send_slack` to accept `Union[str, Dict]`
+- **Small fixes** — `state.py`, `worker.py`, `config_manager.py` bugs
 
 #### Technical
 
 - FastAPI backend
-- SQLite database
+- SQLite database (aiosqlite)
 - Async monitoring with aiohttp
 - Role-based access control (admin/viewer)
+- Fernet encryption for secrets at rest
+- In-memory rate limiting
 
 ---
 
@@ -189,7 +223,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### v2.0.0
 - Default port changed from 5000 to 8080
 - Configuration moved to JSON format
-- SSL notification threshold changed from 21 to 7 days
+- SSL notification threshold changed from 21 to 14 days
+- **Admin password** — Random on first install (check install output)
+- **Password policy** — Min 12 chars with upper+lower+digit (was 6)
+- **CORS** — Now configurable via `config.json: cors.allow_origins`
+- **SSL verification** — Default `true` (configurable via `alert_policy.verify_ssl`)
+- **Login rate limiting** — 5 attempts per 15 min per IP
+- **Dependency:** `cryptography>=41.0.0` added for secrets encryption
 
 ### v1.5.0
 - Session-based authentication replaced cookie-based auth

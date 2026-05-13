@@ -303,7 +303,7 @@ def parse_message(message: str) -> Dict[str, Any]:
                 data["response_time"] = float(
                     line.replace("Response Time: ", "").replace("ms", "").strip()
                 )
-            except:
+            except (ValueError, AttributeError):
                 pass
         elif line.startswith("Time: "):
             data["checked_at"] = line.replace("Time: ", "").strip()
@@ -377,6 +377,15 @@ async def send_notification(
             for channel in channels:
                 if channel.get("smtp_server") and channel.get("username"):
                     tasks.append(send_email(message, channel))
+
+        elif method == "slack":
+            channels = method_config.get("channels", [])
+            for channel in channels:
+                if channel.get("webhook_url"):
+                    tasks.append(send_slack(message, channel))
+
+        elif method == "sms":
+            tasks.append(send_sms(message, method_config))
 
     if tasks:
         await asyncio.gather(*tasks, return_exceptions=True)
@@ -466,14 +475,18 @@ async def send_discord(message: Union[str, Dict], settings: Dict[str, Any]):
         logger.error(f"Discord error: {e}")
 
 
-async def send_slack(message: str, settings: Dict[str, Any]):
+async def send_slack(message: Union[str, Dict], settings: Dict[str, Any]):
     """Відправляє повідомлення в Slack"""
     webhook_url = settings.get("webhook_url")
     if not webhook_url:
         return
 
     try:
-        payload = {"text": message}
+        if isinstance(message, dict):
+            text = message.get("error", str(message))
+        else:
+            text = message
+        payload = {"text": text}
         async with aiohttp.ClientSession() as session:
             async with session.post(webhook_url, json=payload) as response:
                 if response.status not in [200, 204]:
@@ -482,8 +495,10 @@ async def send_slack(message: str, settings: Dict[str, Any]):
         logger.error(f"Slack error: {e}")
 
 
-async def send_email(message: str, settings: Dict[str, Any]):
+async def send_email(message: Union[str, Dict], settings: Dict[str, Any]):
     """Відправляє email"""
+    if isinstance(message, dict):
+        message = f"Uptime Monitor Alert ({message.get('alert_type', 'unknown')}): {message.get('site_name', 'N/A')} - {message.get('error', '')}"
     smtp_server = settings.get("smtp_server")
     smtp_port = settings.get("smtp_port", 587)
     username = settings.get("username")

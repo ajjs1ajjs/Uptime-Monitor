@@ -107,3 +107,25 @@ debian/files
 debian/*.debhelper.log
 debian/*.substvars
 debian/uptime-monitor/
+
+# Windows-specific artifacts (not needed in Docker)
+*.bat
+*.ps1
+*.ico
+build_exe.*
+
+# Documentation and examples (not needed at runtime)
+INSTALL_README.txt
+README_PORTABLE.md
+README_SECURITY.md
+USER_ROLES_GUIDE.md
+AUTH_SETUP_GUIDE.txt
+
+# Standalone test file
+tests.py
+
+# Master key (should be mounted as volume, not baked in)
+master.key
+
+# .env example
+.env.example

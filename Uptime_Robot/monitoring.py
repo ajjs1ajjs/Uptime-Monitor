@@ -28,6 +28,7 @@ SENSITIVE_DEFAULTS = {
     "ssl_notification_days": 14,
     "ssl_notification_cooldown_seconds": 21600,
     "ssl_check_interval_hours": 6,
+    "verify_ssl": True,
 }
 
 
@@ -121,7 +122,7 @@ async def check_site_status(
                 url,
                 timeout=aiohttp.ClientTimeout(total=policy["request_timeout_seconds"]),
                 headers=headers,
-                ssl=False,
+                ssl=policy.get("verify_ssl", True),
                 allow_redirects=True,
             ) as response:
                 status_code = response.status

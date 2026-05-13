@@ -3,13 +3,9 @@ try:
 except ImportError:
     import config_manager
 
-# Initialize paths so DB_PATH is populated correctly before exporting
-config_manager.init_paths()
-
 # Avoid circular imports by hosting global dynamic states here
-CONFIG = config_manager.load_config()
-# Initialize paths so DB_PATH is populated correctly before exporting
 config_manager.init_paths()
+CONFIG = config_manager.load_config()
 DB_PATH = config_manager.DB_PATH
 APP_DIR = config_manager.APP_DIR
 

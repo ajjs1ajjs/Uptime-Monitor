@@ -1,9 +1,12 @@
 import ssl
 import socket
-from datetime import datetime, timedelta
+from datetime import datetime
 from urllib.parse import urlparse
-import asyncio
-import aiohttp
+
+try:
+    from .logger import logger
+except ImportError:
+    from logger import logger
 
 async def check_ssl_certificate(url: str):
     """Перевіряє SSL сертифікат сайту"""
@@ -62,7 +65,7 @@ async def check_ssl_certificate(url: str):
         
         return None
     except Exception as e:
-        print(f"SSL check error for {url}: {e}")
+        logger.error(f"SSL check error for {url}: {e}")
         return None
 
 def should_notify_certificate(days_until_expire: int, last_notified_days: int = None):

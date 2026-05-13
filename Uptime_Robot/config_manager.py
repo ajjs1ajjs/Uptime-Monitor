@@ -5,20 +5,24 @@ import ssl as ssl_module
 import sys
 from datetime import datetime
 
+try:
+    from .logger import logger
+    from .crypto_utils import decrypt_config_sensitive, encrypt_config_sensitive, init_crypto
+except ImportError:
+    from logger import logger
+    from crypto_utils import decrypt_config_sensitive, encrypt_config_sensitive, init_crypto
+
 # Windows-specific imports (only on Windows)
 IS_WINDOWS = sys.platform == "win32"
 
 # Get the application directory (works for both script and compiled EXE)
 if getattr(sys, "frozen", False):
-    # Running as compiled EXE
     APP_DIR = os.path.dirname(sys.executable)
 else:
-    # Running as script
     APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Configuration paths
 CONFIG_PATH = os.environ.get("CONFIG_PATH", "/etc/uptime-monitor/config.json")
-DB_PATH = ""  # Will be set in init_paths
+DB_PATH = ""
 
 
 def init_paths():
@@ -34,18 +38,18 @@ def init_paths():
     else:
         DB_PATH = os.path.join(os.path.dirname(CONFIG_PATH), "sites.db")
 
-    # Ensure directory exists
     try:
         db_dir = os.path.dirname(DB_PATH)
         if db_dir and not os.path.exists(db_dir):
             os.makedirs(db_dir, exist_ok=True)
-    except:
-        pass
+    except OSError as e:
+        logger.warning(f"Could not create DB directory: {e}")
 
 
 # Default configuration
 DEFAULT_CONFIG = {
     "server": {"port": 8080, "host": "auto", "domain": "auto"},
+    "cors": {"allow_origins": ["*"]},
     "ssl": {
         "enabled": False,
         "type": "custom",
@@ -116,32 +120,30 @@ DEFAULT_NOTIFY_SETTINGS = {
 def get_server_ip():
     """Get the server IP address"""
     try:
-        # Get all network interfaces
         hostname = socket.gethostname()
-        # Get IP from hostname
         ip = socket.gethostbyname(hostname)
-        # If it's localhost, try to get external IP
         if ip.startswith("127."):
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             try:
                 s.connect(("8.8.8.8", 80))
                 ip = s.getsockname()[0]
-            except:
+            except Exception:
                 pass
             finally:
                 s.close()
         return ip
-    except:
+    except Exception:
         return "0.0.0.0"
 
 
 def load_config():
     """Load configuration from file or create default"""
+    init_crypto()
     if os.path.exists(CONFIG_PATH):
         try:
             with open(CONFIG_PATH, "r", encoding="utf-8") as f:
                 config = json.load(f)
-            # Merge with defaults to ensure all keys exist
+
             for key, value in DEFAULT_CONFIG.items():
                 if key not in config:
                     config[key] = value
@@ -152,19 +154,20 @@ def load_config():
                         for sub_key, sub_value in value.items():
                             if sub_key not in config[key]:
                                 config[key][sub_key] = sub_value
+
+            config = decrypt_config_sensitive(config)
             return config
         except Exception as e:
-            print(f"Error loading config: {e}")
+            logger.error(f"Error loading config: {e}")
             return DEFAULT_CONFIG.copy()
     else:
         config = DEFAULT_CONFIG.copy()
-        # Create default config file
         try:
             os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
             with open(CONFIG_PATH, "w", encoding="utf-8") as f:
                 json.dump(config, f, indent=4, ensure_ascii=False)
-        except:
-            pass
+        except OSError as e:
+            logger.warning(f"Could not create default config: {e}")
         return config
 
 
@@ -172,11 +175,12 @@ def save_config(config):
     """Save configuration to file"""
     try:
         os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+        encrypted = encrypt_config_sensitive(config)
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump(config, f, indent=4, ensure_ascii=False)
+            json.dump(encrypted, f, indent=4, ensure_ascii=False)
         return True
     except Exception as e:
-        print(f"Error saving config: {e}")
+        logger.error(f"Error saving config: {e}")
         return False
 
 
@@ -196,8 +200,8 @@ def log_config_change(config, old_config, new_config, user="system"):
 
         with open(log_file, "a", encoding="utf-8") as f:
             f.write(json.dumps(change_entry, ensure_ascii=False) + "\n")
-    except:
-        pass
+    except Exception as e:
+        logger.warning(f"Failed to log config change: {e}")
 
 
 def backup_config(config):
@@ -222,51 +226,43 @@ def backup_config(config):
             if os.path.exists(prev_link):
                 try:
                     os.remove(prev_link)
-                except:
+                except OSError:
                     pass
             try:
                 os.rename(latest_link, prev_link)
-            except:
+            except OSError:
                 pass
 
         if os.path.exists(latest_link):
             try:
                 os.remove(latest_link)
-            except:
+            except OSError:
                 pass
 
         try:
             if hasattr(os, "symlink"):
                 os.symlink(backup_file, latest_link)
             else:
-                # Fallback for systems without symlink support (Windows without admin)
                 import shutil
-
                 shutil.copy2(backup_file, latest_link)
-        except:
+        except OSError:
             pass
 
-        # Clean old backups
         max_backups = config.get("backup", {}).get("max_backups", 10)
         backups = sorted(
-            [
-                f
-                for f in os.listdir(backup_dir)
-                if f.startswith("config.")
-                and f.endswith(".json")
-                and not f.endswith(".latest.json")
-                and not f.endswith(".previous.json")
-            ]
+            f for f in os.listdir(backup_dir)
+            if f.startswith("config.") and f.endswith(".json")
+            and not f.endswith(".latest.json") and not f.endswith(".previous.json")
         )
         if len(backups) > max_backups:
             for old_backup in backups[:-max_backups]:
                 try:
                     os.remove(os.path.join(backup_dir, old_backup))
-                except:
+                except OSError:
                     pass
 
     except Exception as e:
-        print(f"Backup error: {e}")
+        logger.error(f"Backup error: {e}")
 
 
 def setup_ssl(config):
@@ -279,14 +275,14 @@ def setup_ssl(config):
         key_path = config["ssl"].get("key_path", "")
 
         if not os.path.exists(cert_path) or not os.path.exists(key_path):
-            print(f"SSL certificates not found: {cert_path}, {key_path}")
+            logger.warning(f"SSL certificates not found: {cert_path}, {key_path}")
             return None
 
         ssl_context = ssl_module.create_default_context(ssl_module.Purpose.CLIENT_AUTH)
         ssl_context.load_cert_chain(cert_path, key_path)
         return ssl_context
     except Exception as e:
-        print(f"SSL setup error: {e}")
+        logger.error(f"SSL setup error: {e}")
         return None
 
 

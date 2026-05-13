@@ -286,7 +286,7 @@ async def update_site(site_id: int, site: SiteUpdate, user: dict = Depends(requi
 async def delete_site(site_id: int, user: dict = Depends(require_admin)):
     if not user:
         raise HTTPException(status_code=401)
-    await models.delete_site(DB_PATH, site_id) if asyncio.iscoroutinefunction(models.delete_site) else models.delete_site(DB_PATH, site_id)
+    await models.delete_site(DB_PATH, site_id)
     return {"message": "Deleted"}
 
 @router.post("/sites/{site_id}/check")
@@ -306,10 +306,7 @@ async def manual_check(site_id: int, user: dict = Depends(require_admin)):
 async def get_ssl_certs(user: dict = Depends(require_viewer_or_higher)):
     if not user:
         raise HTTPException(401)
-    if asyncio.iscoroutinefunction(models.get_ssl_certificates):
-        return await models.get_ssl_certificates(DB_PATH)
-    else:
-        return models.get_ssl_certificates(DB_PATH)
+    return await models.get_ssl_certificates(DB_PATH)
 
 @router.post("/ssl-certificates/check")
 async def manual_ssl_check(user: dict = Depends(require_admin)):
@@ -464,10 +461,7 @@ async def save_notify(settings: NotifySettingsModel, user: dict = Depends(requir
     for k, v in new_data.items():
         if v is not None:
             app_state.NOTIFY_SETTINGS[k] = v
-    if asyncio.iscoroutinefunction(models.save_notify_settings):
-        await models.save_notify_settings(DB_PATH, app_state.NOTIFY_SETTINGS)
-    else:    
-        models.save_notify_settings(DB_PATH, app_state.NOTIFY_SETTINGS)
+    await models.save_notify_settings(DB_PATH, app_state.NOTIFY_SETTINGS)
     return {"message": "Saved"}
 
 @router.post("/app-settings")
@@ -501,10 +495,7 @@ async def get_user_info(user: dict = Depends(get_current_user)):
 
 @router.get("/users")
 async def get_users(user: dict = Depends(require_admin)):
-    if asyncio.iscoroutinefunction(auth_module.get_all_users):
-        users = await auth_module.get_all_users(DB_PATH)
-    else:
-        users = auth_module.get_all_users(DB_PATH)
+    users = await auth_module.get_all_users(DB_PATH)
     for u in users:
         u.pop("password_hash", None)
     return users
@@ -514,12 +505,8 @@ async def create_user_api(user_data: UserCreate, current_user: dict = Depends(re
     if user_data.role not in ["admin", "viewer"]:
         raise HTTPException(status_code=400, detail="Invalid role. Must be 'admin' or 'viewer'")
 
-    success = False
-    if asyncio.iscoroutinefunction(auth_module.create_user):
-        success = await auth_module.create_user(DB_PATH, user_data.username, user_data.password, user_data.role)
-    else:
-        success = auth_module.create_user(DB_PATH, user_data.username, user_data.password, user_data.role)
-        
+    success = await auth_module.create_user(DB_PATH, user_data.username, user_data.password, user_data.role)
+
     if success:
         return {"message": f"User '{user_data.username}' created with role '{user_data.role}'"}
     else:
@@ -533,11 +520,8 @@ async def update_user_api(
         raise HTTPException(status_code=400, detail="Invalid role")
 
     if user_data.role:
-        if asyncio.iscoroutinefunction(auth_module.update_user_role):
-            success = await auth_module.update_user_role(DB_PATH, username, user_data.role)
-        else:
-            success = auth_module.update_user_role(DB_PATH, username, user_data.role)
-            
+        success = await auth_module.update_user_role(DB_PATH, username, user_data.role)
+
         if not success:
             raise HTTPException(status_code=404, detail="User not found")
         return {"message": f"User '{username}' role updated to '{user_data.role}'"}
@@ -550,10 +534,7 @@ async def update_user_api(
         if not user_row:
             raise HTTPException(status_code=404, detail="User not found")
 
-        if asyncio.iscoroutinefunction(auth_module.change_password):
-            await auth_module.change_password(user_row["id"], user_data.password, DB_PATH)
-        else:
-            auth_module.change_password(user_row["id"], user_data.password, DB_PATH)
+        await auth_module.change_password(user_row["id"], user_data.password, DB_PATH)
         return {"message": f"Password updated for user '{username}'"}
 
     raise HTTPException(status_code=400, detail="No updates provided")
@@ -563,10 +544,7 @@ async def delete_user_api(username: str, current_user: dict = Depends(require_ad
     if username == current_user["username"]:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
 
-    if asyncio.iscoroutinefunction(auth_module.delete_user):
-        success, error_message = await auth_module.delete_user(DB_PATH, username)
-    else:
-        success, error_message = auth_module.delete_user(DB_PATH, username)
+    success, error_message = await auth_module.delete_user(DB_PATH, username)
 
     if success:
         return {"message": f"User '{username}' deleted"}

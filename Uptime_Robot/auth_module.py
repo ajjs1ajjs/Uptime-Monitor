@@ -1,15 +1,13 @@
-import functools
-import json
-import os
 import secrets
-import sys
 from datetime import datetime, timedelta
 import bcrypt
 
 try:
     from .database import get_db_connection
+    from .logger import logger
 except ImportError:
     from database import get_db_connection
+    from logger import logger
 
 
 async def init_auth_tables(db_path):
@@ -36,12 +34,24 @@ async def init_auth_tables(db_path):
             admin_exists = await c.fetchone()
             
         if not admin_exists:
-            password_hash = hash_password("admin")
+            default_password = secrets.token_urlsafe(16)
+            password_hash = hash_password(default_password)
             await conn.execute(
                 "INSERT INTO users (username, password_hash, role, must_change_password, created_at) VALUES (?, ?, 'admin', 1, ?)",
                 ("admin", password_hash, datetime.now().isoformat()),
             )
-            print("Default user created: admin / admin")
+            logger.info("=" * 50)
+            logger.info("DEFAULT ADMIN USER CREATED")
+            logger.info(f"Username: admin")
+            logger.info(f"Password: {default_password}")
+            logger.info("CHANGE THIS PASSWORD IMMEDIATELY AFTER LOGIN!")
+            logger.info("=" * 50)
+            print(f"\n{'='*50}")
+            print("DEFAULT ADMIN USER CREATED")
+            print(f"Username: admin")
+            print(f"Password: {default_password}")
+            print("CHANGE THIS PASSWORD IMMEDIATELY AFTER LOGIN!")
+            print(f"{'='*50}\n")
 
         await conn.commit()
 
@@ -130,8 +140,21 @@ async def change_password(user_id: int, new_password: str, db_path: str) -> bool
             await conn.commit()
         return True
     except Exception as e:
-        print(f"Error changing password: {e}")
+        logger.error(f"Error changing password: {e}")
         return False
+
+
+def validate_password_strength(password: str) -> tuple:
+    """Validate password strength. Returns (is_valid, error_message)."""
+    if len(password) < 12:
+        return False, "Password must be at least 12 characters long"
+    if not any(c.isupper() for c in password):
+        return False, "Password must contain at least one uppercase letter"
+    if not any(c.islower() for c in password):
+        return False, "Password must contain at least one lowercase letter"
+    if not any(c.isdigit() for c in password):
+        return False, "Password must contain at least one digit"
+    return True, ""
 
 
 # Role checking functions
@@ -175,10 +198,10 @@ async def create_user(
                 await conn.commit()
                 return True
             except Exception as e:
-                print(f"Error creating user db: {e}")
+                logger.error(f"Error creating user db: {e}")
                 return False
     except Exception as e:
-        print(f"Error creating user: {e}")
+        logger.error(f"Error creating user: {e}")
         return False
 
 
@@ -190,7 +213,7 @@ async def update_user_role(db_path: str, username: str, new_role: str) -> bool:
             await conn.commit()
             return True
     except Exception as e:
-        print(f"Error updating user role: {e}")
+        logger.error(f"Error updating user role: {e}")
         return False
 
 
@@ -215,7 +238,7 @@ async def delete_user(db_path: str, username: str) -> tuple:
             await conn.commit()
             return (True, None)
     except Exception as e:
-        print(f"Error deleting user: {e}")
+        logger.error(f"Error deleting user: {e}")
         return (False, str(e))
 
 

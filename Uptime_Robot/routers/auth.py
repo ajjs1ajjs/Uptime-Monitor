@@ -1,5 +1,6 @@
 import html
 import secrets
+import time
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -22,6 +23,32 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 router = APIRouter()
 
+# In-memory rate limiter for login attempts
+_login_attempts = {}  # ip -> {"count": int, "reset_at": timestamp}
+
+
+def _check_rate_limit(ip: str, max_attempts: int = 5, window_seconds: int = 900) -> bool:
+    """Returns True if request is allowed, False if rate limited."""
+    now = time.time()
+    entry = _login_attempts.get(ip)
+
+    if entry and now < entry["reset_at"]:
+        if entry["count"] >= max_attempts:
+            return False
+        entry["count"] += 1
+    else:
+        _login_attempts[ip] = {"count": 1, "reset_at": now + window_seconds}
+
+    return True
+
+
+async def _cleanup_rate_limit_cache():
+    """Periodic cleanup of expired rate limit entries."""
+    now = time.time()
+    expired = [ip for ip, entry in _login_attempts.items() if now >= entry["reset_at"]]
+    for ip in expired:
+        del _login_attempts[ip]
+
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, error: str = None, user: dict = Depends(get_current_user)):
     if user:
@@ -38,6 +65,13 @@ async def login_page(request: Request, error: str = None, user: dict = Depends(g
 
 @router.post("/login")
 async def login(request: Request, username: str = Form(...), password: str = Form(...)):
+    client_ip = request.client.host if request.client else "unknown"
+    if not _check_rate_limit(client_ip):
+        await _cleanup_rate_limit_cache()
+        return RedirectResponse(
+            url="/login?error=Too many login attempts. Try again later.", status_code=429
+        )
+
     async with get_db_connection() as conn:
         async with conn.execute(
             "SELECT id, password_hash, must_change_password FROM users WHERE username = ?",
@@ -99,8 +133,9 @@ async def change_password(
             url="/change-password?error=Passwords do not match", status_code=302
         )
 
-    if len(new_password) < 6:
-        return RedirectResponse(url="/change-password?error=Minimum 6 characters", status_code=302)
+    is_valid, error_msg = auth_module.validate_password_strength(new_password)
+    if not is_valid:
+        return RedirectResponse(url=f"/change-password?error={error_msg}", status_code=302)
 
     async with get_db_connection() as conn:
         async with conn.execute("SELECT password_hash FROM users WHERE id = ?", (user["user_id"],)) as c:

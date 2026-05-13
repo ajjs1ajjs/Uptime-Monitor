@@ -1,45 +1,68 @@
 # 🔄 Оновлення Uptime Monitor на Production
 
-**Останнє оновлення:** 2026-03-25  
+**Останнє оновлення:** 2026-05-13  
 **Версія:** 2.0.0
 
 ---
 
 ## 📋 Зміст
 
-1. [Швидке оновлення (рекомендовано)](#швидке-оновлення-рекомендовано)
-2. [Безпечне оновлення з бекапом](#безпечне-оновлення-з-бекапом)
-3. [Оновлення через Git](#оновлення-через-git)
-4. [Оновлення через ZIP](#оновлення-через-zip)
-5. [Відновлення після оновлення (Rollback)](#відновлення-після-оновлення-rollback)
-6. [Перевірка після оновлення](#перевірка-після-оновлення)
-7. [Усунення несправностей](#усунення-несправностей)
+1. [Pre-Update Checklist](#-pre-update-checklist)
+2. [Швидке оновлення (рекомендовано)](#-швидке-оновлення-рекомендовано)
+3. [Безпечне оновлення з бекапом](#-безпечне-оновлення-з-бекапом)
+4. [Database Migrations](#-database-migrations)
+5. [Оновлення через Git](#-оновлення-через-git)
+6. [Оновлення через ZIP](#-оновлення-через-zip)
+7. [Post-Update Verification](#-post-update-verification)
+8. [Відновлення після оновлення (Rollback)](#-відновлення-після-оновлення-rollback)
+9. [Rollback з міграцією БД](#-rollback-з-міграцією-бд)
+10. [Усунення несправностей](#-усунення-несправностей)
+11. [Security Notes (v2.0.0)](#-security-notes-v200)
+
+---
+
+## ✅ Pre-Update Checklist
+
+Перед будь-яким оновленням виконайте:
+
+- [ ] **Прочитайте CHANGELOG.md** — перевірте наявність breaking changes
+- [ ] **Перевірте вільне місце:** `df -h` (мінімум 500MB)
+- [ ] **Перевірте розмір БД:** `du -sh /var/lib/uptime-monitor/sites.db` (<1GB для швидкої міграції)
+- [ ] **Перевірте наявність unzip:** `command -v unzip || sudo apt install -y unzip`
+- [ ] **Запишіть поточну версію:** `cd /opt/uptime-monitor && git log -1 --oneline`
+- [ ] **Зробіть повний backup** (див. інструкцію нижче)
+- [ ] **Повідомте команду** про плановий даунтайм (якщо критично)
 
 ---
 
 ## ⚡ Швидке оновлення (рекомендовано)
 
-Для більшості випадків — оновлення через install.sh:
+Для більшості випадків — скрипт `deploy_update.sh`:
 
 ```bash
-# 1. Завантажити та виконати інсталятор
-curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
-
-# 2. Перевірити статус
-sudo systemctl status uptime-monitor uptime-monitor-worker
-
-# 3. Перевірити логи
-sudo journalctl -u uptime-monitor --since "5 minutes ago"
+sudo /opt/uptime-monitor/deploy_update.sh
 ```
 
-**Час:** ~2-3 хвилини  
-**Ризики:** Низькі (інсталятор зберігає конфігурацію)
+Скрипт автоматично:
+1. Робить pre-update backup (БД + конфіг + systemd units)
+2. Зупиняє сервіси
+3. Оновлює код (Git pull або ZIP)
+4. Запускає сервіси
+5. Перевіряє health + статус
+
+Для кастомних параметрів:
+```bash
+sudo INSTALL_DIR=/opt/uptime-monitor APP_USER=uptime-monitor \
+  BACKUP_ROOT=/backup/uptime-monitor \
+  /opt/uptime-monitor/deploy_update.sh
+```
+
+**Час:** ~2-5 хвилин  
+**Ризики:** Низькі (автоматичний бекап + rollback)
 
 ---
 
 ## 🛡️ Безпечне оновлення з бекапом
-
-Для критичних середовищ — з повним бекапом:
 
 ### Крок 1: Підготовка
 
@@ -59,12 +82,15 @@ sudo systemctl status ${SERVICE}-worker --no-pager
 
 # Останні логи
 sudo journalctl -u $SERVICE -n 50 --no-pager
+
+# Поточна версія
+cd $APP_DIR && git log -1 --oneline
 ```
 
 ### Крок 3: BECKAP (ОБОВ'ЯЗКОВО!)
 
 ```bash
-# Створити бекап
+# Повний бекап системи
 sudo mkdir -p "$BACKUP_ROOT"
 sudo $APP_DIR/scripts/backup-system.sh \
   --dest "$BACKUP_ROOT" \
@@ -72,9 +98,12 @@ sudo $APP_DIR/scripts/backup-system.sh \
   --comment "pre-update-$TS" \
   --verify
 
-# Додатково зберегти конфігурацію
-sudo cp /etc/uptime-monitor/config.json "/backup/config.pre-update.$TS.json"
-sudo cp /etc/systemd/system/uptime-monitor.service "/backup/uptime-monitor.service.pre-update.$TS" 2>/dev/null || true
+# Додатковий бекап конфігу та БД
+sudo cp /etc/uptime-monitor/config.json "$BACKUP_ROOT/config.pre-update.$TS.json"
+sudo cp /var/lib/uptime-monitor/sites.db "$BACKUP_ROOT/sites.pre-update.$TS.db"
+sudo cp /etc/systemd/system/uptime-monitor.service "$BACKUP_ROOT/" 2>/dev/null || true
+sudo cp /etc/systemd/system/uptime-monitor-worker.service "$BACKUP_ROOT/" 2>/dev/null || true
+cd $APP_DIR && git log -1 --oneline > "$BACKUP_ROOT/pre-update-commit.$TS.txt"
 ```
 
 ### Крок 4: Оновлення
@@ -83,47 +112,74 @@ sudo cp /etc/systemd/system/uptime-monitor.service "/backup/uptime-monitor.servi
 # Зупинити служби
 sudo systemctl stop $SERVICE
 sudo systemctl stop ${SERVICE}-worker
+sleep 2
 
-# Оновити код (Git метод)
-cd /opt/uptime-monitor
+# Оновити код (Git або ZIP)
+cd $APP_DIR
 if [ -d .git ]; then
     sudo git fetch --all --prune
     sudo git checkout main
     sudo git pull --ff-only origin main
+    sudo chown -R uptime-monitor:uptime-monitor $APP_DIR
 else
-    # ZIP метод якщо немає .git
     cd /tmp
     sudo wget -q https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -O uptime.zip
     sudo unzip -o uptime.zip
     sudo cp -r Uptime-Monitor-main/Uptime_Robot/* $APP_DIR/
+    sudo chown -R uptime-monitor:uptime-monitor $APP_DIR
     sudo rm -rf uptime.zip Uptime-Monitor-main
 fi
 
-# Встановити права
-sudo chown -R uptime-monitor:uptime-monitor $APP_DIR
+# Оновити залежності (якщо змінились)
+# sudo -u uptime-monitor $APP_DIR/venv/bin/pip install -r $APP_DIR/requirements.txt -U
 
-# Перезапустити служби
+# Запустити служби
 sudo systemctl daemon-reload
 sudo systemctl start $SERVICE
 sudo systemctl start ${SERVICE}-worker
+sleep 3
 ```
 
 ### Крок 5: Перевірка
 
 ```bash
-# Статус
+# Статус служб
 sudo systemctl status $SERVICE --no-pager
 sudo systemctl status ${SERVICE}-worker --no-pager
 
-# API тест
+# Health check
 curl -s http://localhost:8080/health
 
-# Логи
-sudo journalctl -u $SERVICE -f
+# Перевірка API
+curl -s http://localhost:8080/api/sites | python3 -m json.tool | head -10
+
+# Логи (без помилок)
+sudo journalctl -u $SERVICE -n 50 --no-pager | grep -i "error\|traceback" || echo "No errors"
+
+# Версія після апдейту
+cd $APP_DIR && git log -1 --oneline
 ```
 
-**Час:** ~5-7 хвилин  
-**Ризики:** Дуже низькі (є бекап)
+---
+
+## 🗃️ Database Migrations
+
+Якщо оновлення включає зміни в схемі БД (нові таблиці, колонки), виконайте міграцію:
+
+```bash
+# Автоматична міграція (модель init_database виконує ALTER TABLE IF NOT EXISTS)
+sudo -u uptime-monitor /opt/uptime-monitor/venv/bin/python -c "
+import asyncio
+from Uptime_Robot.models import init_database
+asyncio.run(init_database('/var/lib/uptime-monitor/sites.db'))
+print('Migration completed')
+"
+
+# Перевірка схеми
+sudo sqlite3 /var/lib/uptime-monitor/sites.db ".schema sites" | head -5
+```
+
+> **Важливо:** Перед міграцією обов'язково зробіть backup БД. Міграції в цьому проекті є ідемпотентними (використовують `ALTER TABLE ADD COLUMN IF NOT EXISTS` через `PRAGMA table_info`).
 
 ---
 
@@ -133,18 +189,16 @@ sudo journalctl -u $SERVICE -f
 
 ```bash
 cd /opt/uptime-monitor
-
-# 1. Резервна копія
+sudo cp /var/lib/uptime-monitor/sites.db /backup/sites.pre-update.$(date +%Y%m%d-%H%M%S).db
 sudo cp -r Uptime_Robot Uptime_Robot.backup.$(date +%Y%m%d-%H%M%S)
 
-# 2. Оновлення
-sudo git pull origin main
+sudo git fetch --all --prune
+sudo git checkout main
+sudo git pull --ff-only origin main
+sudo chown -R uptime-monitor:uptime-monitor .
 
-# 3. Перезапуск
 sudo systemctl restart uptime-monitor
 sudo systemctl restart uptime-monitor-worker
-
-# 4. Перевірка
 sudo systemctl status uptime-monitor uptime-monitor-worker
 ```
 
@@ -152,27 +206,16 @@ sudo systemctl status uptime-monitor uptime-monitor-worker
 
 ## 📥 Оновлення через ZIP
 
-Якщо немає Git:
-
 ```bash
-# 1. Резервна копія
-sudo cp -r /opt/uptime-monitor/Uptime_Robot \
-  /opt/uptime-monitor/Uptime_Robot.backup.$(date +%Y%m%d-%H%M%S)
+sudo cp /var/lib/uptime-monitor/sites.db /backup/sites.pre-update.$(date +%Y%m%d-%H%M%S).db
 
-# 2. Завантажити нову версію
 cd /tmp
 wget -q https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -O uptime.zip
-
-# 3. Розпакувати
 unzip -o uptime.zip
-
-# 4. Оновити файли
 sudo cp -r Uptime-Monitor-main/Uptime_Robot/* /opt/uptime-monitor/
-
-# 5. Прибрати тимчасові файли
+sudo chown -R uptime-monitor:uptime-monitor /opt/uptime-monitor
 rm -rf uptime.zip Uptime-Monitor-main
 
-# 6. Перезапустити
 sudo systemctl restart uptime-monitor
 sudo systemctl restart uptime-monitor-worker
 ```
@@ -181,26 +224,33 @@ sudo systemctl restart uptime-monitor-worker
 
 ## 🔄 Відновлення після оновлення (Rollback)
 
-### Спосіб 1: Git rollback
+### Спосіб 1: Git rollback (без змін БД)
 
 ```bash
 cd /opt/uptime-monitor
-sudo git reset --hard HEAD~1
-sudo systemctl restart uptime-monitor
-sudo systemctl restart uptime-monitor-worker
+sudo systemctl stop uptime-monitor uptime-monitor-worker
+sudo git reset --hard HEAD@{1}
+sudo systemctl start uptime-monitor uptime-monitor-worker
+sudo systemctl status uptime-monitor uptime-monitor-worker
 ```
 
 ### Спосіб 2: Відновлення з бекапу файлів
 
 ```bash
-# Знайти бекап
+# Знайти останній бекап
 ls -la /opt/uptime-monitor/Uptime_Robot.backup.*
+ls -la /backup/uptime-monitor/sites.pre-update.*
 
-# Відновити
+# Відновити код
+sudo rm -rf /opt/uptime-monitor/Uptime_Robot
 sudo cp -r /opt/uptime-monitor/Uptime_Robot.backup.*/ /opt/uptime-monitor/Uptime_Robot/
-sudo chown -R uptime-monitor:uptime-monitor /opt/uptime-monitor/Uptime_Robot
-sudo systemctl restart uptime-monitor
-sudo systemctl restart uptime-monitor-worker
+sudo chown -R uptime-monitor:uptime-monitor /opt/uptime-monitor
+
+# Відновити БД
+sudo systemctl stop uptime-monitor uptime-monitor-worker
+sudo cp /backup/uptime-monitor/sites.pre-update.*.db /var/lib/uptime-monitor/sites.db
+sudo chown uptime-monitor:uptime-monitor /var/lib/uptime-monitor/sites.db
+sudo systemctl start uptime-monitor uptime-monitor-worker
 ```
 
 ### Спосіб 3: Повне відновлення з бекапу системи
@@ -211,53 +261,61 @@ sudo /opt/uptime-monitor/scripts/backup-system.sh --list
 
 # Відновити
 sudo /opt/uptime-monitor/scripts/restore-system.sh \
-  --from /backup/uptime-monitor/on-change/backup-YYYYMMDD-HHMMSS.tar.gz
+  --from /backup/uptime-monitor/on-change/backup-YYYYMMDD-HHMMSS.tar.gz \
+  --force
 ```
 
 ---
 
-## ✅ Перевірка після оновлення
+## 🔄 Rollback з міграцією БД
 
-### Основні перевірки
+> **Коли використовувати:** Якщо оновлення змінило схему БД (нові таблиці/колонки), і простий `git reset` не допоможе — старому коду може не підходити нова схема.
 
 ```bash
-# 1. Статус служб
-sudo systemctl is-active uptime-monitor
-sudo systemctl is-active uptime-monitor-worker
+# 1. Відкотити код
+cd /opt/uptime-monitor
+sudo git reset --hard HEAD@{1}
+sudo chown -R uptime-monitor:uptime-monitor .
 
-# 2. Перевірка портів
-sudo ss -tlnp | grep 8080
+# 2. Відновити БД з бекапу (обов'язково!)
+sudo systemctl stop uptime-monitor uptime-monitor-worker
+sudo cp /backup/uptime-monitor/sites.pre-update.*.db /var/lib/uptime-monitor/sites.db
+sudo chown uptime-monitor:uptime-monitor /var/lib/uptime-monitor/sites.db
 
-# 3. API тест
+# 3. Запустити
+sudo systemctl start uptime-monitor uptime-monitor-worker
+
+# 4. Перевірити
+sudo systemctl status uptime-monitor uptime-monitor-worker --no-pager
 curl -s http://localhost:8080/health
+```
 
-# 4. Отримати сайти
-curl -s http://localhost:8080/api/sites | python3 -m json.tool | head -20
+> **Попередження:** Якщо не відновити БД, старий код може працювати некоректно з новою схемою. Завжди відновлюйте і код, і БД разом.
 
-# 5. Версія коду
+---
+
+## ✅ Post-Update Verification
+
+### Smoke Tests
+
+```bash
+# 1. Служби живі
+sudo systemctl is-active uptime-monitor uptime-monitor-worker
+
+# 2. Health endpoint
+curl -s http://localhost:8080/health | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['status']=='healthy'; print('OK')"
+
+# 3. API працює
+curl -s http://localhost:8080/api/sites | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'Sites in DB: {len(d)}')"
+
+# 4. Логи без помилок
+sudo journalctl -u uptime-monitor -n 100 --no-pager | grep -ci "error\|traceback\|exception" || echo "0 errors"
+
+# 5. Версія коду збігається
 cd /opt/uptime-monitor && git log -1 --oneline
-```
 
-### Перевірка моніторингу
-
-```bash
-# Логи worker
-sudo journalctl -u uptime-monitor-worker --since "10 minutes ago" | tail -30
-
-# Статус сайтів
-sudo sqlite3 /var/lib/uptime-monitor/sites.db \
-  "SELECT name, status, last_down_alert FROM sites WHERE is_active = 1 LIMIT 10;"
-```
-
-### Перевірка сповіщень
-
-```bash
-# Діагностика
-sudo /opt/uptime-monitor/check-notifications.sh
-
-# Або вручну
-sudo sqlite3 /var/lib/uptime-monitor/sites.db \
-  "SELECT config FROM notify_config WHERE id = 1;" | python3 -m json.tool
+# 6. SSL сертифікати (якщо використовуються)
+curl -s http://localhost:8080/api/ssl-certificates | python3 -m json.tool | head -10
 ```
 
 ---
@@ -267,115 +325,84 @@ sudo sqlite3 /var/lib/uptime-monitor/sites.db \
 ### Служба не запускається
 
 ```bash
-# Переглянути логи
-sudo journalctl -u uptime-monitor --since "5 minutes ago"
-
-# Спробувати запустити вручну
-sudo -u uptime-monitor /opt/uptime-monitor/venv/bin/python /opt/uptime-monitor/main.py
-
-# Перевірити синтаксис
-sudo -u uptime-monitor /opt/uptime-monitor/venv/bin/python -m py_compile \
-  /opt/uptime-monitor/*.py
+sudo journalctl -u uptime-monitor -n 100 --no-pager
+sudo -u uptime-monitor /opt/uptime-monitor/venv/bin/python -m py_compile /opt/uptime-monitor/Uptime_Robot/*.py
 ```
 
 ### Worker не працює
 
 ```bash
-# Логи worker
-sudo journalctl -u uptime-monitor-worker --since "5 minutes ago"
-
-# Перевірити імпорти
-sudo -u uptime-monitor /opt/uptime-monitor/venv/bin/python \
-  -c "import monitoring; import models; print('OK')"
-
-# Перезапустити
-sudo systemctl restart uptime-monitor-worker
-```
-
-### Сповіщення не приходять
-
-```bash
-# Перевірити налаштування
-sudo sqlite3 /var/lib/uptime-monitor/sites.db \
-  "SELECT config FROM notify_config WHERE id = 1;" | python3 -m json.tool
-
-# Запустити діагностику
-sudo /opt/uptime-monitor/check-notifications.sh
-
-# Перезапустити worker
-sudo systemctl restart uptime-monitor-worker
-```
-
-### Конфлікти при Git pull
-
-```bash
-cd /opt/uptime-monitor
-
-# Зберегти локальні зміни
-sudo git stash
-
-# Оновити
-sudo git pull origin main
-
-# Застосувати зміни (якщо потрібно)
-sudo git stash pop
+sudo journalctl -u uptime-monitor-worker -n 100 --no-pager
+sudo -u uptime-monitor /opt/uptime-monitor/venv/bin/python -c "import monitoring; import models; print('OK')"
 ```
 
 ### Помилки після оновлення
 
 ```bash
-# 1. Перевірити логи
+# 1. Логи
 sudo journalctl -u uptime-monitor -n 100 --no-pager
 
-# 2. Відновити бекап
-sudo /opt/uptime-monitor/scripts/restore-system.sh --auto
-
-# 3. Або відкотити Git
-cd /opt/uptime-monitor
-sudo git reset --hard HEAD~1
-sudo systemctl restart uptime-monitor
+# 2. Rollback
+sudo /opt/uptime-monitor/deploy_update.sh --rollback
 ```
 
 ---
 
-## 📊 Поточні налаштування (v2.0.0)
+## 🔒 Security Notes (v2.0.0)
 
-| Параметр | Значення | Опис |
-|----------|----------|------|
-| `check_interval` | 60 сек | Періодичність перевірки сайтів |
-| `down_failures_threshold` | 1 | Помилка для статусу DOWN |
-| `up_success_threshold` | 1 | Успіх для статусу UP |
-| `still_down_repeat_seconds` | 300 сек | Повтор сповіщення (5 хв) |
-| `ssl_notification_days` | 14 днів | Попередження про SSL |
-| `ssl_notification_cooldown` | 21600 сек | Пауза між SSL-сповіщеннями (6 год) |
-| `ssl_check_interval_hours` | 6 годин | Періодичність SSL перевірки |
-| `request_timeout_seconds` | 60 сек | Таймаут HTTP-запиту |
-| `treat_4xx_as_down` | true | Вважати 4xx помилкою |
+Починаючи з v2.0.0, проект включає:
+
+| Фіча | Опис |
+|------|------|
+| **CORS** | Налаштовується через `cors.allow_origins` в `config.json` |
+| **SSL Verification** | `verify_ssl: true/false` в `alert_policy` |
+| **Rate Limiting** | `/login` — 5 спроб за 15 хв на IP |
+| **Encryption at Rest** | `email_password` шифрується через Fernet |
+| **Password Policy** | Мін. 12 символів, upper+lower+digit |
+| **Random Admin Password** | Генерується при першому запуску |
+| **Security Headers** | X-Content-Type-Options, X-Frame-Options, X-XSS-Protection |
+
+### Config Changes (v2.0.0)
+
+```json
+{
+  "cors": {
+    "allow_origins": ["*"]
+  },
+  "alert_policy": {
+    "verify_ssl": true
+  }
+}
+```
 
 ---
 
-## 📞 Додаткові ресурси
+## 📊 Параметри моніторингу (v2.0.0)
 
-- **GitHub Issues:** https://github.com/ajjs1ajjs/Uptime-Monitor/issues
-- **Логи:** `/var/log/uptime-monitor/`
-- **База даних:** `/var/lib/uptime-monitor/sites.db`
-- **Конфігурація:** `/etc/uptime-monitor/config.json`
+| Параметр | Значення | Опис |
+|----------|----------|------|
+| `check_interval` | 60 сек | Періодичність перевірки |
+| `down_failures_threshold` | 1 | Помилок для статусу DOWN |
+| `up_success_threshold` | 1 | Успіхів для статусу UP |
+| `still_down_repeat_seconds` | 300 сек | Повтор сповіщення |
+| `ssl_notification_days` | 14 днів | Попередження про SSL |
+| `request_timeout_seconds` | 60 сек | Таймаут HTTP |
+| `verify_ssl` | true | Перевіряти SSL сертифікати |
 
 ---
 
 ## 📝 Чекліст оновлення
 
-- [ ] Зроблено бекап (`--type on-change --verify`)
-- [ ] Збережено конфігурацію окремо
-- [ ] Служби зупинено перед оновленням
-- [ ] Код оновлено (Git або ZIP)
-- [ ] Права встановлено (`chown uptime-monitor:uptime-monitor`)
-- [ ] Служби перезапущено
-- [ ] Перевірено статус служб
-- [ ] Перевірено API (`/health`)
-- [ ] Перевірено логи
-- [ ] Перевірено сповіщення (опціонально)
-
----
-
-**✅ Якщо всі перевірки пройшли — оновлення успішне!**
+- [ ] Прочитано CHANGELOG.md
+- [ ] Зроблено бекап (`backup-system.sh --verify`)
+- [ ] Збережено конфіг та БД окремо
+- [ ] Служби зупинено
+- [ ] Код оновлено (Git/ZIP)
+- [ ] Залежності оновлено (pip install -r)
+- [ ] Міграцію БД виконано (якщо потрібно)
+- [ ] Права встановлено (chown)
+- [ ] Служби запущено
+- [ ] Health check passed
+- [ ] API працює (sites, users)
+- [ ] Логи без помилок
+- [ ] Rollback протестовано (якщо є змога)

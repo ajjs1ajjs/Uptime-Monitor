@@ -32,8 +32,11 @@ Get session cookie for authentication.
 ```
 Content-Type: application/x-www-form-urlencoded
 
-username=admin&password=admin
+username=admin&password=<your_password>
 ```
+
+> **Note (v2.0.0):** Default password is randomly generated on first install. Run `sudo journalctl -u uptime-monitor | grep "DEFAULT ADMIN"` to find it.
+> **Rate Limit:** 5 failed attempts per 15 minutes per IP. After exceeding — 429 Too Many Requests.
 
 **Response:**
 ```
@@ -511,11 +514,18 @@ Public endpoint (no authentication required).
 
 ## Rate Limiting
 
-API requests are rate-limited to:
-- **60 requests per minute** per IP address
-- **1000 requests per hour** per session
+Rate limiting is applied to authentication endpoints:
 
-Exceeding limits returns `429 Too Many Requests`.
+| Endpoint | Limit | Window | Block Duration |
+|----------|-------|--------|----------------|
+| `POST /login` | 5 failed attempts | 15 minutes per IP | Until window expires |
+
+Exceeding the limit returns `429 Too Many Requests` with message:
+```
+Too many login attempts. Try again later.
+```
+
+Other API endpoints are **not** currently rate-limited (planned for v2.1).
 
 ---
 
@@ -526,16 +536,16 @@ Exceeding limits returns `429 Too Many Requests`.
 ```python
 import requests
 
-# Login
+# Login (use your actual password from install output)
 session = requests.Session()
 resp = session.post('http://localhost:8080/login', data={
     'username': 'admin',
-    'password': 'admin'
+    'password': 'YOUR_ADMIN_PASSWORD'
 })
 
 # Get sites
 resp = session.get('http://localhost:8080/api/sites')
-sites = resp.json()['sites']
+sites = resp.json()
 
 # Add site
 resp = session.post('http://localhost:8080/api/sites', json={
@@ -555,10 +565,10 @@ history = resp.json()['history']
 ### cURL
 
 ```bash
-# Login and save cookie
+# Login and save cookie (use your actual password from install output)
 curl -X POST http://localhost:8080/login \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=admin&password=admin" \
+  -d "username=admin&password=YOUR_ADMIN_PASSWORD" \
   -c cookies.txt
 
 # Get sites
@@ -587,9 +597,9 @@ const api = axios.create({
   withCredentials: true
 });
 
-// Login
+// Login (use your actual password from install output)
 await api.post('/login', null, {
-  params: { username: 'admin', password: 'admin' }
+  params: { username: 'admin', password: 'YOUR_ADMIN_PASSWORD' }
 });
 
 // Get sites

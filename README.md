@@ -4,14 +4,9 @@
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-lightgrey.svg)]()
+[![CI/CD](https://github.com/ajjs1ajjs/Uptime-Monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/ajjs1ajjs/Uptime-Monitor/actions)
 
 **Enterprise uptime monitoring with automatic backups, SSL certificates tracking, and multi-channel notifications.**
-
-<p align="center">
-  <img src="https://img.shields.io/badge/uptime-24/7-green" alt="24/7 Uptime">
-  <img src="https://img.shields.io/badge/SSL-monitoring-orange" alt="SSL Monitoring">
-  <img src="https://img.shields.io/badge/notifications-Telegram%20%7C%20Email%20%7C%20Teams-blue" alt="Notifications">
-</p>
 
 ---
 
@@ -24,15 +19,9 @@ curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/insta
 
 # Access dashboard
 http://YOUR_SERVER_IP:8080
-# Login: admin / Password: admin
 ```
 
-### Windows
-
-**PowerShell One-liner:**
-```powershell
-& { if (!(Get-Command python -ErrorAction SilentlyContinue)) { echo "Python..."; winget install Python.Python.3.12 --silent }; iwr https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -OutFile uptime.zip; Expand-Archive uptime.zip -DestinationPath . -Force; Remove-Item uptime.zip; cd Uptime-Monitor-main/Uptime_Robot; ./install.bat /y }
-```
+> **Security:** Since v2.0.0, the default admin password is randomly generated on first run — check the install output or `/var/log/uptime-monitor/` for the initial credentials.
 
 ---
 
@@ -40,37 +29,51 @@ http://YOUR_SERVER_IP:8080
 
 | Document | Language | Description |
 |----------|----------|-------------|
-| **[README_UK.md](README_UK.md)** | 🇺🇦 UA | Головна документація (українська) |
-| **[INSTALL.md](INSTALL.md)** | 🇺🇦 UA | Повна інструкція з встановлення |
-| **[QUICKSTART_UK.md](QUICKSTART_UK.md)** | 🇺🇦 UA | Швидкий старт за 5 хвилин |
-| **[UPDATE_PRODUCTION.md](UPDATE_PRODUCTION.md)** | 🇺🇦 UA | Оновлення Production сервера |
+| **[UPDATE_PRODUCTION.md](UPDATE_PRODUCTION.md)** | 🇺🇦 UA | Production update with backup & rollback |
+| **[README_UK.md](README_UK.md)** | 🇺🇦 UA | Main documentation (Ukrainian) |
+| **[INSTALL.md](INSTALL.md)** | 🇺🇦 UA | Installation guide |
+| **[QUICKSTART_UK.md](QUICKSTART_UK.md)** | 🇺🇦 UA | Quick start (5 minutes) |
 | **[docs/API.md](docs/API.md)** | 🇬🇧 EN | API reference |
+| **[docs/COMMANDS.md](docs/COMMANDS.md)** | 🇺🇦 UA | Commands reference |
 | **[docs/BACKUP.md](docs/BACKUP.md)** | 🇺🇦 UA | Backup system guide |
 | **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** | 🇺🇦 UA | Troubleshooting |
-| **[docs/COMMANDS.md](docs/COMMANDS.md)** | 🇺🇦 UA | Commands reference |
 | **[NOTIFICATION_TROUBLESHOOTING_UK.md](NOTIFICATION_TROUBLESHOOTING_UK.md)** | 🇺🇦 UA | Notification diagnostics |
 | **[MIGRATION_GUIDE_UK.md](MIGRATION_GUIDE_UK.md)** | 🇺🇦 UA | Migration from other systems |
 
 ---
 
-## 🌟 Features
+## ✨ Features
 
 | Category | Features |
 |----------|----------|
-| **Monitoring** | HTTP/HTTPS checks, SSL certificates, response time tracking |
-| **Backups** | Automatic daily/weekly/monthly, NFS/Samba support, one-click restore |
-| **Alerts** | Telegram, Email, Slack, Discord, Teams, SMS |
-| **Security** | HTTPS/SSL, role-based access, session management |
-| **Dashboard** | Real-time web UI, public status page, REST API |
-| **Platform** | Linux, Windows, Docker |
+| **Monitoring** | HTTP/HTTPS checks, SSL certificates, response time, configurable intervals |
+| **Backups** | Daily/weekly/monthly rotation, NFS/Samba, one-click restore with verify |
+| **Alerts** | Telegram, Email, Slack, Discord, Teams, SMS (Twilio) |
+| **Security** | CORS config, encrypted secrets, rate limiting, RBAC, security headers |
+| **Dashboard** | Real-time, public status page, incident history, uptime stats |
+| **Platform** | Linux (systemd), Docker, Windows service, Debian package |
+
+---
+
+## 🔒 Security (v2.0.0)
+
+Starting from v2.0.0, the project includes enterprise-grade security:
+
+- **Rate Limiting** — 5 login attempts per 15 minutes per IP
+- **Password Policy** — Minimum 12 characters, requires uppercase + lowercase + digit
+- **Random Admin Password** — Generated on first install (no more `admin/admin`)
+- **Encrypted Secrets** — Email passwords and tokens encrypted with Fernet at rest
+- **Configurable CORS** — Restrict origins via `cors.allow_origins` in `config.json`
+- **SSL Verification** — Configurable `verify_ssl` in `alert_policy`
+- **Security Headers** — X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, HSTS
 
 ---
 
 ## 📊 Dashboard
 
-- **Real-time monitoring** — Check every 60 seconds
-- **SSL tracking** — Alerts 14 days before expiry
-- **Backup system** — Automatic backups with restore
+- **Real-time monitoring** — Check every 60 seconds (configurable per site)
+- **SSL tracking** — Alerts 14 days before expiry, configurable cooldown
+- **Backup system** — Automatic with verification and restore
 - **Multi-channel alerts** — Never miss downtime
 - **Public status page** — Share with customers
 - **REST API** — Full automation support
@@ -87,14 +90,17 @@ http://YOUR_SERVER_IP:8080
 | **SSL Alert** | ≤14 days before expiry |
 | **Down Threshold** | 1 failure |
 | **Up Threshold** | 1 success |
+| **SSL Verify** | Enabled (configurable) |
+| **CORS Origins** | `["*"]` (configurable) |
 
 ---
 
 ## 🛠️ Technology Stack
 
-- **Backend**: Python 3.9+, FastAPI
-- **Database**: SQLite
-- **Frontend**: HTML/CSS/JavaScript
+- **Backend**: Python 3.9+, FastAPI, Uvicorn
+- **Database**: SQLite (aiosqlite)
+- **Frontend**: HTML/CSS/JS with Jinja2 templates
+- **Security**: bcrypt, Fernet (cryptography)
 - **Monitoring**: aiohttp (async)
 - **Notifications**: SMTP, Telegram Bot API, Webhooks
 
@@ -104,11 +110,11 @@ http://YOUR_SERVER_IP:8080
 
 | Method | Platform | Command |
 |--------|----------|---------|
-| **Git** | Linux | `git clone && cd Uptime-Monitor` |
-| **Curl** | Linux | `curl ... \| sudo bash` |
-| **Docker** | Any | `docker run -p 8080:8080 ...` |
+| **Curl** | Linux | `curl -fsSL https://raw.githubusercontent.com/... \| sudo bash` |
+| **Git** | Linux | `git clone && cd Uptime-Monitor && sudo ./install.sh` |
+| **Docker** | Any | `docker compose up -d --build` |
 | **MSI** | Windows | Download from Releases |
-| **APT** | Debian/Ubuntu | `apt install uptime-monitor` |
+| **APT** | Debian/Ubuntu | `sudo apt install uptime-monitor` |
 
 ---
 
@@ -119,13 +125,17 @@ http://YOUR_SERVER_IP:8080
 sudo systemctl start|stop|restart|status uptime-monitor
 sudo systemctl start|stop|restart|status uptime-monitor-worker
 
+# Deploy update (with backup + rollback)
+sudo /opt/uptime-monitor/deploy_update.sh
+sudo /opt/uptime-monitor/deploy_update.sh --rollback
+
 # Backup
-sudo /opt/uptime-monitor/scripts/backup-system.sh --dest /backup/
+sudo /opt/uptime-monitor/scripts/backup-system.sh --dest /backup/ --verify
 
 # Restore
 sudo /opt/uptime-monitor/scripts/restore-system.sh --from /backup/...
 
-# View logs
+# Logs
 sudo journalctl -u uptime-monitor -f
 sudo journalctl -u uptime-monitor-worker -f
 
@@ -133,36 +143,25 @@ sudo journalctl -u uptime-monitor-worker -f
 sudo /opt/uptime-monitor/check-notifications.sh
 ```
 
+---
 
 ## 🔔 Notifications
 
-Configure alerts for:
-- 📧 **Email** — SMTP support
-- 📱 **Telegram** — Bot API
+- 📧 **Email** — SMTP with TLS
+- 📱 **Telegram** — Bot API with HTML formatting
 - 💬 **Slack** — Webhooks
-- 🎮 **Discord** — Webhooks
-- 🏢 **Microsoft Teams** — Webhooks
+- 🎮 **Discord** — Webhooks with rich embeds
+- 🏢 **Microsoft Teams** — Message Cards
 - 📞 **SMS** — Twilio integration
 
 ---
-
-## 🔒 Security
-
-- ✅ Role-based access (admin/viewer)
-- ✅ Session management with bcrypt
-- ✅ HTTPS/SSL support
-- ✅ HSTS headers
-- ✅ Password reset functionality
-
----
-
 
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create feature branch (`git checkout -b feature/amazing`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing`)
+3. Commit changes
+4. Push to branch
 5. Open Pull Request
 
 ---
@@ -177,10 +176,7 @@ MIT License — see [LICENSE](LICENSE) file.
 
 - **Issues**: https://github.com/ajjs1ajjs/Uptime-Monitor/issues
 - **Discussions**: https://github.com/ajjs1ajjs/Uptime-Monitor/discussions
-- **Email**: support@example.com
 
 ---
 
 **⭐ Star this repo if you find it useful!**
-
-**📢 Questions? Open an issue or join the discussion!**

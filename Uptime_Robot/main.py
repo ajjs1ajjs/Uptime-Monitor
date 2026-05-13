@@ -59,10 +59,20 @@ app = FastAPI(title="Uptime Monitor")
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CONFIG.get("cors", {}).get("allow_origins", ["*"]),
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Content-Type", "Authorization"],
 )
+
+# Add security headers middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 
 # Add cache-control middleware to prevent HTML caching
@@ -111,7 +121,7 @@ async def initialize_app_async():
                 if row:
                     try:
                         app_state.NOTIFY_SETTINGS.update(json.loads(row["config"]))
-                    except:
+                    except json.JSONDecodeError:
                         pass
             async with conn.execute("SELECT display_address FROM app_settings WHERE id = 1") as c:
                 row = await c.fetchone()
@@ -205,7 +215,7 @@ def main():
 
     host = get_default_host() if args.host == "auto" else args.host
     port = args.port
-    print(f"Uptime Monitor starting on {host}:{port}...")
+    logger.info(f"Uptime Monitor starting on {host}:{port}...")
 
     # Start background monitoring unless disabled
     if not args.no_monitor:

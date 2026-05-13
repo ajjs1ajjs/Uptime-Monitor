@@ -4,7 +4,7 @@
 
 - **[INSTALL.md](../INSTALL.md)** — Full installation guide (Ukrainian)
 - **[QUICKSTART_UK.md](../QUICKSTART_UK.md)** — Quick start (5 minutes)
-- **[UPDATE_PRODUCTION.md](../UPDATE_PRODUCTION.md)** — Production update guide
+- **[UPDATE_PRODUCTION.md](../UPDATE_PRODUCTION.md)** — Production update guide (with backup & rollback)
 
 ---
 
@@ -14,18 +14,31 @@
 curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 ```
 
-Access: `http://YOUR_SERVER_IP:8080`  
-Login: `admin` / Password: `admin`
+Access: `http://YOUR_SERVER_IP:8080`
+
+> **Security:** The default admin password is randomly generated during installation. Check the install output or run:
+> ```bash
+> sudo journalctl -u uptime-monitor | grep "DEFAULT ADMIN"
+> ```
 
 ---
 
 ## Update (Production)
 
+### Recommended: Automated deploy script
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
+sudo /opt/uptime-monitor/deploy_update.sh
 ```
 
-Or see **[UPDATE_PRODUCTION.md](../UPDATE_PRODUCTION.md)** for safe update with backup.
+### Manual update
+
+See **[UPDATE_PRODUCTION.md](../UPDATE_PRODUCTION.md)** for safe update with:
+- Pre-update backup system
+- Code update (Git or ZIP)
+- Database migration steps
+- Post-update verification (smoke tests)
+- Rollback procedure (with DB restore)
 
 ---
 
@@ -36,12 +49,37 @@ Or see **[UPDATE_PRODUCTION.md](../UPDATE_PRODUCTION.md)** for safe update with 
 sudo systemctl start|stop|restart|status uptime-monitor
 sudo systemctl start|stop|restart|status uptime-monitor-worker
 
+# Deploy update
+sudo /opt/uptime-monitor/deploy_update.sh
+sudo /opt/uptime-monitor/deploy_update.sh --rollback
+
 # Backup
-sudo /opt/uptime-monitor/scripts/backup-system.sh --dest /backup/
+sudo /opt/uptime-monitor/scripts/backup-system.sh --dest /backup/ --verify
 
 # Logs
 sudo journalctl -u uptime-monitor -f
+sudo journalctl -u uptime-monitor-worker -f
 ```
+
+---
+
+## Configuration Changes (v2.0.0)
+
+New config options in `/etc/uptime-monitor/config.json`:
+
+```json
+{
+  "cors": {
+    "allow_origins": ["*"]
+  },
+  "alert_policy": {
+    "verify_ssl": true
+  }
+}
+```
+
+- `cors.allow_origins` — Restrict to specific origins (e.g., `["https://myapp.com"]`)
+- `alert_policy.verify_ssl` — Set to `false` if monitoring sites with self-signed certificates
 
 ---
 

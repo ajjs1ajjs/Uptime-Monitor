@@ -7,13 +7,19 @@
 ## 📋 Зміст
 
 1. [Служба не запускається](#служба-не-запускається)
-2. [Проблеми з бекапом](#проблеми-з-бекапом)
-3. [NFS проблеми](#nfs-проблеми)
-4. [Samba проблеми](#samba-проблеми)
-5. [Відновлення не працює](#відновлення-не-працює)
-6. [SSL проблеми](#ssl-проблеми)
-7. [Конфігурація](#конфігурація)
-8. [Мережа](#мережа)
+2. [Worker не працює (моніторинг)](#worker-не-працює-моніторинг)
+3. [Проблеми з бекапом](#проблеми-з-бекапом)
+4. [NFS проблеми](#nfs-проблеми)
+5. [Samba проблеми](#samba-проблеми)
+6. [Відновлення не працює](#відновлення-не-працює)
+7. [SSL/TLS проблеми](#ssltls-проблеми)
+8. [CORS / Домен](#cors--домен)
+9. [Rate Limiting / Заблоковано](#rate-limiting--заблоковано)
+10. [Пароль та Аутентифікація](#пароль-та-аутентифікація)
+11. [Шифрування / master.key](#шифрування--masterkey)
+12. [Міграція БД](#міграція-бд)
+13. [Конфігурація](#конфігурація)
+14. [Мережа](#мережа)
 
 ---
 
@@ -94,6 +100,57 @@ sudo kill -9 <PID>
 sudo nano /etc/uptime-monitor/config.json
 # Змінити: "server.port": 9090
 sudo systemctl restart uptime-monitor
+```
+
+---
+
+## Worker не працює (моніторинг)
+
+### Сайти не перевіряються
+
+**Симптом:** Сайти додано, але статус завжди "unknown"
+
+**Рішення:**
+```bash
+# Перевірити статус worker
+sudo systemctl status uptime-monitor-worker --no-pager
+
+# Логи worker
+sudo journalctl -u uptime-monitor-worker -n 50 --no-pager
+
+# Перевірити чи worker запущений окремо (якщо main запущений з --no-monitor)
+ps aux | grep uptime-monitor
+```
+
+### Worker падає з помилкою імпорту
+
+**Симптом:**
+```
+ModuleNotFoundError: No module named 'models'
+```
+
+**Рішення:**
+```bash
+# Переконатись, що Python path правильний
+sudo -u uptime-monitor python3 -c "import sys; sys.path.insert(0, '/opt/uptime-monitor'); import models; print('OK')"
+
+# Перевстановити залежності
+sudo -u uptime-monitor /opt/uptime-monitor/venv/bin/pip install -r /opt/uptime-monitor/requirements.txt -U
+```
+
+### Worker не запускається після оновлення
+
+**Симптом:** `systemctl start uptime-monitor-worker` — fail
+
+**Рішення:**
+```bash
+# Перевірити, чи оновились залежності
+sudo journalctl -u uptime-monitor-worker -n 30 --no-pager
+
+# Можливо, додалась нова залежність (напр. cryptography)
+sudo -u uptime-monitor /opt/uptime-monitor/venv/bin/pip install -r /opt/uptime-monitor/requirements.txt -U
+
+sudo systemctl restart uptime-monitor-worker
 ```
 
 ---
@@ -333,7 +390,7 @@ sudo systemctl restart uptime-monitor
 
 ---
 
-## SSL проблеми
+## SSL/TLS проблеми
 
 ### Сертифікат не працює
 
@@ -369,6 +426,200 @@ sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
 
 sudo chmod 600 /etc/uptime-monitor/ssl/*.pem
 sudo systemctl restart uptime-monitor
+```
+
+---
+
+## CORS / Домен
+
+### Помилка CORS в браузері
+
+**Симптом:**
+```
+Access to fetch at 'http://server:8080' has been blocked by CORS policy
+```
+
+**Рішення:**
+```bash
+# В config.json додати ваш домен в allow_origins
+sudo nano /etc/uptime-monitor/config.json
+
+# Приклад:
+# {
+#   "cors": {
+#     "allow_origins": ["https://myapp.com", "https://admin.myapp.com"]
+#   }
+# }
+
+sudo systemctl restart uptime-monitor
+```
+
+> **v2.0.0+:** CORS налаштовується через `cors.allow_origins`. За замовчуванням `["*"]` (всі джерела).
+
+---
+
+## Rate Limiting / Заблоковано
+
+### "Too many login attempts"
+
+**Симптом:** Не можете увійти, отримуєте `429 Too Many Requests`
+
+**Рішення:**
+```bash
+# Зачекати 15 хвилин — лічильник скинеться автоматично
+
+# Або перезапустити сервіс (скидає in-memory лічильник)
+sudo systemctl restart uptime-monitor
+
+# На майбутнє — збільшити ліміт (потрібна зміна коду в auth.py, за замовчуванням 5/15хв)
+```
+
+---
+
+## Пароль та Аутентифікація
+
+### "Minimum 12 characters" при зміні пароля
+
+**Симптом:** Новий пароль відхиляється системою
+
+**Рішення:**
+```bash
+# Пароль має відповідати вимогам v2.0.0+:
+# - Мінімум 12 символів
+# - Хоча б одна велика літера (A-Z)
+# - Хоча б одна мала літера (a-z)
+# - Хоча б одна цифра (0-9)
+
+# Валідний приклад: MySecureP@ss1234
+```
+
+### Забули пароль admin
+
+**Симптом:** Не можете увійти, forgot-password теж не доступний (потрібна сесія)
+
+**Рішення:**
+```bash
+# Скинути через CLI (без запущеного сервісу)
+sudo systemctl stop uptime-monitor
+
+cd /opt/uptime-monitor
+sudo -u uptime-monitor ./venv/bin/python auth_cli.py reset-password \
+  --user admin --password NewSecurePass123
+
+sudo systemctl start uptime-monitor
+```
+
+---
+
+## Шифрування / master.key
+
+### "Master key not found" в логах
+
+**Симптом:** В логах: `"No master key found"` або `"cryptography library not available"`
+
+**Причина:** Шифрування опціональне. Якщо `cryptography` не встановлено або master.key не згенеровано — sensitive дані (email_password) зберігаються в plaintext.
+
+**Рішення:**
+```bash
+# 1. Перевірити чи встановлено cryptography
+sudo -u uptime-monitor /opt/uptime-monitor/venv/bin/pip list | grep cryptography
+
+# 2. Якщо ні — встановити
+sudo -u uptime-monitor /opt/uptime-monitor/venv/bin/pip install cryptography>=41.0.0
+
+# 3. Згенерувати master.key (автоматично при наступному запуску)
+# Або вручну:
+sudo -u uptime-monitor /opt/uptime-monitor/venv/bin/python -c "
+from Uptime_Robot.crypto_utils import generate_master_key
+key = generate_master_key()
+print(f'Master key: {\"generated\" if key else \"failed\"}')
+"
+
+# 4. Перезапустити
+sudo systemctl restart uptime-monitor
+```
+
+### Загубили master.key
+
+**Симптом:** Після перевстановлення системи config.json не розшифровується
+
+**Наслідки:** Поля з префіксом `__ENC__` не будуть дешифровані. Потрібно буде ввести паролі заново.
+
+**Рішення:**
+```bash
+# 1. Згенерувати новий ключ (старі дані з __ENC__ стануть нечитабельними)
+sudo -u uptime-monitor /opt/uptime-monitor/venv/bin/python -c "
+from Uptime_Robot.crypto_utils import generate_master_key
+generate_master_key()
+"
+
+# 2. В config.json вручну замінити __ENC__... на реальні паролі
+sudo nano /etc/uptime-monitor/config.json
+
+# 3. Перезапустити — новий ключ зашифрує паролі заново
+sudo systemctl restart uptime-monitor
+```
+
+### Шифрування не працює (cryptography not imported)
+
+**Симптом:** Всі sensitive поля в plaintext, `__ENC__` префікс не з'являється
+
+**Причина:** `cryptography` не знайдено при імпорті (ImportError перехоплюється)
+
+**Рішення:**
+```bash
+sudo -u uptime-monitor /opt/uptime-monitor/venv/bin/pip install cryptography>=41.0.0
+sudo systemctl restart uptime-monitor
+```
+
+---
+
+## Міграція БД
+
+### Помилка при міграції: "duplicate column"
+
+**Симптом:**
+```
+Error: duplicate column name: xxx
+```
+
+**Рішення:** Це очікувано — міграція ідемпотентна. Просто ігноруйте або перевірте що колонка вже існує:
+```bash
+sudo sqlite3 /var/lib/uptime-monitor/sites.db ".schema sites" | grep -i "column_name"
+```
+
+### Потрібно вручну додати колонку
+
+```bash
+sudo sqlite3 /var/lib/uptime-monitor/sites.db "ALTER TABLE sites ADD COLUMN new_column TEXT DEFAULT '';"
+sudo systemctl restart uptime-monitor
+```
+
+### База даних пошкоджена
+
+**Симптом:**
+```
+DatabaseError: database disk image is malformed
+```
+
+**Рішення:**
+```bash
+# 1. Зупинити сервіси
+sudo systemctl stop uptime-monitor uptime-monitor-worker
+
+# 2. Зробити бекап пошкодженої БД
+cp /var/lib/uptime-monitor/sites.db /backup/sites.db.corrupted
+
+# 3. Спробувати відновити
+sqlite3 /var/lib/uptime-monitor/sites.db ".recover" | sqlite3 /var/lib/uptime-monitor/sites.recovered.db
+mv /var/lib/uptime-monitor/sites.recovered.db /var/lib/uptime-monitor/sites.db
+chown uptime-monitor:uptime-monitor /var/lib/uptime-monitor/sites.db
+
+# 4. Перевірити
+sqlite3 /var/lib/uptime-monitor/sites.db "PRAGMA integrity_check;"
+
+# 5. Запустити
+sudo systemctl start uptime-monitor uptime-monitor-worker
 ```
 
 ---
@@ -508,3 +759,24 @@ top -p $(pgrep -f "uptime-monitor")
 - Веб-інтерфейс: `http://$(hostname -I | awk '{print $1}'):8080`
 - Логи: `sudo journalctl -u uptime-monitor -f`
 - Конфіг: `sudo nano /etc/uptime-monitor/config.json`
+
+---
+
+## 🛡️ Security Quick Checks (v2.0.0+)
+
+```bash
+# 1. Перевірити чи CORS налаштовано правильно
+python3 -c "import json; c=json.load(open('/etc/uptime-monitor/config.json')); print('CORS:', c.get('cors',{}).get('allow_origins','NOT SET'))"
+
+# 2. Перевірити чи SSL verify ввімкнено
+python3 -c "import json; c=json.load(open('/etc/uptime-monitor/config.json')); ap=c.get('alert_policy',{}); print('verify_ssl:', ap.get('verify_ssl','NOT SET'))"
+
+# 3. Перевірити чи шифрування активне
+sudo journalctl -u uptime-monitor --no-pager | grep -i "master key\|encrypt" | tail -5
+
+# 4. Перевірити rate limiting в логах
+sudo journalctl -u uptime-monitor --no-pager | grep -i "rate limit\|too many" | tail -5
+
+# 5. Security headers
+curl -sI http://localhost:8080/ | grep -i "x-content-type-options\|x-frame-options\|x-xss-protection"
+```

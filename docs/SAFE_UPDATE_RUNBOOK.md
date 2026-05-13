@@ -96,6 +96,7 @@ if [ -d .git ]; then
   sudo git fetch --all --prune
   sudo git checkout main
   sudo git pull --ff-only origin main
+  sudo chown -R uptime-monitor:uptime-monitor .
 else
   echo "No .git found. Use ZIP flow."
 fi
@@ -104,7 +105,6 @@ fi
 ### Варіант B: ZIP-інсталяція (немає `.git`)
 
 ```bash
-# Перевірити/встановити unzip (якщо немає)
 if ! command -v unzip &> /dev/null; then
     sudo apt update && sudo apt install -y unzip
 fi
@@ -112,17 +112,14 @@ fi
 cd /tmp
 wget https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -O uptime_update.zip
 
-# КРИТИЧНО: Видалити стару папку з sudo
 sudo rm -rf /tmp/Uptime-Monitor-main
-
-# КРИТИЧНО: Розпакувати з sudo
 sudo unzip -o uptime_update.zip
-
-# Скопіювати файли
 sudo cp -r Uptime-Monitor-main/Uptime_Robot/* /opt/uptime-monitor/
-
-# Прибрати тимчасові файли
+sudo chown -R uptime-monitor:uptime-monitor /opt/uptime-monitor
 sudo rm -rf uptime_update.zip Uptime-Monitor-main
+
+# Оновити залежності (якщо змінились)
+# sudo -u uptime-monitor /opt/uptime-monitor/venv/bin/pip install -r /opt/uptime-monitor/requirements.txt -U
 ```
 
 ---
@@ -140,9 +137,13 @@ sudo systemctl status $SERVICE --no-pager
 
 ## 7) Перевірка після оновлення (обов’язково)
 
+### Smoke Tests
+
 ```bash
 sudo journalctl -u $SERVICE -n 100 --no-pager
-curl -fsS http://localhost:8080 >/dev/null && echo "HTTP OK" || echo "HTTP FAIL"
+curl -fsS http://localhost:8080/health | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['status']=='healthy'; print('Health: OK')"
+curl -fsS http://localhost:8080/api/sites | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'Sites: {len(d)}')" 2>/dev/null || echo "No sites yet"
+sudo journalctl -u $SERVICE -n 50 --no-pager | grep -ci "error\|traceback" | xargs -I{} echo "Errors in log: {}"
 ```
 
 > Якщо порт не `8080`, використай свій порт з `config.json`.
@@ -202,22 +203,19 @@ if [ -d .git ]; then
   sudo git fetch --all --prune
   sudo git checkout main
   sudo git pull --ff-only origin main
+  sudo chown -R uptime-monitor:uptime-monitor .
 else
   cd /tmp
   wget https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -O uptime_update.zip
-  
-  # КРИТИЧНО: Видалити стару папку з sudo
   sudo rm -rf /tmp/Uptime-Monitor-main
-  
-  # КРИТИЧНО: Розпакувати з sudo
   sudo unzip -o uptime_update.zip
-  
-  # Скопіювати файли
   sudo cp -r /tmp/Uptime-Monitor-main/Uptime_Robot/* /opt/uptime-monitor/
-  
-  # Прибрати тимчасові файли
+  sudo chown -R uptime-monitor:uptime-monitor /opt/uptime-monitor
   sudo rm -rf uptime_update.zip /tmp/Uptime-Monitor-main
 fi
+
+# Оновити залежності (якщо змінились) — аналізуємо CHANGELOG
+# sudo -u uptime-monitor /opt/uptime-monitor/venv/bin/pip install -r /opt/uptime-monitor/requirements.txt -U
 
 sudo systemctl daemon-reload
 sudo systemctl start $SERVICE
@@ -225,7 +223,7 @@ sleep 3
 
 sudo systemctl status $SERVICE --no-pager
 sudo journalctl -u $SERVICE -n 100 --no-pager
-curl -fsS http://localhost:8080 >/dev/null && echo "HTTP OK" || echo "HTTP FAIL"
+curl -fsS http://localhost:8080/health | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['status']=='healthy'; print('OK')"
 ```
 
 ---
