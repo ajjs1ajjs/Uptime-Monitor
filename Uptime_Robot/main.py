@@ -41,6 +41,7 @@ config_manager.init_paths()
 # Global state and constants from state.py
 CONFIG = app_state.CONFIG
 DB_PATH = app_state.DB_PATH
+CHECK_INTERVAL = app_state.CHECK_INTERVAL
 
 # Add cache-busting version for static assets
 APP_VERSION = datetime.now().strftime("%Y%m%d%H%M%S")

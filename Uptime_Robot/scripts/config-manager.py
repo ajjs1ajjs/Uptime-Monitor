@@ -49,18 +49,35 @@ def create_backup():
         
         shutil.copy2(CONFIG_PATH, backup_file)
         
-        # Update symlinks
+        # Update symlinks / files
         latest_link = os.path.join(backup_dir, 'config.latest.json')
         prev_link = os.path.join(backup_dir, 'config.previous.json')
         
-        if os.path.islink(latest_link) or os.path.exists(latest_link):
-            if os.path.islink(prev_link) or os.path.exists(prev_link):
-                os.remove(prev_link)
-            if os.path.islink(latest_link):
-                os.symlink(os.readlink(latest_link), prev_link)
-            os.remove(latest_link)
-        
-        os.symlink(backup_file, latest_link)
+        if os.path.exists(latest_link):
+            if os.path.exists(prev_link):
+                try:
+                    os.remove(prev_link)
+                except OSError:
+                    pass
+            try:
+                os.rename(latest_link, prev_link)
+            except OSError:
+                try:
+                    shutil.copy2(latest_link, prev_link)
+                    os.remove(latest_link)
+                except OSError:
+                    pass
+
+        try:
+            if hasattr(os, 'symlink'):
+                os.symlink(backup_file, latest_link)
+            else:
+                shutil.copy2(backup_file, latest_link)
+        except OSError:
+            try:
+                shutil.copy2(backup_file, latest_link)
+            except OSError:
+                pass
         
         # Clean old backups
         config = load_config()

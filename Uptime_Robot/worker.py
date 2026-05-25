@@ -3,30 +3,27 @@ import json
 import os
 import sys
 
-# Get paths
-CONFIG_PATH = os.environ.get("CONFIG_PATH", "/etc/uptime-monitor/config.json")
+# Add current folder to path to support imports when run directly or in other environments
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Load config to get DB path
-with open(CONFIG_PATH, "r") as f:
-    config = json.load(f)
+# Now import local modules (supporting both flat and package/relative environments)
+try:
+    from . import models, monitoring, config_manager
+    from . import state as app_state
+    from .database import get_db_connection
+    from .logger import logger
+except ImportError:
+    import models
+    import monitoring
+    import config_manager
+    import state as app_state
+    from database import get_db_connection
+    from logger import logger
 
-DB_PATH = config.get("data_dir", "/var/lib/uptime-monitor")
-DB_PATH = os.path.join(DB_PATH, "sites.db")
-
-# Add installation directory to path
-INSTALL_DIR = "/opt/uptime-monitor"
-sys.path.insert(0, INSTALL_DIR)
-
-# Now import local modules
-import models
-import monitoring
-import state as app_state
-from config_manager import load_config
-from database import get_db_connection
-from logger import logger
-
+DB_PATH = app_state.DB_PATH
 NOTIFY_SETTINGS = app_state.NOTIFY_SETTINGS
 CHECK_INTERVAL = app_state.CHECK_INTERVAL
+CONFIG_PATH = config_manager.CONFIG_PATH
 
 
 async def initialize_worker():

@@ -124,7 +124,7 @@ class TestDatabase:
         # Видаляємо стару базу якщо існує
         if os.path.exists(self.test_db):
             os.remove(self.test_db)
-        init_database(self.test_db)
+        asyncio.run(init_database(self.test_db))
 
     def teardown_method(self):
         """Очистка після кожного тесту"""
@@ -153,15 +153,15 @@ class TestDatabase:
         # Видаляємо базу перед тестом
         if os.path.exists(self.test_db):
             os.remove(self.test_db)
-        init_database(self.test_db)
+        asyncio.run(init_database(self.test_db))
 
-        site_id = add_site(
+        site_id = asyncio.run(add_site(
             self.test_db, name="Test Site", url="https://example.com", check_interval=60
-        )
+        ))
 
         assert site_id > 0
 
-        sites = get_all_sites(self.test_db)
+        sites = asyncio.run(get_all_sites(self.test_db))
         assert len(sites) == 1
         assert sites[0]["name"] == "Test Site"
         assert sites[0]["url"] == "https://example.com"
@@ -171,18 +171,18 @@ class TestDatabase:
         # Видаляємо базу перед тестом
         if os.path.exists(self.test_db):
             os.remove(self.test_db)
-        init_database(self.test_db)
+        asyncio.run(init_database(self.test_db))
 
-        site_id = add_site(
+        site_id = asyncio.run(add_site(
             self.test_db, name="Test Site Delete", url="https://example-delete.com"
-        )
+        ))
 
-        sites = get_all_sites(self.test_db)
+        sites = asyncio.run(get_all_sites(self.test_db))
         assert len(sites) == 1
 
-        delete_site(self.test_db, site_id)
+        asyncio.run(delete_site(self.test_db, site_id))
 
-        sites = get_all_sites(self.test_db)
+        sites = asyncio.run(get_all_sites(self.test_db))
         assert len(sites) == 0
 
 
@@ -275,16 +275,17 @@ class TestApiSmoke:
 
     def test_post_sites_smoke_with_monitor_type_migration(self):
         import main
+        import state
+        import dependencies
+        import config_manager
         import monitoring
         import auth_module
-        import config_manager
+        import routers.api
+        import routers.auth
+        from unittest.mock import patch
 
-        original_db_path = main.DB_PATH
-        original_db_path_config = config_manager.DB_PATH
         original_check_site_status = monitoring.check_site_status
         original_check_site_certificate = monitoring.check_site_certificate
-        main.DB_PATH = self.test_db
-        config_manager.DB_PATH = self.test_db
         certificate_check_calls = []
 
         async def fake_check_site_status(
@@ -298,12 +299,12 @@ class TestApiSmoke:
             certificate_check_calls.append(url)
             return None
 
-        try:
-            main.initialize_app()
-            auth_module.init_auth_tables(self.test_db)
+        async def _run_test():
+            await main.initialize_app_async()
+            await auth_module.init_auth_tables(self.test_db)
 
             # Create a session for authentication
-            session_id = auth_module.create_session(1, self.test_db)
+            session_id = await auth_module.create_session(1, self.test_db)
 
             conn = sqlite3.connect(self.test_db)
             c = conn.cursor()
@@ -321,10 +322,9 @@ class TestApiSmoke:
                 "monitor_type": "ssl",
                 "notify_methods": ["telegram"],
             }
-            status_code, response = asyncio.run(
-                _asgi_json_request(main.app, "POST", "/api/sites", payload, session_id)
-            )
+            status_code, response = await _asgi_json_request(main.app, "POST", "/api/sites", payload, session_id)
 
+            await asyncio.sleep(0.1)
             assert status_code == 200
             assert response.get("message") == "Site added"
             assert isinstance(response.get("id"), int)
@@ -345,11 +345,27 @@ class TestApiSmoke:
             assert row["monitor_type"] == "ssl"
             assert json.loads(row["notify_methods"]) == ["telegram"]
             assert certificate_check_calls == [f"https://example-{session_id[:8]}.com"]
-        finally:
-            import config_manager
 
-            main.DB_PATH = original_db_path
-            config_manager.DB_PATH = original_db_path_config
+        patchers = [
+            patch("main.DB_PATH", self.test_db),
+            patch("state.DB_PATH", self.test_db),
+            patch("dependencies.DB_PATH", self.test_db),
+            patch("config_manager.DB_PATH", self.test_db),
+            patch("routers.api.DB_PATH", self.test_db),
+            patch("routers.auth.DB_PATH", self.test_db),
+        ]
+
+        for p in patchers:
+            p.start()
+
+        try:
+            asyncio.run(_run_test())
+        finally:
+            for p in patchers:
+                try:
+                    p.stop()
+                except:
+                    pass
             monitoring.check_site_status = original_check_site_status
             monitoring.check_site_certificate = original_check_site_certificate
 

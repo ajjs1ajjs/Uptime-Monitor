@@ -86,7 +86,7 @@ def _normalize_and_validate_url(raw_url: str, monitor_type: str) -> str:
     m_type = (monitor_type or "http").lower()
     
     # Pre-processing for HTTP/SSL if missing scheme
-    if m_type in ("http", "ssl") and not (url.startswith("http://") or url.startswith("https://")):
+    if m_type == "http" and not (url.startswith("http://") or url.startswith("https://")):
         url = "http://" + url
 
     if m_type == "ssl":
