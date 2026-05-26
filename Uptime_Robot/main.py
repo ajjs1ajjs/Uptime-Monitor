@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -160,6 +160,47 @@ async def https_redirect_middleware(request: Request, call_next):
 async def health_check():
     """Health check endpoint for Docker and monitoring"""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
+
+@app.get("/metrics")
+async def prometheus_metrics():
+    """Prometheus metrics endpoint (no external dependencies)."""
+    from .database import get_db_connection
+
+    metrics = []
+    metrics.append('# HELP uptime_monitor_sites_total Total number of monitored sites')
+    metrics.append('# TYPE uptime_monitor_sites_total gauge')
+    metrics.append('# HELP uptime_monitor_sites_up Number of sites currently up')
+    metrics.append('# TYPE uptime_monitor_sites_up gauge')
+    metrics.append('# HELP uptime_monitor_sites_down Number of sites currently down')
+    metrics.append('# TYPE uptime_monitor_sites_down gauge')
+    metrics.append('# HELP uptime_monitor_info Static info about this instance')
+    metrics.append('# TYPE uptime_monitor_info gauge')
+
+    try:
+        async with get_db_connection() as conn:
+            async with conn.execute("SELECT COUNT(*) FROM sites") as c:
+                row = await c.fetchone()
+                total = row[0] or 0
+            async with conn.execute("SELECT COUNT(*) FROM sites WHERE status = 'up'") as c:
+                row = await c.fetchone()
+                up = row[0] or 0
+            async with conn.execute("SELECT COUNT(*) FROM sites WHERE status = 'down'") as c:
+                row = await c.fetchone()
+                down = row[0] or 0
+    except Exception:
+        total = up = down = 0
+
+    metrics.append(f'uptime_monitor_sites_total {total}')
+    metrics.append(f'uptime_monitor_sites_up {up}')
+    metrics.append(f'uptime_monitor_sites_down {down}')
+    metrics.append(f'uptime_monitor_info{{version="2.0.0",python="{sys.version}"}} 1')
+
+    return Response(
+        content="\n".join(metrics) + "\n",
+        media_type="text/plain; charset=utf-8",
+        headers={"Cache-Control": "no-cache"},
+    )
 
 
 # --- Include Routers ---
