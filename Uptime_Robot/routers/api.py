@@ -232,6 +232,12 @@ async def add_site(site: SiteCreate, user: dict = Depends(require_admin)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+    await models.log_audit_event(
+        DB_PATH, user["user_id"], user["username"],
+        "site_created", "site", str(site_id),
+        f"name={site.name}, url={url}",
+    )
+
     asyncio.create_task(
         monitoring.check_site_status(site_id, url, site.notify_methods, app_state.NOTIFY_SETTINGS)
     )
@@ -286,6 +292,11 @@ async def delete_site(site_id: int, user: dict = Depends(require_admin)):
     if not user:
         raise HTTPException(status_code=401)
     await models.delete_site(DB_PATH, site_id)
+    await models.log_audit_event(
+        DB_PATH, user["user_id"], user["username"],
+        "site_deleted", "site", str(site_id),
+        None,
+    )
     return {"message": "Deleted"}
 
 @router.post("/sites/{site_id}/check")
@@ -507,6 +518,11 @@ async def create_user_api(user_data: UserCreate, current_user: dict = Depends(re
     success = await auth_module.create_user(DB_PATH, user_data.username, user_data.password, user_data.role)
 
     if success:
+        await models.log_audit_event(
+            DB_PATH, current_user["user_id"], current_user["username"],
+            "user_created", "user", user_data.username,
+            f"role={user_data.role}",
+        )
         return {"message": f"User '{user_data.username}' created with role '{user_data.role}'"}
     else:
         raise HTTPException(status_code=400, detail="User already exists or error creating user")
@@ -523,6 +539,11 @@ async def update_user_api(
 
         if not success:
             raise HTTPException(status_code=404, detail="User not found")
+        await models.log_audit_event(
+            DB_PATH, current_user["user_id"], current_user["username"],
+            "user_role_updated", "user", username,
+            f"new_role={user_data.role}",
+        )
         return {"message": f"User '{username}' role updated to '{user_data.role}'"}
 
     if user_data.password:
@@ -534,6 +555,10 @@ async def update_user_api(
             raise HTTPException(status_code=404, detail="User not found")
 
         await auth_module.change_password(user_row["id"], user_data.password, DB_PATH)
+        await models.log_audit_event(
+            DB_PATH, current_user["user_id"], current_user["username"],
+            "user_password_reset", "user", username, None,
+        )
         return {"message": f"Password updated for user '{username}'"}
 
     raise HTTPException(status_code=400, detail="No updates provided")
@@ -546,6 +571,10 @@ async def delete_user_api(username: str, current_user: dict = Depends(require_ad
     success, error_message = await auth_module.delete_user(DB_PATH, username)
 
     if success:
+        await models.log_audit_event(
+            DB_PATH, current_user["user_id"], current_user["username"],
+            "user_deleted", "user", username, None,
+        )
         return {"message": f"User '{username}' deleted"}
     else:
         raise HTTPException(status_code=400, detail=error_message)
@@ -694,3 +723,10 @@ async def revoke_api_key_endpoint(key_id: str):
     """Revoke an API key (admin only)."""
     await auth_module.revoke_api_key(DB_PATH, key_id)
     return {"status": "revoked"}
+
+
+@router.get("/audit-log", dependencies=[Depends(require_admin)])
+async def get_audit_log_endpoint(limit: int = 200):
+    """Get recent audit log entries (admin only)."""
+    entries = await models.get_audit_log(DB_PATH, limit)
+    return entries

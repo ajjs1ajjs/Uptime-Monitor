@@ -10,6 +10,18 @@ from .database import get_db_connection
 async def init_database(db_path: str):
     """Ініціалізує базу даних"""
     async with get_db_connection(db_path) as conn:
+        # Таблиця аудиту
+        await conn.execute("""CREATE TABLE IF NOT EXISTS audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            username TEXT,
+            action TEXT NOT NULL,
+            target_type TEXT,
+            target_id TEXT,
+            details TEXT,
+            created_at TEXT
+        )""")
+
         # Таблиця сайтів
         await conn.execute("""CREATE TABLE IF NOT EXISTS sites (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -394,3 +406,32 @@ async def toggle_maintenance_window(db_path: str, window_id: int, is_active: boo
     async with get_db_connection(db_path) as conn:
         await conn.execute("UPDATE maintenance_windows SET is_active = ? WHERE id = ?", (1 if is_active else 0, window_id))
         await conn.commit()
+
+
+async def log_audit_event(
+    db_path: str,
+    user_id: int,
+    username: str,
+    action: str,
+    target_type: str = None,
+    target_id: str = None,
+    details: str = None,
+):
+    """Log an audit event."""
+    async with get_db_connection(db_path) as conn:
+        await conn.execute(
+            """INSERT INTO audit_log (user_id, username, action, target_type, target_id, details, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (user_id, username, action, target_type, target_id, details, datetime.now().isoformat()),
+        )
+        await conn.commit()
+
+
+async def get_audit_log(db_path: str, limit: int = 200) -> list:
+    """Get recent audit log entries."""
+    async with get_db_connection(db_path) as conn:
+        async with conn.execute(
+            "SELECT * FROM audit_log ORDER BY id DESC LIMIT ?", (limit,)
+        ) as c:
+            rows = await c.fetchall()
+            return [dict(row) for row in rows]
