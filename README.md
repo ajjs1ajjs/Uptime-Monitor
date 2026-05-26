@@ -83,7 +83,7 @@ Starting from v2.0.0, the project includes enterprise-grade security:
 
 - **Rate Limiting** — 5 login attempts per 15 minutes per IP
 - **Password Policy** — Minimum 12 characters, requires uppercase + lowercase + digit
-- **Random Admin Password** — Generated on first install (no more `admin/admin`)
+- **Default Credentials** — Admin: `admin` / `291263` (change after first login)
 - **Encrypted Secrets** — Email passwords and tokens encrypted with Fernet at rest
 - **Configurable CORS** — Restrict origins via `cors.allow_origins` in `config.json`
 - **SSL Verification** — Configurable `verify_ssl` in `alert_policy`
@@ -116,7 +116,7 @@ Starting from v2.0.0, the project includes enterprise-grade security:
 | **SSL Verify** | Enabled (configurable) |
 | **CORS Origins** | `["*"]` (configurable) |
 | **Rate Limit** | 5 attempts / 15 min per IP |
-| **Password Policy** | 12+ chars, upper+lower+digit+special |
+| **Password Policy** | 12+ chars, upper+lower+digit |
 
 ---
 

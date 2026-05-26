@@ -24,6 +24,7 @@ class SiteCreate(BaseModel):
     notify_methods: Optional[List[str]] = []
     monitor_type: str = "http"
     keyword: Optional[str] = None
+    tags: Optional[List[str]] = []
 
 class SiteUpdate(BaseModel):
     name: Optional[str] = None
@@ -33,6 +34,7 @@ class SiteUpdate(BaseModel):
     is_active: Optional[bool] = None
     monitor_type: Optional[str] = None
     keyword: Optional[str] = None
+    tags: Optional[List[str]] = None
 
 class NotifySettingsModel(BaseModel):
     telegram: Optional[dict] = None
@@ -148,6 +150,7 @@ async def get_sites(user: dict = Depends(require_viewer_or_higher)):
                     "notify_methods": json.loads(site["notify_methods"])
                     if site["notify_methods"]
                     else [],
+                    "tags": json.loads(site.get("tags", "[]")) if site.get("tags") and site.get("tags") != "[]" else [],
                 }
             )
     return result
@@ -217,7 +220,7 @@ async def add_site(site: SiteCreate, user: dict = Depends(require_admin)):
     try:
         async with get_db_connection() as conn:
             await conn.execute(
-                "INSERT INTO sites (name, url, check_interval, is_active, notify_methods, monitor_type, keyword) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO sites (name, url, check_interval, is_active, notify_methods, monitor_type, keyword, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     site.name,
                     url,
@@ -226,6 +229,7 @@ async def add_site(site: SiteCreate, user: dict = Depends(require_admin)):
                     json.dumps(site.notify_methods),
                     m_type,
                     site.keyword,
+                    json.dumps(site.tags or []),
                 ),
             )
             await conn.commit()
@@ -260,7 +264,7 @@ async def update_site(site_id: int, site: SiteUpdate, user: dict = Depends(requi
         raise HTTPException(status_code=401)
     async with get_db_connection() as conn:
         async with conn.execute(
-            "SELECT name, url, check_interval, is_active, notify_methods, monitor_type, keyword FROM sites WHERE id = ?",
+            "SELECT name, url, check_interval, is_active, notify_methods, monitor_type, keyword, tags FROM sites WHERE id = ?",
             (site_id,),
         ) as c:
             existing = await c.fetchone()
@@ -285,10 +289,11 @@ async def update_site(site_id: int, site: SiteUpdate, user: dict = Depends(requi
             else existing["notify_methods"]
         )
         keyword = site.keyword if site.keyword is not None else existing["keyword"]
+        tags = json.dumps(site.tags) if site.tags is not None else existing["tags"]
 
         await conn.execute(
-            "UPDATE sites SET name = ?, url = ?, check_interval = ?, is_active = ?, notify_methods = ?, monitor_type = ?, keyword = ? WHERE id = ?",
-            (name, url, check_interval, is_active, notify_methods, monitor_type, keyword, site_id),
+            "UPDATE sites SET name = ?, url = ?, check_interval = ?, is_active = ?, notify_methods = ?, monitor_type = ?, keyword = ?, tags = ? WHERE id = ?",
+            (name, url, check_interval, is_active, notify_methods, monitor_type, keyword, tags, site_id),
         )
         await conn.commit()
     return {"message": "Updated"}
@@ -800,3 +805,19 @@ async def restore_backup_endpoint(backup_id: int):
     shutil.copy2(target["filepath"], DB_PATH)
     await models.log_audit_event(DB_PATH, 0, "system", "backup_restored", "backup", str(backup_id), f"restored {target['filename']}")
     return {"status": "restored", "backup": target["filename"]}
+
+
+@router.get("/tags")
+async def get_all_tags(user: dict = Depends(require_viewer_or_higher)):
+    """Get all unique tags across all sites."""
+    async with get_db_connection() as conn:
+        async with conn.execute("SELECT tags FROM sites WHERE tags IS NOT NULL AND tags != '[]'") as c:
+            rows = await c.fetchall()
+    all_tags = set()
+    for row in rows:
+        try:
+            tag_list = json.loads(row["tags"])
+            all_tags.update(tag_list)
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return sorted(list(all_tags))

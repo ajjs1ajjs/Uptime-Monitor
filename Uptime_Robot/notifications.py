@@ -9,6 +9,7 @@ from email.mime.text import MIMEText
 from typing import List, Dict, Any, Optional, Union
 from datetime import datetime
 from .logger import logger
+from .metrics_store import increment_metric
 
 
 def format_telegram_message(data: Dict[str, Any], alert_type: str = "down") -> str:
@@ -411,7 +412,12 @@ async def send_notification(
                     tasks.append(send_ntfy(message, channel))
 
     if tasks:
-        await asyncio.gather(*tasks, return_exceptions=True)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for r in results:
+            if isinstance(r, Exception):
+                increment_metric("notifications_failed")
+            else:
+                increment_metric("notifications_sent")
 
     if site_id is not None:
         try:
@@ -447,7 +453,16 @@ async def send_telegram(message: Union[str, Dict], settings: Dict[str, Any]):
                 alert_type = "still_down"
             text = format_telegram_message(data, alert_type)
 
-        payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
+        payload: dict[str, Any] = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
+
+        if alert_type in ("down", "still_down"):
+            payload["reply_markup"] = {
+                "inline_keyboard": [[
+                    {"text": "✅ Acknowledge", "callback_data": f"ack_{message.get('site_name', '')}"},
+                    {"text": "🔇 Silence 1h", "callback_data": f"silence1h_{message.get('site_name', '')}"},
+                    {"text": "🔕 Silence 6h", "callback_data": f"silence6h_{message.get('site_name', '')}"},
+                ]]
+            }
 
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=payload) as response:

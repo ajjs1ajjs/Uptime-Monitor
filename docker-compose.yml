@@ -9,6 +9,7 @@ services:
     environment:
       - TZ=UTC
     restart: unless-stopped
+    command: ["python", "-m", "Uptime_Robot", "--host", "0.0.0.0", "--port", "8080", "--no-monitor"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
       interval: 30s
@@ -16,13 +17,18 @@ services:
       retries: 3
       start_period: 15s
 
-  # Optional: run monitoring in a separate worker
-  # worker:
-  #   build: .
-  #   container_name: uptime-worker
-  #   volumes:
-  #     - ./data:/app/data
-  #   environment:
-  #     - TZ=UTC
-  #   command: ["python", "-m", "Uptime_Robot", "--host", "0.0.0.0", "--port", "8080", "--no-monitor"]
-  #   restart: unless-stopped
+  worker:
+    build: .
+    container_name: uptime-worker
+    volumes:
+      - ./data:/app/data
+    environment:
+      - TZ=UTC
+    command: ["python", "-m", "Uptime_Robot.worker"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'Uptime_Robot.worker' || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

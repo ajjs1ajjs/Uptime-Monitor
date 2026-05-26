@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.0] - 2026-05-26
+
+### Added
+
+- **DB-backed Rate Limiting** — Rate limits persist across restarts and worker processes
+- **Dark/Light Theme** — Toggleable theme with system preference detection
+- **Site Tags/Groups** — Organize monitors with custom tags for filtering
+- **Custom Uptime Periods** — Configurable SLA report periods (7/30/90 days)
+- **Enhanced Healthcheck** — Now checks DB connectivity and monitoring thread status
+- **Enhanced Prometheus Metrics** — Response time histograms, notification counters, maintenance status
+- **Telegram Inline Buttons** — Acknowledge/silence alerts directly from Telegram chat
+- **CSV/PDF Export** — Export SLA reports, sites list, and notification history
+- **Worker Container Healthcheck** — Separate healthcheck for worker in docker-compose
+- **Grafana Dashboard** — Pre-built dashboard JSON for monitoring the monitor
+
+### Changed
+
+- Rate limiter moved from in-memory dict to SQLite for multi-process safety
+- Improved monitoring loop stability with better error recovery
+- Reduced `check_site_status` complexity via extraction of sub-functions
+- HTML card generation moved from inline Python to Jinja2 template partials
+- Documentation: fixed version inconsistencies and incorrect default credentials
+
+### Fixed
+
+- QUICKSTART_UK.md showed wrong default credentials (`test/1234` instead of `admin/291263`)
+- `pyproject.toml` version now matches README badge (2.1.0)
+
+---
+
 ## [2.0.0] - 2026-05-13
 
 ### 🎉 Major Release - Enterprise Security & Production Hardening

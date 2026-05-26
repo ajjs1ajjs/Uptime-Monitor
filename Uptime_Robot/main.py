@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from . import auth_module, config_manager, models, monitoring
+from . import auth_module, config_manager, models, metrics_store, monitoring
 from . import state as app_state
 from .database import close_db, get_db_connection
 from .logger import logger
@@ -163,8 +163,31 @@ async def https_redirect_middleware(request: Request, call_next):
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint for Docker and monitoring"""
-    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+    """Health check endpoint for Docker and monitoring."""
+    import time
+    db_ok = False
+    try:
+        async with get_db_connection() as conn:
+            await conn.execute("SELECT 1")
+            db_ok = True
+    except Exception:
+        pass
+
+    monitor_ok = True
+    heartbeat = metrics_store.get_heartbeat_age()
+    if heartbeat > 0:
+        monitor_ok = heartbeat < 120
+
+    overall = "healthy" if db_ok and monitor_ok else "degraded"
+    return {
+        "status": overall,
+        "timestamp": datetime.now().isoformat(),
+        "checks": {
+            "database": "ok" if db_ok else "error",
+            "monitor_thread": "ok" if monitor_ok else "stale",
+        },
+        "version": "2.1.0",
+    }
 
 
 @app.get("/metrics")
@@ -172,15 +195,30 @@ async def prometheus_metrics():
     """Prometheus metrics endpoint (no external dependencies)."""
     from .database import get_db_connection
 
+    store = metrics_store.get_metrics()
     metrics = []
-    metrics.append('# HELP uptime_monitor_sites_total Total number of monitored sites')
-    metrics.append('# TYPE uptime_monitor_sites_total gauge')
-    metrics.append('# HELP uptime_monitor_sites_up Number of sites currently up')
-    metrics.append('# TYPE uptime_monitor_sites_up gauge')
-    metrics.append('# HELP uptime_monitor_sites_down Number of sites currently down')
-    metrics.append('# TYPE uptime_monitor_sites_down gauge')
-    metrics.append('# HELP uptime_monitor_info Static info about this instance')
-    metrics.append('# TYPE uptime_monitor_info gauge')
+    metrics.append("# HELP uptime_monitor_sites_total Total number of monitored sites")
+    metrics.append("# TYPE uptime_monitor_sites_total gauge")
+    metrics.append("# HELP uptime_monitor_sites_up Number of sites currently up")
+    metrics.append("# TYPE uptime_monitor_sites_up gauge")
+    metrics.append("# HELP uptime_monitor_sites_down Number of sites currently down")
+    metrics.append("# TYPE uptime_monitor_sites_down gauge")
+    metrics.append("# HELP uptime_monitor_sites_maintenance Number of sites in maintenance")
+    metrics.append("# TYPE uptime_monitor_sites_maintenance gauge")
+    metrics.append("# HELP uptime_monitor_sites_paused Number of paused sites")
+    metrics.append("# TYPE uptime_monitor_sites_paused gauge")
+    metrics.append("# HELP uptime_monitor_checks_total Total checks performed")
+    metrics.append("# TYPE uptime_monitor_checks_total counter")
+    metrics.append("# HELP uptime_monitor_checks_failed_total Failed checks")
+    metrics.append("# TYPE uptime_monitor_checks_failed_total counter")
+    metrics.append("# HELP uptime_monitor_notifications_sent_total Notifications sent")
+    metrics.append("# TYPE uptime_monitor_notifications_sent_total counter")
+    metrics.append("# HELP uptime_monitor_notifications_failed_total Failed notifications")
+    metrics.append("# TYPE uptime_monitor_notifications_failed_total counter")
+    metrics.append("# HELP uptime_monitor_monitor_heartbeat_seconds Time since last monitor heartbeat")
+    metrics.append("# TYPE uptime_monitor_monitor_heartbeat_seconds gauge")
+    metrics.append("# HELP uptime_monitor_info Static info about this instance")
+    metrics.append("# TYPE uptime_monitor_info gauge")
 
     try:
         async with get_db_connection() as conn:
@@ -193,13 +231,26 @@ async def prometheus_metrics():
             async with conn.execute("SELECT COUNT(*) FROM sites WHERE status = 'down'") as c:
                 row = await c.fetchone()
                 down = row[0] or 0
+            async with conn.execute("SELECT COUNT(*) FROM sites WHERE status = 'maintenance'") as c:
+                row = await c.fetchone()
+                maint = row[0] or 0
+            async with conn.execute("SELECT COUNT(*) FROM sites WHERE status = 'paused'") as c:
+                row = await c.fetchone()
+                paused = row[0] or 0
     except Exception:
-        total = up = down = 0
+        total = up = down = maint = paused = 0
 
-    metrics.append(f'uptime_monitor_sites_total {total}')
-    metrics.append(f'uptime_monitor_sites_up {up}')
-    metrics.append(f'uptime_monitor_sites_down {down}')
-    metrics.append(f'uptime_monitor_info{{version="2.0.0",python="{sys.version}"}} 1')
+    metrics.append(f"uptime_monitor_sites_total {total}")
+    metrics.append(f"uptime_monitor_sites_up {up}")
+    metrics.append(f"uptime_monitor_sites_down {down}")
+    metrics.append(f"uptime_monitor_sites_maintenance {maint}")
+    metrics.append(f"uptime_monitor_sites_paused {paused}")
+    metrics.append(f"uptime_monitor_checks_total {store['checks_total']}")
+    metrics.append(f"uptime_monitor_checks_failed_total {store['checks_failed']}")
+    metrics.append(f"uptime_monitor_notifications_sent_total {store['notifications_sent']}")
+    metrics.append(f"uptime_monitor_notifications_failed_total {store['notifications_failed']}")
+    metrics.append(f"uptime_monitor_monitor_heartbeat_seconds {metrics_store.get_heartbeat_age():.1f}")
+    metrics.append(f'uptime_monitor_info{{version="2.1.0",python="{sys.version}"}} 1')
 
     return Response(
         content="\n".join(metrics) + "\n",

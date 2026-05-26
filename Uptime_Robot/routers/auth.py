@@ -1,13 +1,12 @@
 import html
 import secrets
-import time
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from .. import auth_module
+from .. import auth_module, models
 from ..database import get_db_connection
 from ..dependencies import get_current_user, require_admin
 from ..state import DB_PATH
@@ -17,48 +16,16 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 router = APIRouter()
 
-# In-memory rate limiter (endpoint -> ip -> {"count": int, "reset_at": timestamp})
-# Each endpoint has its own counter so one endpoint doesn't affect another.
-_rate_limit_store: dict[str, dict[str, dict]] = {}
-
-
-def _check_rate_limit(
-    ip: str,
-    endpoint: str = "login",
-    max_attempts: int = 5,
-    window_seconds: int = 900,
-) -> bool:
-    now = time.time()
-    store = _rate_limit_store.setdefault(endpoint, {})
-    entry = store.get(ip)
-
-    if entry and now < entry["reset_at"]:
-        if entry["count"] >= max_attempts:
-            return False
-        entry["count"] += 1
-    else:
-        store[ip] = {"count": 1, "reset_at": now + window_seconds}
-
-    return True
-
-
-async def _cleanup_rate_limit_cache():
-    now = time.time()
-    for endpoint, store in _rate_limit_store.items():
-        expired = [ip for ip, entry in store.items() if now >= entry["reset_at"]]
-        for ip in expired:
-            del store[ip]
-
 
 def _rate_limit_dependency(
     endpoint: str, max_attempts: int, window_seconds: int
 ):
-    """Creates a FastAPI Dependency that rate-limits by client IP."""
+    """Creates a FastAPI Dependency that rate-limits by client IP using DB."""
 
     async def limiter(request: Request):
         client_ip = request.client.host if request.client else "unknown"
-        if not _check_rate_limit(client_ip, endpoint, max_attempts, window_seconds):
-            await _cleanup_rate_limit_cache()
+        ok = await models.check_db_rate_limit(endpoint, client_ip, max_attempts, window_seconds)
+        if not ok:
             raise HTTPException(
                 status_code=429,
                 detail="Too many attempts. Try again later.",
@@ -84,8 +51,7 @@ async def login_page(request: Request, error: str = None, user: dict = Depends(g
 @router.post("/login")
 async def login(request: Request, username: str = Form(...), password: str = Form(...)):
     client_ip = request.client.host if request.client else "unknown"
-    if not _check_rate_limit(client_ip, "login", 5, 900):
-        await _cleanup_rate_limit_cache()
+    if not await models.check_db_rate_limit("login", client_ip, 5, 900):
         return RedirectResponse(
             url="/login?error=Too many login attempts. Try again later.", status_code=429
         )

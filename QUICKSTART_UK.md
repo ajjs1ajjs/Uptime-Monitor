@@ -194,8 +194,8 @@ sudo uptime-update
 ```
 http://YOUR_SERVER_IP:8080/
 
-Login: test
-Password: 1234
+Login: admin
+Password: 291263
 
 ⚠️ Змініть пароль після першого входу!
 ```

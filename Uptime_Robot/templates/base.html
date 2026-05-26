@@ -37,22 +37,51 @@
         }
     </script>
     <style>
-        body { min-height: 100vh; }
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-card: #1e293b;
+            --text-primary: #ffffff;
+            --text-secondary: #94a3b8;
+            --border-color: rgba(148,163,184,0.1);
+            --glass-bg: rgba(30,41,59,0.6);
+            --card-grad: linear-gradient(180deg, rgba(30,41,59,0.7), rgba(15,23,42,0.9));
+            --body-grad: linear-gradient(to bottom right, #0f172a, #1e293b, #0f172a);
+            --input-bg: #0f172a;
+            --input-border: rgba(51,65,85,0.5);
+        }
+        .light {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --border-color: rgba(0,0,0,0.08);
+            --glass-bg: rgba(255,255,255,0.85);
+            --card-grad: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(248,250,252,0.95));
+            --body-grad: linear-gradient(to bottom right, #f1f5f9, #f8fafc, #f1f5f9);
+            --input-bg: #ffffff;
+            --input-border: rgba(0,0,0,0.1);
+        }
+        body { min-height: 100vh; background: var(--body-grad); color: var(--text-primary); }
         .status-up { color: #10b981; }
         .status-down { color: #ef4444; }
         .status-warning { color: #f59e0b; }
         .bg-status-up { background: rgba(16,185,129,0.15); }
         .bg-status-down { background: rgba(239,68,68,0.15); }
         .bg-status-warning { background: rgba(245,158,11,0.15); }
-        .glass { background: rgba(30,41,59,0.6); backdrop-filter: blur(12px); border: 1px solid rgba(148,163,184,0.1); }
+        .glass { background: var(--glass-bg); backdrop-filter: blur(12px); border: 1px solid var(--border-color); }
         .card-hover:hover { border-color: rgba(0,217,255,0.3); box-shadow: 0 0 30px rgba(0,217,255,0.1); transform: translateY(-2px); }
         .animate-fade-in { animation: fadeIn 0.4s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .gradient-accent { background: linear-gradient(135deg, #00d9ff, #06b6d4); }
-        .gradient-card { background: linear-gradient(180deg, rgba(30,41,59,0.7), rgba(15,23,42,0.9)); }
+        .gradient-card { background: var(--card-grad); }
         .scrollbar-thin::-webkit-scrollbar { width: 6px; }
         .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
         .scrollbar-thin::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        input, select { background: var(--input-bg) !important; border-color: var(--input-border) !important; color: var(--text-primary) !important; }
+        table { color: var(--text-primary); }
+        .text-slate-400 { color: var(--text-secondary) !important; }
     </style>
     {% block head %}{% endblock %}
 </head>
@@ -67,45 +96,35 @@
     </script>
     <script>
         (function() {
-            const theme = localStorage.getItem('theme') || 'dark';
-            const isDark = theme === 'dark';
-            document.documentElement.classList.toggle('dark', isDark);
-            if (!isDark) {
-                document.body.className = 'bg-gradient-to-br from-slate-100 via-white to-slate-100 text-slate-900';
-            }
+            const theme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const isDark = theme ? theme === 'dark' : prefersDark;
             window.__isDark = isDark;
+            if (!isDark) {
+                document.documentElement.classList.add('light');
+                document.documentElement.classList.remove('dark');
+            } else {
+                document.documentElement.classList.add('dark');
+                document.documentElement.classList.remove('light');
+            }
+            const themeBtn = document.getElementById('themeBtn');
+            if (themeBtn) themeBtn.textContent = isDark ? '🌙' : '☀️';
         })();
 
         function toggleTheme() {
             const isDark = !window.__isDark;
             window.__isDark = isDark;
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
-            document.documentElement.classList.toggle('dark', isDark);
             if (isDark) {
-                document.body.className = 'bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] text-white';
+                document.documentElement.classList.add('dark');
+                document.documentElement.classList.remove('light');
             } else {
-                document.body.className = 'bg-gradient-to-br from-slate-100 via-white to-slate-100 text-slate-900';
+                document.documentElement.classList.add('light');
+                document.documentElement.classList.remove('dark');
             }
             const btn = document.getElementById('themeBtn');
             if (btn) btn.textContent = isDark ? '🌙' : '☀️';
-            const glass = document.querySelectorAll('.glass');
-            glass.forEach(el => {
-                if (isDark) {
-                    el.style.background = 'rgba(30,41,59,0.6)';
-                } else {
-                    el.style.background = 'rgba(255,255,255,0.8)';
-                }
-            });
         }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            const btn = document.getElementById('themeBtn');
-            if (btn) btn.textContent = window.__isDark ? '🌙' : '☀️';
-            const glass = document.querySelectorAll('.glass');
-            if (!window.__isDark) {
-                glass.forEach(el => el.style.background = 'rgba(255,255,255,0.8)');
-            }
-        });
     </script>
     {% block scripts %}{% endblock %}
 </body>

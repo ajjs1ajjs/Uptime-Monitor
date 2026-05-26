@@ -51,12 +51,22 @@ def patch_db_path(test_db):
 @pytest.fixture
 def client(patch_db_path):
     from Uptime_Robot.main import app
-    from Uptime_Robot.routers.auth import _rate_limit_store
-
-    _rate_limit_store.clear()
 
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture(autouse=True)
+def clear_rate_limits(patch_db_path):
+    import sqlite3
+    from Uptime_Robot.state import DB_PATH
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute("DELETE FROM rate_limits")
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
 
 
 @pytest.fixture

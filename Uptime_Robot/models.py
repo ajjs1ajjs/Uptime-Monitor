@@ -139,6 +139,9 @@ async def init_database(db_path: str):
         if "keyword" not in site_columns:
             await conn.execute("ALTER TABLE sites ADD COLUMN keyword TEXT DEFAULT NULL")
 
+        if "tags" not in site_columns:
+            await conn.execute("ALTER TABLE sites ADD COLUMN tags TEXT DEFAULT '[]'")
+
         await conn.execute("""CREATE TABLE IF NOT EXISTS notification_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             site_id INTEGER,
@@ -157,6 +160,16 @@ async def init_database(db_path: str):
             site_count INTEGER,
             created_at TEXT
         )""")
+
+        await conn.execute("""CREATE TABLE IF NOT EXISTS rate_limits (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            endpoint TEXT NOT NULL,
+            ip TEXT NOT NULL,
+            attempt_count INTEGER DEFAULT 1,
+            reset_at REAL NOT NULL
+        )""")
+        await conn.execute("""CREATE INDEX IF NOT EXISTS idx_rate_limits_lookup 
+            ON rate_limits(endpoint, ip)""")
 
         # Таблиця періодів обслуговування (Maintenance Windows)
         await conn.execute("""CREATE TABLE IF NOT EXISTS maintenance_windows (
@@ -200,13 +213,14 @@ async def add_site(
     notify_methods: Optional[List[str]] = None,
     monitor_type: str = "http",
     keyword: Optional[str] = None,
+    tags: Optional[List[str]] = None,
 ) -> int:
     """Додає новий сайт"""
     async with get_db_connection(db_path) as conn:
         async with conn.execute(
-            """INSERT INTO sites (name, url, check_interval, notify_methods, monitor_type, keyword, is_active)
-                     VALUES (?, ?, ?, ?, ?, ?, 1)""",
-            (name, url, check_interval, json.dumps(notify_methods or []), monitor_type, keyword),
+            """INSERT INTO sites (name, url, check_interval, notify_methods, monitor_type, keyword, tags, is_active)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, 1)""",
+            (name, url, check_interval, json.dumps(notify_methods or []), monitor_type, keyword, json.dumps(tags or [])),
         ) as c:
             site_id = c.lastrowid
         await conn.commit()
@@ -228,7 +242,8 @@ async def update_site(db_path: str, site_id: int, **kwargs):
         "status_code",
         "response_time",
         "monitor_type",
-        "keyword"
+        "keyword",
+        "tags"
     }
 
     updates = []
@@ -527,3 +542,36 @@ async def get_backups(db_path: str) -> list:
         ) as c:
             rows = await c.fetchall()
             return [dict(row) for row in rows]
+
+
+async def check_db_rate_limit(
+    endpoint: str, ip: str, max_attempts: int = 5, window_seconds: int = 900
+) -> bool:
+    """Returns True if within limit, False if rate limited."""
+    import time
+    now = time.time()
+    async with get_db_connection() as conn:
+        async with conn.execute(
+            "SELECT id, attempt_count, reset_at FROM rate_limits WHERE endpoint = ? AND ip = ?",
+            (endpoint, ip),
+        ) as c:
+            row = await c.fetchone()
+
+        if row and now < row["reset_at"]:
+            if row["attempt_count"] >= max_attempts:
+                return False
+            await conn.execute(
+                "UPDATE rate_limits SET attempt_count = attempt_count + 1 WHERE id = ?",
+                (row["id"],),
+            )
+        else:
+            await conn.execute(
+                "INSERT INTO rate_limits (endpoint, ip, attempt_count, reset_at) VALUES (?, ?, ?, ?)",
+                (endpoint, ip, 1, now + window_seconds),
+            )
+
+        await conn.execute(
+            "DELETE FROM rate_limits WHERE reset_at < ?", (now,)
+        )
+        await conn.commit()
+    return True

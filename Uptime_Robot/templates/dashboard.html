@@ -108,25 +108,29 @@
                 <button class="monitor-type-btn px-4 py-2 rounded-lg bg-accent/10 text-accent font-medium text-xs" data-filter="all" onclick="setFilter('all')">Всі</button>
             </div>
             <div class="flex flex-col sm:flex-row gap-3 mb-4">
-                <input type="text" id="monitorSearch" name="search" placeholder="🔍 Пошук за назвою або URL..." 
-                       class="flex-1 px-4 py-2.5 rounded-xl border border-slate-700/50 bg-[#0f172a] text-slate-200 text-sm focus:outline-none focus:border-accent transition"
+                <input type="text" id="monitorSearch" name="search" placeholder="Search by name or URL..." 
+                       class="flex-1 px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:border-accent transition"
                        onkeyup="renderMonitors()">
+                <select id="tagFilter" onchange="renderMonitors()"
+                        class="w-full sm:w-40 px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:border-accent transition">
+                    <option value="">All tags</option>
+                </select>
                 <select id="monitorSort" name="sort" 
-                        class="w-full sm:w-48 px-4 py-2.5 rounded-xl border border-slate-700/50 bg-[#0f172a] text-slate-200 text-sm focus:outline-none focus:border-accent transition"
+                        class="w-full sm:w-48 px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:border-accent transition"
                         onchange="renderMonitors()">
-                    <option value="status">🚦 За статусом</option>
-                    <option value="name">🔤 За назвою</option>
-                    <option value="uptime">📈 За Uptime</option>
-                    <option value="response_time">⚡ За часом відповіді</option>
+                    <option value="status">By Status</option>
+                    <option value="name">By Name</option>
+                    <option value="uptime">By Uptime</option>
+                    <option value="response_time">By Response Time</option>
                 </select>
             </div>
             <div id="dashboardMonitors"
                 class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
                 hx-get="/api/htmx/monitors"
-                hx-trigger="every 60s, load, keyup changed delay:300ms from:#monitorSearch, change from:#monitorSort"
+                hx-trigger="every 60s, load, keyup changed delay:300ms from:#monitorSearch, change from:#monitorSort, change from:#tagFilter"
                 hx-target="this"
                 hx-swap="innerHTML"
-                hx-include="#monitorSearch, #monitorSort">
+                hx-include="#monitorSearch, #monitorSort, #tagFilter">
                 <div class="col-span-full text-center py-10 text-slate-500">Завантаження моніторів...</div>
             </div>
         </div>
@@ -352,8 +356,9 @@
             <h3 class="text-lg font-semibold mb-4">📊 Звіти про доступність (SLA)</h3>
             <p class="text-slate-400 text-sm mb-4">Виберіть період та завантажте звіт про доступність моніторів у форматі CSV.</p>
             <div class="flex flex-wrap gap-3">
-                <a href="/api/reports/sla/export?days=7" class="px-5 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:border-accent hover:text-white transition text-sm font-medium">📅 Звіт за 7 днів (CSV)</a>
-                <a href="/api/reports/sla/export?days=30" class="px-5 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:border-accent hover:text-white transition text-sm font-medium">📅 Звіт за 30 днів (CSV)</a>
+                <a href="/api/reports/sla/export?days=7" class="px-5 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:border-accent hover:text-white transition text-sm font-medium">7 days (CSV)</a>
+                <a href="/api/reports/sla/export?days=30" class="px-5 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:border-accent hover:text-white transition text-sm font-medium">30 days (CSV)</a>
+                <a href="/api/reports/sla/export?days=90" class="px-5 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:border-accent hover:text-white transition text-sm font-medium">90 days (CSV)</a>
             </div>
         </div>
 

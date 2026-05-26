@@ -22,22 +22,18 @@ def _monitor_card_html(site: dict) -> str:
     import urllib.parse
     status = (site.get("status") or "unknown").lower()
     if status == "up":
-        sclass = "up"
         scolor = "#10b981"
         border = "border-emerald-500"
     elif status == "paused":
-        sclass = "paused"
         scolor = "#f59e0b"
         border = "border-amber-500"
     elif status == "maintenance":
-        sclass = "maintenance"
         scolor = "#a855f7"
         border = "border-purple-500"
     else:
-        sclass = "down"
         scolor = "#ef4444"
         border = "border-red-500"
-        
+
     stext = status.upper()
     mtype = site.get("monitor_type", "http")
     methods = json.loads(site.get("notify_methods", "[]")) if isinstance(site.get("notify_methods"), str) else (site.get("notify_methods") or [])
@@ -45,40 +41,35 @@ def _monitor_card_html(site: dict) -> str:
     if isinstance(uptime, str):
         try: uptime = float(uptime)
         except Exception: uptime = 100.0
-    name = (site.get("name") or "").replace("'", "\\'")
-    url = (site.get("url") or "").replace("'", "\\'")
-    sid = site.get("id", 0)
-    rt = site.get("response_time") or "—"
-    sc = site.get("status_code") or "—"
+
+    tags = json.loads(site.get("tags", "[]")) if isinstance(site.get("tags"), str) else (site.get("tags") or [])
+    if isinstance(tags, str):
+        try: tags = json.loads(tags)
+        except Exception: tags = []
 
     keyword = site.get("keyword") or ""
-    encoded_keyword = urllib.parse.quote(keyword)
-    encoded_url = urllib.parse.quote(site.get("url") or "")
-    encoded_methods = urllib.parse.quote(json.dumps(methods))
-    
-    keyword_html = f'<div class="text-[11px] text-indigo-400 mt-1 flex items-center gap-1">🔑 Ключ: <span class="text-slate-300 font-mono">{keyword}</span></div>' if keyword else ""
 
-    return f"""<div class="gradient-card rounded-xl p-5 border-l-4 {border} border border-slate-700/30 card-hover transition">
-        <div class="flex justify-between items-start mb-4">
-            <div class="min-w-0 flex-1">
-                <div class="text-base font-semibold truncate" title="{name}">{site.get("name", "")}</div>
-                <div class="text-xs text-slate-400 truncate mt-0.5" title="{url}">{site.get("url", "")}</div>
-                {keyword_html}
-            </div>
-            <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-accent/10 text-accent">{mtype}</span>
-        </div>
-        <div class="grid grid-cols-4 gap-2 py-3 border-y border-slate-700/30 text-center text-xs">
-            <div><div class="text-sm font-bold" style="color:{scolor}">{stext}</div><div class="text-slate-500 mt-0.5">Status</div></div>
-            <div><div class="text-sm font-bold text-slate-200">{rt}ms</div><div class="text-slate-500 mt-0.5">Time</div></div>
-            <div><div class="text-sm font-bold text-slate-200">{uptime:.1f}%</div><div class="text-slate-500 mt-0.5">Uptime</div></div>
-            <div><div class="text-sm font-bold text-slate-200">{sc}</div><div class="text-slate-500 mt-0.5">HTTP</div></div>
-        </div>
-        <div class="flex gap-2 mt-4">
-            <button onclick="checkSite({sid})" class="flex-1 py-2.5 rounded-lg gradient-accent text-black text-xs font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">🔄 Check</button>
-            <button onclick="openEditModal({sid},'{name}','{encoded_url}','{encoded_methods}',{site.get("check_interval",60)},'{mtype}','{encoded_keyword}')" class="flex-1 py-2.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium">✏️ Edit</button>
-            <button onclick="deleteSite({sid})" class="flex-1 py-2.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-xs font-medium">🗑️ Delete</button>
-        </div>
-    </div>"""
+    template = templates.get_template("partials/monitor_card.html")
+    return template.render({
+        "name": site.get("name", ""),
+        "url": site.get("url", ""),
+        "escaped_name": (site.get("name") or "").replace("'", "\\'"),
+        "escaped_url": (site.get("url") or "").replace("'", "\\'"),
+        "escaped_methods": urllib.parse.quote(json.dumps(methods)),
+        "escaped_keyword": urllib.parse.quote(keyword),
+        "escaped_tags": urllib.parse.quote(json.dumps(tags)),
+        "keyword": keyword,
+        "tags": tags,
+        "scolor": scolor,
+        "border": border,
+        "stext": stext,
+        "mtype": mtype,
+        "uptime": uptime,
+        "rt": site.get("response_time") or "—",
+        "sc": site.get("status_code") or "—",
+        "sid": site.get("id", 0),
+        "check_interval": site.get("check_interval", 60),
+    })
 
 
 def _hero_stat_html(label: str, value, color: str = "text-accent") -> str:
@@ -114,6 +105,7 @@ async def htmx_hero_stats(user: dict = Depends(get_current_user)):
 async def htmx_monitors(
     search: Optional[str] = None,
     sort: Optional[str] = None,
+    tag: Optional[str] = None,
     user: dict = Depends(get_current_user)
 ):
     if not user:
@@ -138,12 +130,19 @@ async def htmx_monitors(
                 st = await c.fetchone()
             site["uptime"] = round((st["up_count"] / st["total"] * 100), 1) if st and st["total"] > 0 else 100.0
             site["notify_methods"] = json.loads(site.get("notify_methods") or "[]")
+            site["tags"] = json.loads(site.get("tags", "[]")) if site.get("tags") and site.get("tags") != "[]" else []
 
     if search:
         search_lower = search.lower().strip()
         sites = [
             s for s in sites 
             if search_lower in (s.get("name") or "").lower() or search_lower in (s.get("url") or "").lower()
+        ]
+
+    if tag:
+        sites = [
+            s for s in sites
+            if tag in s.get("tags", [])
         ]
 
     if sort == "name":
@@ -153,7 +152,6 @@ async def htmx_monitors(
     elif sort == "response_time":
         sites.sort(key=lambda s: s.get("response_time") if isinstance(s.get("response_time"), (int, float)) else 999999)
     else:
-        # Default status sorting: down -> slow -> maintenance -> paused -> unknown -> up
         status_order = {"down": 0, "slow": 1, "maintenance": 2, "paused": 3, "unknown": 4, "up": 5}
         sites.sort(key=lambda s: status_order.get((s.get("status") or "unknown").lower(), 6))
 
