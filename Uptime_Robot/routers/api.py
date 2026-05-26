@@ -44,6 +44,11 @@ class NotifySettingsModel(BaseModel):
 
 class AppSettingsModel(BaseModel):
     display_address: Optional[str] = ""
+    site_title: Optional[str] = "Uptime Monitor"
+    logo_url: Optional[str] = ""
+    footer_text: Optional[str] = ""
+    primary_color: Optional[str] = "#00ff88"
+    brand_accent_color: Optional[str] = "#06b6d4"
 
 class UserCreate(BaseModel):
     username: str
@@ -478,11 +483,25 @@ async def save_notify(settings: NotifySettingsModel, user: dict = Depends(requir
 async def save_app(settings: AppSettingsModel, user: dict = Depends(require_admin)):
     if not user:
         raise HTTPException(401)
-    app_state.DISPLAY_ADDRESS = settings.display_address
+    app_state.DISPLAY_ADDRESS = settings.display_address or ""
+    app_state.SITE_TITLE = settings.site_title or "Uptime Monitor"
+    app_state.LOGO_URL = settings.logo_url or ""
+    app_state.FOOTER_TEXT = settings.footer_text or ""
+    app_state.PRIMARY_COLOR = settings.primary_color or "#00ff88"
+    app_state.BRAND_ACCENT_COLOR = settings.brand_accent_color or "#06b6d4"
     async with get_db_connection() as conn:
         await conn.execute(
-            "INSERT OR REPLACE INTO app_settings (id, display_address) VALUES (1, ?)",
-            (app_state.DISPLAY_ADDRESS,),
+            """INSERT OR REPLACE INTO app_settings
+               (id, display_address, site_title, logo_url, footer_text, primary_color, brand_accent_color)
+               VALUES (1, ?, ?, ?, ?, ?, ?)""",
+            (
+                app_state.DISPLAY_ADDRESS,
+                app_state.SITE_TITLE,
+                app_state.LOGO_URL,
+                app_state.FOOTER_TEXT,
+                app_state.PRIMARY_COLOR,
+                app_state.BRAND_ACCENT_COLOR,
+            ),
         )
         await conn.commit()
     return {"message": "Saved"}
@@ -491,7 +510,14 @@ async def save_app(settings: AppSettingsModel, user: dict = Depends(require_admi
 async def get_app(user: dict = Depends(require_viewer_or_higher)):
     if not user:
         raise HTTPException(401)
-    return {"display_address": app_state.DISPLAY_ADDRESS}
+    return {
+        "display_address": app_state.DISPLAY_ADDRESS,
+        "site_title": app_state.SITE_TITLE,
+        "logo_url": app_state.LOGO_URL,
+        "footer_text": app_state.FOOTER_TEXT,
+        "primary_color": app_state.PRIMARY_COLOR,
+        "brand_accent_color": app_state.BRAND_ACCENT_COLOR,
+    }
 
 @router.get("/user")
 async def get_user_info(user: dict = Depends(get_current_user)):

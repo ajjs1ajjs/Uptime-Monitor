@@ -287,12 +287,40 @@
         </div>
 
         <div class="glass rounded-2xl p-6">
-            <h3 class="text-lg font-semibold mb-4">🔗 Адреса відображення</h3>
-            <div class="flex gap-3">
-                <input type="text" id="displayAddress" placeholder="Адреса для відображення"
-                    class="flex-1 px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
-                <button onclick="saveAddress()" class="px-6 py-3 rounded-xl gradient-accent text-black font-semibold hover:shadow-lg hover:shadow-cyan-500/30 transition">💾 Зберегти</button>
+            <h3 class="text-lg font-semibold mb-4">🎨 Налаштування сторінки статусу</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1">Назва сторінки</label>
+                    <input type="text" id="siteTitle" placeholder="Назва"
+                        class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1">Публічна адреса</label>
+                    <input type="text" id="displayAddress" placeholder="Адреса для відображення"
+                        class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1">URL логотипу (опціонально)</label>
+                    <input type="text" id="logoUrl" placeholder="https://example.com/logo.png"
+                        class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1">Текст футера</label>
+                    <input type="text" id="footerText" placeholder="Powered by..."
+                        class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1">Основний колір (primary)</label>
+                    <input type="color" id="primaryColor" value="#00ff88"
+                        class="w-full h-12 rounded-xl bg-[#0f172a] border border-slate-700/50 cursor-pointer">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1">Акцентний колір (accent)</label>
+                    <input type="color" id="brandAccentColor" value="#06b6d4"
+                        class="w-full h-12 rounded-xl bg-[#0f172a] border border-slate-700/50 cursor-pointer">
+                </div>
             </div>
+            <button onclick="saveStatusSettings()" class="mt-6 w-full py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">💾 Зберегти налаштування сторінки</button>
         </div>
 
         <div class="glass rounded-2xl p-6">
@@ -1026,11 +1054,34 @@ async function saveNotifySettings() {
 }
 
 async function loadAppSettings() {
-    try { const resp = await fetch('/api/app-settings'); const data = await resp.json(); const el = document.getElementById('displayAddress'); if (el) el.value = data.display_address || ''; } catch(e) {}
+    try {
+        const resp = await fetch('/api/app-settings');
+        const data = await resp.json();
+        const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+        setVal('displayAddress', data.display_address);
+        setVal('siteTitle', data.site_title);
+        setVal('logoUrl', data.logo_url);
+        setVal('footerText', data.footer_text);
+        const pc = document.getElementById('primaryColor');
+        if (pc) pc.value = data.primary_color || '#00ff88';
+        const bac = document.getElementById('brandAccentColor');
+        if (bac) bac.value = data.brand_accent_color || '#06b6d4';
+    } catch(e) {}
 }
-async function saveAddress() {
-    const addr = document.getElementById('displayAddress')?.value || '';
-    try { await fetch('/api/app-settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({display_address: addr})}); alert('✅ Address saved!'); } catch(e) { console.error(e); }
+async function saveStatusSettings() {
+    const getVal = (id) => document.getElementById(id)?.value || '';
+    const payload = {
+        display_address: getVal('displayAddress'),
+        site_title: getVal('siteTitle'),
+        logo_url: getVal('logoUrl'),
+        footer_text: getVal('footerText'),
+        primary_color: getVal('primaryColor') || '#00ff88',
+        brand_accent_color: getVal('brandAccentColor') || '#06b6d4',
+    };
+    try {
+        await fetch('/api/app-settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+        alert('✅ Налаштування сторінки збережено!');
+    } catch(e) { console.error(e); }
 }
 
 function openEditModal(id, name, url, notifyMethods, checkInterval, monitorType, keyword) {
@@ -1298,7 +1349,7 @@ function updateSiteCard(data) {
 connectWebSocket();
 
 // Init
-function saveDisplayAddress() { return saveAddress(); }
+function saveDisplayAddress() { return saveStatusSettings(); }
 initNotifyUI();
 loadAppSettings();
 loadSSLCertificates();

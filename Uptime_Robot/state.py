@@ -14,4 +14,9 @@ if "notifications" in CONFIG:
              NOTIFY_SETTINGS[k].update(v)
 
 DISPLAY_ADDRESS = ""
+SITE_TITLE = "Uptime Monitor"
+LOGO_URL = ""
+FOOTER_TEXT = ""
+PRIMARY_COLOR = "#00ff88"
+BRAND_ACCENT_COLOR = "#06b6d4"
 CHECK_INTERVAL = CONFIG.get("check_interval", 60)

@@ -1,17 +1,35 @@
 {% extends "base.html" %}
-{% block title %}Uptime Monitor - Status Page{% endblock %}
+{% block title %}{{ site_title }} - Status Page{% endblock %}
 {% block head %}
 <style>
     .pulse-dot { animation: pulse 2s infinite; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    :root {
+        --brand-primary: {{ primary_color }};
+        --brand-accent: {{ brand_accent_color }};
+    }
+    .brand-bg {
+        background: var(--brand-primary);
+        box-shadow: 0 0 20px color-mix(in srgb, var(--brand-primary) 50%, transparent);
+    }
+    .brand-text { color: var(--brand-primary); }
+    .brand-border { border-color: var(--brand-primary); }
+    .status-dot { background: var(--brand-primary); box-shadow: 0 0 8px var(--brand-primary); }
+    .accent-bg { background: var(--brand-accent); }
 </style>
 {% endblock %}
 {% block content %}
 <div class="min-h-screen">
     <header class="glass py-8 md:py-12 px-4 text-center border-b border-slate-700/30">
-        <div class="w-14 h-14 mx-auto gradient-accent rounded-2xl flex items-center justify-center text-2xl shadow-lg shadow-cyan-500/30 mb-4">⏱️</div>
-        <h1 class="text-3xl md:text-4xl font-bold mb-2">Uptime Monitor</h1>
-        <p class="text-slate-400 text-sm">Real-time system status</p>
+        {% if logo_url %}
+        <img src="{{ logo_url }}" alt="{{ site_title }}" class="h-14 mx-auto mb-4 object-contain">
+        {% else %}
+        <div class="w-14 h-14 mx-auto accent-bg rounded-2xl flex items-center justify-center text-2xl shadow-lg mb-4" style="box-shadow: 0 0 20px color-mix(in srgb, var(--brand-accent) 50%, transparent);">⏱️</div>
+        {% endif %}
+        <h1 class="text-3xl md:text-4xl font-bold mb-2">{{ site_title }}</h1>
+        {% if display_address %}
+        <p class="text-slate-400 text-sm">{{ display_address }}</p>
+        {% endif %}
 
         <div class="text-4xl md:text-5xl font-bold mt-8 mb-4 {{ 'text-emerald-400' if overall_status_class == 'up' else 'text-red-400' }}">
             {{ overall_status_text }}
@@ -19,7 +37,7 @@
 
         <div class="flex justify-center gap-8 md:gap-12 mt-6">
             <div class="text-center">
-                <div class="text-3xl font-bold text-accent">{{ total }}</div>
+                <div class="text-3xl font-bold brand-text">{{ total }}</div>
                 <div class="text-xs text-slate-400 uppercase tracking-wider mt-1">Total</div>
             </div>
             <div class="text-center">
@@ -63,7 +81,7 @@
     </div>
 
     <footer class="text-center py-8 text-slate-600 text-xs">
-        Powered by Uptime Monitor v2.0.0
+        {% if footer_text %}{{ footer_text }}{% else %}Powered by {{ site_title }}{% endif %}
     </footer>
 </div>
 {% endblock %}

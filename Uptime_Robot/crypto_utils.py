@@ -5,8 +5,8 @@ from typing import Optional
 try:
     from cryptography.fernet import Fernet, InvalidToken
 except ImportError:
-    Fernet = None
-    InvalidToken = None
+    Fernet = None  # type: ignore[assignment]
+    InvalidToken = None  # type: ignore[assignment]
 
 from .logger import logger
 

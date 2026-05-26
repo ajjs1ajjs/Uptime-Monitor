@@ -7,84 +7,16 @@ from typing import Any, Dict, List, Optional
 
 import aiohttp
 
-from .config_manager import load_config
-from .database import get_db_connection
-from .logger import logger
-from .notifications import send_notification
-from .ssl_checker import check_ssl_certificate
-
-# Чутливий профіль (конфігуровані значення з fallback)
-SENSITIVE_DEFAULTS = {
-    "request_timeout_seconds": 60,
-    "down_failures_threshold": 1,
-    "up_success_threshold": 1,
-    "still_down_repeat_seconds": 300,
-    "treat_4xx_as_down": True,
-    "ssl_notification_days": 14,
-    "ssl_notification_cooldown_seconds": 21600,
-    "ssl_check_interval_hours": 6,
-    "verify_ssl": True,
-}
-
-
-def get_alert_policy() -> Dict[str, Any]:
-    """Повертає політику алертів із конфіга (чутливий профіль за замовчуванням)."""
-    try:
-        config = load_config() or {}
-    except Exception:
-        config = {}
-
-    policy = (config.get("alert_policy") or {}).copy()
-
-    result = SENSITIVE_DEFAULTS.copy()
-    result.update({k: v for k, v in policy.items() if v is not None})
-
-    # Нормалізація типів/меж
-    try:
-        result["request_timeout_seconds"] = max(1, int(result.get("request_timeout_seconds", 60)))
-    except Exception:
-        result["request_timeout_seconds"] = 60
-
-    try:
-        result["down_failures_threshold"] = max(1, int(result.get("down_failures_threshold", 1)))
-    except Exception:
-        result["down_failures_threshold"] = 1
-
-    try:
-        result["up_success_threshold"] = max(1, int(result.get("up_success_threshold", 1)))
-    except Exception:
-        result["up_success_threshold"] = 1
-
-    try:
-        result["still_down_repeat_seconds"] = max(
-            60, int(result.get("still_down_repeat_seconds", 300))
-        )
-    except Exception:
-        result["still_down_repeat_seconds"] = 300
-
-    try:
-        result["ssl_notification_days"] = max(1, int(result.get("ssl_notification_days", 14)))
-    except Exception:
-        result["ssl_notification_days"] = 14
-
-    try:
-        result["ssl_notification_cooldown_seconds"] = max(
-            300, int(result.get("ssl_notification_cooldown_seconds", 21600))
-        )
-    except Exception:
-        result["ssl_notification_cooldown_seconds"] = 21600
-
-    try:
-        result["ssl_check_interval_hours"] = max(1, int(result.get("ssl_check_interval_hours", 6)))
-    except Exception:
-        result["ssl_check_interval_hours"] = 6
-
-    result["treat_4xx_as_down"] = bool(result.get("treat_4xx_as_down", True))
-    return result
+from ..config_manager import load_config
+from ..database import get_db_connection
+from ..logger import logger
+from ..notifications import send_notification
+from ..ssl_checker import check_ssl_certificate
+from .alerting import get_alert_policy, SENSITIVE_DEFAULTS
+from .maintenance import is_under_maintenance
 
 
 def normalize_ssl_url(url: str) -> Optional[str]:
-    """Нормалізує URL для перевірки SSL (додає https:// якщо потрібно)"""
     if not url:
         return None
     url = url.strip()
@@ -93,76 +25,21 @@ def normalize_ssl_url(url: str) -> Optional[str]:
     return url
 
 
-async def is_under_maintenance(site_id: int) -> bool:
-    """Перевіряє, чи знаходиться сайт у періоді обслуговування"""
-    current_time = datetime.now()
+async def load_notify_settings_from_db() -> Dict[str, Any]:
     try:
         async with get_db_connection() as conn:
-            async with conn.execute(
-                """SELECT * FROM maintenance_windows 
-                   WHERE is_active = 1 AND (site_id = ? OR site_id IS NULL)""",
-                (site_id,)
-            ) as c:
-                rows = await c.fetchall()
+            async with conn.execute("SELECT config FROM notify_config WHERE id = 1") as c:
+                row = await c.fetchone()
+                if row:
+                    return json.loads(row["config"])
     except Exception as e:
-        logger.error(f"Error checking maintenance windows for site {site_id}: {e}")
-        return False
-
-    for row in rows:
-        rule_type = row["rule_type"]
-        if rule_type == "one_off":
-            try:
-                start_str = row["start_time"].replace("Z", "")
-                end_str = row["end_time"].replace("Z", "")
-                start = datetime.fromisoformat(start_str)
-                end = datetime.fromisoformat(end_str)
-                if start <= current_time <= end:
-                    return True
-            except Exception:
-                pass
-        elif rule_type == "daily":
-            try:
-                start_h, start_m = map(int, row["start_hour_minute"].split(":"))
-                duration = int(row["duration_minutes"])
-                today_start = current_time.replace(hour=start_h, minute=start_m, second=0, microsecond=0)
-                today_end = today_start + timedelta(minutes=duration)
-                
-                if today_start <= current_time <= today_end:
-                    return True
-                if today_end < today_start:
-                    yesterday_start = today_start - timedelta(days=1)
-                    yesterday_end = yesterday_start + timedelta(minutes=duration)
-                    if yesterday_start <= current_time <= yesterday_end:
-                        return True
-            except Exception:
-                pass
-        elif rule_type == "weekly":
-            try:
-                target_dow = int(row["day_of_week"])
-                start_h, start_m = map(int, row["start_hour_minute"].split(":"))
-                duration = int(row["duration_minutes"])
-                
-                current_dow = current_time.isoweekday()
-                diff_days = target_dow - current_dow
-                target_start = (current_time + timedelta(days=diff_days)).replace(hour=start_h, minute=start_m, second=0, microsecond=0)
-                target_end = target_start + timedelta(minutes=duration)
-                
-                if target_start <= current_time <= target_end:
-                    return True
-                
-                prev_start = target_start - timedelta(weeks=1)
-                prev_end = prev_start + timedelta(minutes=duration)
-                if prev_start <= current_time <= prev_end:
-                    return True
-            except Exception:
-                pass
-    return False
+        logger.error(f"Failed to load notify settings from DB: {e}")
+    return {}
 
 
 async def check_site_status(
     site_id: int, url: str, notify_methods: List[str], notify_settings: Dict[str, Any]
 ):
-    """Перевіряє статус сайту та відправляє сповіщення"""
     start_time = datetime.now()
     status = "down"
     status_code = None
@@ -205,7 +82,7 @@ async def check_site_status(
             host = parsed.hostname or parsed.path.split("/")[0]
             if ":" in host:
                 host = host.split(":")[0]
-                
+
             is_win = sys.platform == "win32"
             ping_cmd = ["ping", "-n", "1", host] if is_win else ["ping", "-c", "1", "-W", "5", host]
             proc = await asyncio.create_subprocess_exec(
@@ -222,7 +99,7 @@ async def check_site_status(
                 status = "down"
                 error_message = "Ping failed"
                 status_code = 1
-                
+
         elif monitor_type in ("port", "tcp"):
             from urllib.parse import urlparse
             parsed = urlparse(url)
@@ -236,7 +113,7 @@ async def check_site_status(
             else:
                 host = host_port
                 port = 80
-                
+
             reader, writer = await asyncio.wait_for(
                 asyncio.open_connection(host, port),
                 timeout=policy["request_timeout_seconds"]
@@ -249,8 +126,8 @@ async def check_site_status(
             status = "up"
             response_time = (datetime.now() - start_time).total_seconds() * 1000
             status_code = port
-            
-        else: # http
+
+        else:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     url,
@@ -262,13 +139,12 @@ async def check_site_status(
                     status_code = response.status
                     response_time = (datetime.now() - start_time).total_seconds() * 1000
 
-                    # Read body if keyword is configured
                     if keyword:
                         try:
                             body_text = await response.text(errors="ignore")
                         except Exception:
                             body_text = ""
-                        
+
                         if keyword not in body_text:
                             status = "down"
                             error_message = "Keyword not found"
@@ -292,9 +168,8 @@ async def check_site_status(
     checked_at = datetime.now()
     checked_at_iso = checked_at.isoformat()
 
-    # Broadcast status change via WebSocket
     try:
-        from .wss.manager import manager
+        from ..wss.manager import manager
         await manager.broadcast({
             "type": "site_status",
             "site_id": site_id,
@@ -327,7 +202,6 @@ async def check_site_status(
             datetime.fromisoformat(last_down_alert_str) if last_down_alert_str else None
         )
 
-        # Only save to history when status CHANGES
         if prev_status != status:
             await conn.execute(
                 """INSERT INTO status_history (site_id, status, status_code, response_time, error_message, checked_at)
@@ -437,10 +311,7 @@ async def check_site_status(
 async def check_site_certificate(
     site_id: int, url: str, notify_methods: List[str], notify_settings: Dict[str, Any]
 ):
-    """Перевіряє SSL сертифікат сайту"""
-    # Тільки для HTTPS
     if not url.lower().startswith("https://"):
-        # Спробуємо нормалізувати
         if "." in url and "://" not in url:
             url = "https://" + url
         else:
@@ -492,7 +363,6 @@ async def check_site_certificate(
             )
         await conn.commit()
 
-        # Сповіщення про закінчення терміну дії
         policy = get_alert_policy()
         days = cert_info["days_until_expire"]
         if days <= policy["ssl_notification_days"] and notify_methods:
@@ -539,7 +409,6 @@ async def check_site_certificate(
 
 
 async def check_all_certificates(notify_settings: Dict[str, Any]):
-    """Перевіряє всі SSL сертифікати"""
     async with get_db_connection() as conn:
         async with conn.execute(
             "SELECT id, url, notify_methods FROM sites WHERE is_active = 1 AND (url LIKE 'https://%' OR monitor_type = 'ssl')"
@@ -553,42 +422,24 @@ async def check_all_certificates(notify_settings: Dict[str, Any]):
         await asyncio.sleep(1)
 
 
-async def load_notify_settings_from_db() -> Dict[str, Any]:
-    """Завантажує налаштування сповіщень з БД"""
-    try:
-        async with get_db_connection() as conn:
-            async with conn.execute("SELECT config FROM notify_config WHERE id = 1") as c:
-                row = await c.fetchone()
-                if row:
-                    return json.loads(row["config"])
-    except Exception as e:
-        logger.error(f"Failed to load notify settings from DB: {e}")
-    return {}
-
-
 async def monitor_loop(notify_settings: Dict[str, Any], default_check_interval: int = 60):
-    """Основний цикл моніторингу з підтримкою індивідуальних інтервалів і Stateless Storage в БД"""
     policy = get_alert_policy()
-    ssl_check_interval = policy["ssl_check_interval_hours"] * 3600  # конвертація в секунди
+    ssl_check_interval = policy["ssl_check_interval_hours"] * 3600
     last_cert_check = datetime.now() - timedelta(hours=25)
     last_notify_settings_reload = datetime.now()
-    notify_settings_reload_interval = 30  # Перезавантажувати налаштування кожні 30 секунд
+    notify_settings_reload_interval = 30
 
-    # Track last check time for each site locally in memory (just for pacing)
-    # The actual failure/success state is now entirely in the DB.
-    last_check_time = {}  # site_id -> datetime
+    last_check_time = {}
 
     while True:
         try:
             current_time = datetime.now()
 
-            # Periodically reload notification settings from DB
             if (
                 current_time - last_notify_settings_reload
             ).total_seconds() >= notify_settings_reload_interval:
                 db_settings = await load_notify_settings_from_db()
                 if db_settings:
-                    # Merge DB settings into the passed notify_settings dict
                     for key, value in db_settings.items():
                         notify_settings[key] = value
                     last_notify_settings_reload = current_time
@@ -619,7 +470,6 @@ async def monitor_loop(notify_settings: Dict[str, Any], default_check_interval: 
                     )
                     last_check_time[site["id"]] = current_time
 
-            # Перевірка SSL сертифікатів
             if (datetime.now() - last_cert_check).total_seconds() >= ssl_check_interval:
                 logger.info("Checking SSL certificates in background...")
                 await check_all_certificates(notify_settings)

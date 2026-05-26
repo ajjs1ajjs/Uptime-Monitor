@@ -67,10 +67,15 @@ async def initialize_app_async():
                         app_state.NOTIFY_SETTINGS.update(json.loads(row["config"]))
                     except json.JSONDecodeError:
                         pass
-            async with conn.execute("SELECT display_address FROM app_settings WHERE id = 1") as c:
+            async with conn.execute("SELECT * FROM app_settings WHERE id = 1") as c:
                 row = await c.fetchone()
                 if row:
                     app_state.DISPLAY_ADDRESS = row["display_address"] or ""
+                    app_state.SITE_TITLE = row["site_title"] or "Uptime Monitor"
+                    app_state.LOGO_URL = row["logo_url"] or ""
+                    app_state.FOOTER_TEXT = row["footer_text"] or ""
+                    app_state.PRIMARY_COLOR = row["primary_color"] or "#00ff88"
+                    app_state.BRAND_ACCENT_COLOR = row["brand_accent_color"] or "#06b6d4"
     except Exception as e:
         logger.error(f"Settings load failed: {e}")
 

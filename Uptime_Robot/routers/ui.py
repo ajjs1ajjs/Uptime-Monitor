@@ -9,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 
 from ..database import get_db_connection
 from ..dependencies import get_current_user, require_admin
-from ..state import NOTIFY_SETTINGS, CONFIG
+from ..state import NOTIFY_SETTINGS, CONFIG, SITE_TITLE, DISPLAY_ADDRESS, LOGO_URL, FOOTER_TEXT, PRIMARY_COLOR, BRAND_ACCENT_COLOR
 from ..wss.manager import manager
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -275,7 +275,13 @@ async def public_status_page(request: Request):
         "up_count": up_count,
         "down_count": down_count,
         "sites": sites,
-        "timestamp": timestamp
+        "timestamp": timestamp,
+        "site_title": SITE_TITLE,
+        "logo_url": LOGO_URL,
+        "footer_text": FOOTER_TEXT,
+        "primary_color": PRIMARY_COLOR,
+        "brand_accent_color": BRAND_ACCENT_COLOR,
+        "display_address": DISPLAY_ADDRESS,
     })
 
 

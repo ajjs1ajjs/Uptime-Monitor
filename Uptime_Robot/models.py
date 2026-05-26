@@ -78,7 +78,12 @@ async def init_database(db_path: str):
         # Таблиця налаштувань додатку
         await conn.execute("""CREATE TABLE IF NOT EXISTS app_settings (
             id INTEGER PRIMARY KEY,
-            display_address TEXT
+            display_address TEXT,
+            site_title TEXT DEFAULT 'Uptime Monitor',
+            logo_url TEXT DEFAULT '',
+            footer_text TEXT DEFAULT '',
+            primary_color TEXT DEFAULT '#00ff88',
+            brand_accent_color TEXT DEFAULT '#06b6d4'
         )""")
 
         # Migrations for legacy ssl_certificates
@@ -117,6 +122,17 @@ async def init_database(db_path: str):
         if "failed_attempts" not in site_columns:
             await conn.execute("ALTER TABLE sites ADD COLUMN failed_attempts INTEGER DEFAULT 0")
             await conn.execute("ALTER TABLE sites ADD COLUMN success_attempts INTEGER DEFAULT 0")
+
+        # Migrations for legacy app_settings
+        async with conn.execute("PRAGMA table_info(app_settings)") as c:
+            rows = await c.fetchall()
+            settings_columns = {row[1] for row in rows}
+        
+        for col, col_type in [("site_title", "TEXT DEFAULT 'Uptime Monitor'"), ("logo_url", "TEXT DEFAULT ''"), ("footer_text", "TEXT DEFAULT ''"), ("primary_color", "TEXT DEFAULT '#00ff88'"), ("brand_accent_color", "TEXT DEFAULT '#06b6d4'")]:
+            if col not in settings_columns:
+                await conn.execute(f"ALTER TABLE app_settings ADD COLUMN {col} {col_type}")
+
+        if "last_down_alert" not in site_columns:
             await conn.execute("ALTER TABLE sites ADD COLUMN last_down_alert TEXT")
 
         if "keyword" not in site_columns:
