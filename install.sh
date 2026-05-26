@@ -331,6 +331,33 @@ echo -e "${BLUE}Creating backup directories...${NC}"
 mkdir -p "/backup/uptime-monitor"
 chown -R "$APP_USER:$APP_USER" "/backup/uptime-monitor" 2>/dev/null || true
 
+# Initialize database and default user credentials
+echo -e "${BLUE}Initializing database and default credentials...${NC}"
+INIT_OUT=$(export CONFIG_PATH="$CONFIG_DIR/config.json"; ./venv/bin/python -c "
+import asyncio, sys
+sys.path.insert(0, '$INSTALL_DIR')
+import models, auth_module
+async def main():
+    await models.init_database('$DATA_DIR/sites.db')
+    await auth_module.init_auth_tables('$DATA_DIR/sites.db')
+asyncio.run(main())
+" 2>&1 || true)
+
+# Print initialization output if it created a user, or if there was an error
+if echo "$INIT_OUT" | grep -q "DEFAULT ADMIN USER CREATED"; then
+    echo -e "${GREEN}Database initialized successfully:${NC}"
+    echo "$INIT_OUT"
+elif echo "$INIT_OUT" | grep -qi "error"; then
+    echo -e "${RED}Warning during database initialization:${NC}"
+    echo "$INIT_OUT"
+else
+    echo -e "${GREEN}Database initialized. User 'admin' already exists.${NC}"
+fi
+
+# Extract the password if it was just created
+ADMIN_PASSWORD=$(echo "$INIT_OUT" | grep 'Password:' | awk '{print $NF}' | tr -d '\r\n ' || true)
+
+
 # Create systemd services
 echo -e "${BLUE}Creating systemd services...${NC}"
 
@@ -425,11 +452,12 @@ if systemctl is-active --quiet $SERVICE_NAME; then
     # Get IP
     IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
 
-    # Try to grab the auto-generated password
-    ADMIN_PASSWORD=""
-    LOG_TEXT=$(journalctl -u $SERVICE_NAME -n 150 --no-pager 2>/dev/null || true)
-    if [ -n "$LOG_TEXT" ]; then
-        ADMIN_PASSWORD=$(echo "$LOG_TEXT" | grep 'Password:' | tail -1 | awk '{print $NF}' | tr -d '\r\n ' || true)
+    # Try to grab the auto-generated password (from journalctl if not captured earlier)
+    if [ -z "$ADMIN_PASSWORD" ] || [ "${ADMIN_PASSWORD}" = "Password:" ]; then
+        LOG_TEXT=$(journalctl -u $SERVICE_NAME -n 150 --no-pager 2>/dev/null || true)
+        if [ -n "$LOG_TEXT" ]; then
+            ADMIN_PASSWORD=$(echo "$LOG_TEXT" | grep 'Password:' | tail -1 | awk '{print $NF}' | tr -d '\r\n ' || true)
+        fi
     fi
 
     echo ""
