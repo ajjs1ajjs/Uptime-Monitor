@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import auth_module, config_manager, models, monitoring
 from . import state as app_state
-from .database import get_db_connection
+from .database import close_db, get_db_connection
 from .logger import logger
 from .routers import api, auth, ui
 
@@ -98,10 +98,9 @@ def initialize_app():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
     await initialize_app_async()
     yield
-    # Shutdown (if needed)
+    await close_db()
 
 
 # FastAPI app

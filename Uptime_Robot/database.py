@@ -4,7 +4,9 @@ import os
 import sys
 import aiosqlite
 from contextlib import asynccontextmanager
-from typing import Optional
+from typing import AsyncIterator, Optional
+
+_db_connection: Optional[aiosqlite.Connection] = None
 
 
 def get_db_path() -> str:
@@ -24,17 +26,31 @@ def get_db_path() -> str:
     return os.path.join(app_dir, "sites.db")
 
 
-@asynccontextmanager
-async def get_db_connection(db_path: Optional[str] = None):
-    """Асинхронний менеджер контексту для БД."""
-    if db_path is None:
+async def get_db() -> aiosqlite.Connection:
+    """Повертає глобальне з'єднання (створює при першому виклику)."""
+    global _db_connection
+    if _db_connection is None:
         db_path = get_db_path()
+        _db_connection = await aiosqlite.connect(db_path)
+        _db_connection.row_factory = aiosqlite.Row
+    return _db_connection
 
-    async with aiosqlite.connect(db_path) as db:
-        db.row_factory = aiosqlite.Row
-        yield db
+
+@asynccontextmanager
+async def get_db_connection(db_path: Optional[str] = None) -> AsyncIterator[aiosqlite.Connection]:
+    """Асинхронний менеджер контексту для БД (single connection)."""
+    if db_path is not None:
+        async with aiosqlite.connect(db_path) as db:
+            db.row_factory = aiosqlite.Row
+            yield db
+    else:
+        conn = await get_db()
+        yield conn
 
 
-def init_db_pool(db_path: Optional[str] = None):
-    """Заглушка для сумісності."""
-    return None
+async def close_db():
+    """Закриває глобальне з'єднання."""
+    global _db_connection
+    if _db_connection is not None:
+        await _db_connection.close()
+        _db_connection = None
