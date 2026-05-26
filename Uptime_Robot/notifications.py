@@ -390,6 +390,24 @@ async def send_notification(
                 if channel.get("webhook_url"):
                     tasks.append(send_webhook(message, channel))
 
+        elif method == "pushover":
+            channels = method_config.get("channels", [])
+            for channel in channels:
+                if channel.get("user_key") and channel.get("token"):
+                    tasks.append(send_pushover(message, channel))
+
+        elif method == "gotify":
+            channels = method_config.get("channels", [])
+            for channel in channels:
+                if channel.get("server_url") and channel.get("token"):
+                    tasks.append(send_gotify(message, channel))
+
+        elif method == "ntfy":
+            channels = method_config.get("channels", [])
+            for channel in channels:
+                if channel.get("topic"):
+                    tasks.append(send_ntfy(message, channel))
+
     if tasks:
         await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -528,7 +546,7 @@ async def send_email(message: Union[str, Dict], settings: Dict[str, Any]):
         logger.error(f"Email error: {e}")
 
 
-async def send_sms(message: str, settings: Dict[str, Any]):
+async def send_sms(message: Union[str, Dict], settings: Dict[str, Any]):
     """Відправляє SMS через Twilio"""
     account_sid = settings.get("account_sid")
     auth_token = settings.get("auth_token")
@@ -576,3 +594,96 @@ async def send_webhook(message: Union[str, Dict], settings: Dict[str, Any]):
                     logger.error(f"Webhook HTTP error: {response.status}")
     except Exception as e:
         logger.error(f"Webhook error: {e}")
+
+
+async def send_pushover(message: Union[str, Dict], settings: Dict[str, Any]):
+    """Відправляє Pushover сповіщення"""
+    user_key = settings.get("user_key")
+    token = settings.get("token")
+
+    if not user_key or not token:
+        return
+
+    try:
+        if isinstance(message, dict):
+            title = f"Uptime Monitor — {message.get('site_name', 'Alert')}"
+            text = message.get("error") or message.get("alert_type", "unknown")
+        else:
+            title = "Uptime Monitor"
+            text = message[:1024]
+
+        payload = {
+            "token": token,
+            "user": user_key,
+            "title": title,
+            "message": text,
+            "priority": 1,
+        }
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                "https://api.pushover.net/1/messages.json",
+                data=payload,
+            ) as response:
+                if response.status not in [200, 201]:
+                    logger.error(f"Pushover API error: {response.status}")
+    except Exception as e:
+        logger.error(f"Pushover error: {e}")
+
+
+async def send_gotify(message: Union[str, Dict], settings: Dict[str, Any]):
+    """Відправляє Gotify сповіщення"""
+    server_url = settings.get("server_url", "").rstrip("/")
+    token = settings.get("token")
+
+    if not server_url or not token:
+        return
+
+    try:
+        if isinstance(message, dict):
+            title = message.get('site_name', 'Uptime Monitor')
+            text = message.get("error") or message.get("alert_type", "unknown")
+        else:
+            title = "Uptime Monitor"
+            text = message
+
+        payload = {"title": title, "message": text, "priority": 5}
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{server_url}/message?token={token}",
+                json=payload,
+            ) as response:
+                if response.status not in [200, 201]:
+                    logger.error(f"Gotify API error: {response.status}")
+    except Exception as e:
+        logger.error(f"Gotify error: {e}")
+
+
+async def send_ntfy(message: Union[str, Dict], settings: Dict[str, Any]):
+    """Відправляє ntfy.sh сповіщення"""
+    topic = settings.get("topic")
+    server_url = settings.get("server_url", "https://ntfy.sh").rstrip("/")
+
+    if not topic:
+        return
+
+    try:
+        if isinstance(message, dict):
+            title = message.get('site_name', 'Uptime Monitor')
+            text = message.get("error") or message.get("alert_type", "unknown")
+        else:
+            title = "Uptime Monitor"
+            text = message
+
+        payload = {"topic": topic, "title": title, "message": text}
+        headers = {"Title": title}
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"{server_url}/{topic}",
+                json=payload,
+                headers=headers,
+            ) as response:
+                if response.status not in [200, 201, 202]:
+                    logger.error(f"ntfy API error: {response.status}")
+    except Exception as e:
+        logger.error(f"ntfy error: {e}")
