@@ -673,3 +673,24 @@ async def export_sla_report(days: int = 7, user: dict = Depends(require_viewer_o
     )
     response.headers["Content-Disposition"] = f"attachment; filename=sla_report_{days}days.csv"
     return response
+
+
+@router.post("/api-keys", dependencies=[Depends(require_admin)])
+async def create_api_key_endpoint(name: str, user: dict = Depends(get_current_user)):
+    """Create a new API key (admin only). Returns the key once."""
+    key_id, raw_key = await auth_module.create_api_key(DB_PATH, user["user_id"], name)
+    return {"key_id": key_id, "api_key": raw_key, "name": name}
+
+
+@router.get("/api-keys", dependencies=[Depends(require_admin)])
+async def list_api_keys_endpoint():
+    """List all API keys (key_id only, not the actual key)."""
+    keys = await auth_module.list_api_keys(DB_PATH)
+    return keys
+
+
+@router.delete("/api-keys/{key_id}", dependencies=[Depends(require_admin)])
+async def revoke_api_key_endpoint(key_id: str):
+    """Revoke an API key (admin only)."""
+    await auth_module.revoke_api_key(DB_PATH, key_id)
+    return {"status": "revoked"}

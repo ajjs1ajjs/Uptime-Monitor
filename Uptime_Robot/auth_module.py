@@ -1,3 +1,4 @@
+import hashlib
 import secrets
 from datetime import datetime, timedelta
 import bcrypt
@@ -23,6 +24,17 @@ async def init_auth_tables(db_path):
             user_id INTEGER,
             created_at TEXT,
             expires_at TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )""")
+
+        await conn.execute("""CREATE TABLE IF NOT EXISTS api_keys (
+            key_id TEXT PRIMARY KEY,
+            user_id INTEGER,
+            name TEXT NOT NULL,
+            key_hash TEXT NOT NULL,
+            created_at TEXT,
+            last_used_at TEXT,
+            is_active INTEGER DEFAULT 1,
             FOREIGN KEY (user_id) REFERENCES users(id)
         )""")
 
@@ -256,3 +268,75 @@ async def get_all_users(db_path: str) -> list:
         ) as c:
             rows = await c.fetchall()
             return [dict(row) for row in rows]
+
+
+API_KEY_PREFIX = "um_"
+
+
+def _hash_api_key(key: str) -> str:
+    return hashlib.sha256(key.encode()).hexdigest()
+
+
+def generate_api_key() -> str:
+    return API_KEY_PREFIX + secrets.token_urlsafe(32)
+
+
+async def create_api_key(db_path: str, user_id: int, name: str) -> tuple:
+    raw_key = generate_api_key()
+    key_hash = _hash_api_key(raw_key)
+    key_id = secrets.token_urlsafe(16)
+    async with get_db_connection(db_path) as conn:
+        await conn.execute(
+            "INSERT INTO api_keys (key_id, user_id, name, key_hash, created_at, is_active) VALUES (?, ?, ?, ?, ?, 1)",
+            (key_id, user_id, name, key_hash, datetime.now().isoformat()),
+        )
+        await conn.commit()
+    return (key_id, raw_key)
+
+
+async def validate_api_key(db_path: str, api_key: str) -> dict:
+    if not api_key or not api_key.startswith(API_KEY_PREFIX):
+        return None
+
+    key_hash = _hash_api_key(api_key)
+    async with get_db_connection(db_path) as conn:
+        async with conn.execute(
+            """SELECT k.key_id, k.user_id, u.username, u.role
+               FROM api_keys k JOIN users u ON k.user_id = u.id
+               WHERE k.key_hash = ? AND k.is_active = 1""",
+            (key_hash,),
+        ) as c:
+            row = await c.fetchone()
+
+    if not row:
+        return None
+
+    async with get_db_connection(db_path) as conn:
+        await conn.execute(
+            "UPDATE api_keys SET last_used_at = ? WHERE key_id = ?",
+            (datetime.now().isoformat(), row["key_id"]),
+        )
+        await conn.commit()
+
+    return {
+        "user_id": row["user_id"],
+        "username": row["username"],
+        "role": row["role"],
+        "auth_method": "api_key",
+    }
+
+
+async def list_api_keys(db_path: str) -> list:
+    async with get_db_connection(db_path) as conn:
+        async with conn.execute(
+            "SELECT key_id, user_id, name, created_at, last_used_at, is_active FROM api_keys ORDER BY created_at DESC"
+        ) as c:
+            rows = await c.fetchall()
+            return [dict(row) for row in rows]
+
+
+async def revoke_api_key(db_path: str, key_id: str) -> bool:
+    async with get_db_connection(db_path) as conn:
+        await conn.execute("UPDATE api_keys SET is_active = 0 WHERE key_id = ?", (key_id,))
+        await conn.commit()
+        return True
