@@ -107,12 +107,61 @@ fi
 PYTHON_VER=$($PYTHON_CMD --version 2>&1 | awk '{print $2}')
 echo -e "${YELLOW}Using Python: $PYTHON_VER${NC}"
 
+# Helper function to wait for apt locks to be released
+wait_for_apt() {
+    local count=0
+    while pgrep -x dpkg >/dev/null 2>&1 || pgrep -x apt-get >/dev/null 2>&1 || pgrep -x aptitude >/dev/null 2>&1 || pgrep -f unattended-upgrades >/dev/null 2>&1 || (command -v fuser >/dev/null 2>&1 && fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1); do
+        if [ $count -eq 0 ]; then
+            echo -e "${YELLOW}Another package manager process (e.g. automatic updates) is running. Waiting for it to release the lock...${NC}"
+        fi
+        sleep 5
+        count=$((count + 5))
+        if [ $count -ge 300 ]; then
+            echo -e "${RED}Warning: Package manager lock is still held after 5 minutes. Attempting to proceed...${NC}"
+            break
+        fi
+    done
+}
+
 # Install system dependencies
 echo -e "${BLUE}Installing system dependencies...${NC}"
 case "$OS_NAME" in
     "Ubuntu"|"Debian GNU/Linux")
-        apt-get update -qq
-        apt-get install -y -qq python3-pip python3-venv python3-full sqlite3 curl > /dev/null
+        wait_for_apt
+        
+        # Try running apt-get update with retries
+        local success=false
+        for i in {1..5}; do
+            if apt-get update -qq; then
+                success=true
+                break
+            fi
+            echo -e "${YELLOW}apt-get update failed, retrying in 5 seconds ($i/5)...${NC}"
+            sleep 5
+            wait_for_apt
+        done
+        
+        if [ "$success" = false ]; then
+            echo -e "${RED}Error: apt-get update failed repeatedly. Please check your internet connection or package manager status.${NC}"
+            exit 1
+        fi
+        
+        # Try running apt-get install with retries
+        success=false
+        for i in {1..5}; do
+            if apt-get install -y -qq python3-pip python3-venv python3-full sqlite3 curl > /dev/null; then
+                success=true
+                break
+            fi
+            echo -e "${YELLOW}apt-get install failed, retrying in 5 seconds ($i/5)...${NC}"
+            sleep 5
+            wait_for_apt
+        done
+        
+        if [ "$success" = false ]; then
+            echo -e "${RED}Error: Failed to install system dependencies.${NC}"
+            exit 1
+        fi
         ;;
     "CentOS Linux"|"Red Hat Enterprise Linux"|"Fedora")
         yum install -y -q python3-pip sqlite curl > /dev/null 2>&1 || \
