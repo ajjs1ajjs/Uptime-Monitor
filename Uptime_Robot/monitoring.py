@@ -292,6 +292,21 @@ async def check_site_status(
     checked_at = datetime.now()
     checked_at_iso = checked_at.isoformat()
 
+    # Broadcast status change via WebSocket
+    try:
+        from .wss.manager import manager
+        await manager.broadcast({
+            "type": "site_status",
+            "site_id": site_id,
+            "status": status,
+            "status_code": status_code,
+            "response_time": round(response_time, 2) if response_time else None,
+            "error_message": error_message,
+            "checked_at": checked_at_iso,
+        })
+    except Exception:
+        pass
+
     async with get_db_connection() as conn:
         async with conn.execute(
             "SELECT name, status, failed_attempts, success_attempts, last_down_alert FROM sites WHERE id = ?",

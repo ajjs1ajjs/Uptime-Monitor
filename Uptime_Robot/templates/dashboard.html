@@ -732,7 +732,7 @@ function renderMonitors() {
         else if (statusClass === 'paused') borderClass = 'border-amber-500';
         else if (statusClass === 'maintenance') borderClass = 'border-purple-500';
 
-        html += `<div class="gradient-card rounded-xl p-5 border-l-4 ${borderClass} border border-slate-700/30 card-hover transition">
+        html += `<div class="gradient-card rounded-xl p-5 border-l-4 ${borderClass} border border-slate-700/30 card-hover transition" data-site-id="${site.id}">
             <div class="flex justify-between items-start mb-4">
                 <div class="min-w-0 flex-1">
                     <div class="text-base font-semibold truncate" title="${safeName}">${site.name}</div>
@@ -742,8 +742,8 @@ function renderMonitors() {
                 <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-accent/10 text-accent">${site.monitor_type}</span>
             </div>
             <div class="grid grid-cols-4 gap-2 py-3 border-y border-slate-700/30 text-center text-xs">
-                <div><div class="text-sm font-bold" style="color:${statusColor}">${statusText}</div><div class="text-slate-500 mt-0.5">Status</div></div>
-                <div><div class="text-sm font-bold text-slate-200">${site.response_time || '—'}ms</div><div class="text-slate-500 mt-0.5">Time</div></div>
+                <div><div class="text-sm font-bold status-badge ${statusClass}" style="color:${statusColor}">${statusText}</div><div class="text-slate-500 mt-0.5">Status</div></div>
+                <div><div class="text-sm font-bold text-slate-200 response-time">${site.response_time || '—'}ms</div><div class="text-slate-500 mt-0.5">Time</div></div>
                 <div><div class="text-sm font-bold text-slate-200">${(site.uptime || 100).toFixed(1)}%</div><div class="text-slate-500 mt-0.5">Uptime</div></div>
                 <div><div class="text-sm font-bold text-slate-200">${site.status_code || '—'}</div><div class="text-slate-500 mt-0.5">HTTP</div></div>
             </div>
@@ -1246,6 +1246,56 @@ async function deleteMaintWindow(id) {
         console.error(e);
     }
 }
+
+// WebSocket for real-time updates
+let ws = null;
+let wsReconnectTimer = null;
+
+function connectWebSocket() {
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const url = `${protocol}//${location.host}/ws`;
+    try {
+        ws = new WebSocket(url);
+        ws.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'site_status') {
+                    updateSiteCard(data);
+                }
+            } catch(e) { console.error('WS parse error', e); }
+        };
+        ws.onclose = function() {
+            ws = null;
+            if (!wsReconnectTimer) {
+                wsReconnectTimer = setTimeout(function() {
+                    wsReconnectTimer = null;
+                    connectWebSocket();
+                }, 5000);
+            }
+        };
+        ws.onerror = function() {
+            if (ws) ws.close();
+        };
+    } catch(e) { console.error('WS connection error', e); }
+}
+
+function updateSiteCard(data) {
+    const card = document.querySelector(`[data-site-id="${data.site_id}"]`);
+    if (!card) return;
+    const statusEl = card.querySelector('.status-badge');
+    if (statusEl) {
+        const isUp = data.status === 'up';
+        statusEl.textContent = isUp ? 'UP' : 'DOWN';
+        statusEl.className = 'status-badge ' + (isUp ? 'up' : 'down');
+    }
+    const rtEl = card.querySelector('.response-time');
+    if (rtEl && data.response_time) {
+        rtEl.textContent = data.response_time + 'ms';
+    }
+    card.className = 'monitor ' + data.status;
+}
+
+connectWebSocket();
 
 // Init
 function saveDisplayAddress() { return saveAddress(); }

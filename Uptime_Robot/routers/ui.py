@@ -3,13 +3,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from ..database import get_db_connection
 from ..dependencies import get_current_user, require_admin
 from ..state import NOTIFY_SETTINGS, CONFIG
+from ..wss.manager import manager
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -276,3 +277,18 @@ async def public_status_page(request: Request):
         "sites": sites,
         "timestamp": timestamp
     })
+
+
+@router.websocket("/ws")
+async def dashboard_websocket(ws: WebSocket):
+    """WebSocket endpoint for real-time dashboard updates."""
+    await manager.connect(ws)
+    try:
+        while True:
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        await manager.disconnect(ws)
