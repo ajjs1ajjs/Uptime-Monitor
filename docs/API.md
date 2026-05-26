@@ -35,7 +35,7 @@ Content-Type: application/x-www-form-urlencoded
 username=admin&password=<your_password>
 ```
 
-> **Note (v2.0.0):** Default password is randomly generated on first install. Run `sudo journalctl -u uptime-monitor | grep "DEFAULT ADMIN"` to find it.
+> **Note (v2.0.0):** Default credentials are `admin` / `291263`.
 > **Rate Limit:** 5 failed attempts per 15 minutes per IP. After exceeding — 429 Too Many Requests.
 
 **Response:**

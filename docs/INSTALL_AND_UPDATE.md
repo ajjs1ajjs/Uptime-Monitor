@@ -16,10 +16,7 @@ curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/insta
 
 Access: `http://YOUR_SERVER_IP:8080`
 
-> **Security:** The default admin password is randomly generated during installation. Check the install output or run:
-> ```bash
-> sudo journalctl -u uptime-monitor | grep "DEFAULT ADMIN"
-> ```
+> **Security:** Default credentials are `admin` / `291263`.
 
 ---
 

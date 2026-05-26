@@ -474,13 +474,7 @@ if systemctl is-active --quiet $SERVICE_NAME; then
     echo ""
     echo -e "  ${YELLOW}Default Credentials:${NC}"
     echo -e "    Username: ${BLUE}admin${NC}"
-    if [ -n "$ADMIN_PASSWORD" ] && [ "${ADMIN_PASSWORD}" != "Password:" ]; then
-        echo -e "    Password: ${GREEN}$ADMIN_PASSWORD${NC}"
-    else
-        echo -e "    Password: ${GREEN}existing database detected${NC} (if forgotten, reset via: sudo $INSTALL_DIR/venv/bin/python $INSTALL_DIR/auth_cli.py reset-password --password YOUR_NEW_PASSWORD)"
-    fi
-    echo ""
-    echo -e "  ${YELLOW}Please change the password after first login!${NC}"
+    echo -e "    Password: ${GREEN}291263${NC} (or your custom password if database already exists)"
     echo ""
     echo "Management Commands:"
     echo "  sudo systemctl status $SERVICE_NAME"

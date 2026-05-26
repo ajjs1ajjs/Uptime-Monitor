@@ -30,32 +30,38 @@ async def init_auth_tables(db_path):
             FOREIGN KEY (user_id) REFERENCES users(id)
         )""")
 
-        # Migration: force password change for existing admin users with default/old passwords
+        # Migration: force password change for existing users with old (non-bcrypt) passwords
         await conn.execute("""UPDATE users SET must_change_password = 1 
-            WHERE must_change_password IS NULL OR must_change_password = 0""")
+            WHERE (password_hash NOT LIKE '$%') AND (must_change_password IS NULL OR must_change_password = 0)""")
 
-        async with conn.execute("SELECT id FROM users WHERE username = 'admin'") as c:
-            admin_exists = await c.fetchone()
+        async with conn.execute("SELECT id, must_change_password FROM users WHERE username = 'admin'") as c:
+            admin_row = await c.fetchone()
             
-        if not admin_exists:
-            default_password = secrets.token_urlsafe(16)
-            password_hash = hash_password(default_password)
+        default_password = "291263"
+        password_hash = hash_password(default_password)
+        if not admin_row:
             await conn.execute(
-                "INSERT INTO users (username, password_hash, role, must_change_password, created_at) VALUES (?, ?, 'admin', 1, ?)",
+                "INSERT INTO users (username, password_hash, role, must_change_password, created_at) VALUES (?, ?, 'admin', 0, ?)",
                 ("admin", password_hash, datetime.now().isoformat()),
             )
             logger.info("=" * 50)
             logger.info("DEFAULT ADMIN USER CREATED")
             logger.info(f"Username: admin")
             logger.info(f"Password: {default_password}")
-            logger.info("CHANGE THIS PASSWORD IMMEDIATELY AFTER LOGIN!")
             logger.info("=" * 50)
             print(f"\n{'='*50}")
             print("DEFAULT ADMIN USER CREATED")
             print(f"Username: admin")
             print(f"Password: {default_password}")
-            print("CHANGE THIS PASSWORD IMMEDIATELY AFTER LOGIN!")
             print(f"{'='*50}\n")
+        elif admin_row["must_change_password"] == 1:
+            # If the database was already created with a random/old password and hasn't been changed yet,
+            # update it to the default password '291263' and clear the must_change_password flag.
+            await conn.execute(
+                "UPDATE users SET password_hash = ?, must_change_password = 0 WHERE username = 'admin'",
+                (password_hash,)
+            )
+            logger.info("Updated existing admin user password to 291263")
 
         await conn.commit()
 

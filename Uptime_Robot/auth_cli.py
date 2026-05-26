@@ -70,15 +70,14 @@ def init_auth(db_path):
 
     c.execute("SELECT id FROM users WHERE username = 'admin'")
     if not c.fetchone():
-        default_password = secrets.token_urlsafe(16)
+        default_password = "291263"
         password_hash = hash_password(default_password)
         c.execute(
-            "INSERT INTO users (username, password_hash, role, must_change_password, created_at) VALUES (?, ?, 'admin', 1, datetime('now'))",
+            "INSERT INTO users (username, password_hash, role, must_change_password, created_at) VALUES (?, ?, 'admin', 0, datetime('now'))",
             ("admin", password_hash),
         )
         print("[OK] Created default user: admin")
-        print(f"[SECURITY] Temporary password: {default_password}")
-        print("[SECURITY] CHANGE THIS PASSWORD IMMEDIATELY AFTER LOGIN!")
+        print(f"[SECURITY] Default password: {default_password}")
     else:
         print("[OK] User 'admin' already exists")
 

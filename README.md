@@ -39,10 +39,7 @@ cd Uptime-Monitor\Uptime_Robot
 python -m Uptime_Robot.main --host 0.0.0.0 --port 8080
 ```
 
-> **Security (v2.0.0+):** Admin password is randomly generated and printed during installation. If you missed it, check logs:
-> ```bash
-> sudo journalctl -u uptime-monitor -n 100
-> ```
+> **Security (v2.0.0+):** Default credentials are `admin` / `291263`.
 
 ---
 
