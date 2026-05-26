@@ -215,38 +215,44 @@ fi
 
 echo -e "${BLUE}Found: $EXTRACT_DIR${NC}"
 
-# Install files from Uptime_Robot subdirectory
+# Install entire Uptime_Robot package (preserves relative imports)
 echo -e "${BLUE}Installing application...${NC}"
+
+# Determine source root
 if [ -d "$EXTRACT_DIR/Uptime_Robot" ]; then
+    PROJECT_ROOT="$EXTRACT_DIR"
     SRC_DIR="$EXTRACT_DIR/Uptime_Robot"
 else
+    PROJECT_ROOT="$EXTRACT_DIR"
     SRC_DIR="$EXTRACT_DIR"
 fi
 
-# Copy Python files
-for f in main.py worker.py state.py dependencies.py auth_module.py database.py logger.py models.py notifications.py monitoring.py ssl_checker.py config_manager.py ui_templates.py crypto_utils.py auth_cli.py; do
-    if [ -f "$SRC_DIR/$f" ]; then
-        cp "$SRC_DIR/$f" "$INSTALL_DIR/"
+# Copy the entire Uptime_Robot package (keeps __init__.py, subpackages, relative imports working)
+cp -r "$SRC_DIR" "$INSTALL_DIR/Uptime_Robot/"
+
+# Copy root-level files (README, pyproject.toml, Dockerfile, docker-compose.yml, etc.)
+if [ -f "$PROJECT_ROOT/README.md" ]; then cp "$PROJECT_ROOT/README.md" "$INSTALL_DIR/" 2>/dev/null || true; fi
+if [ -f "$PROJECT_ROOT/pyproject.toml" ]; then cp "$PROJECT_ROOT/pyproject.toml" "$INSTALL_DIR/" 2>/dev/null || true; fi
+if [ -f "$PROJECT_ROOT/Dockerfile" ]; then cp "$PROJECT_ROOT/Dockerfile" "$INSTALL_DIR/" 2>/dev/null || true; fi
+if [ -f "$PROJECT_ROOT/docker-compose.yml" ]; then cp "$PROJECT_ROOT/docker-compose.yml" "$INSTALL_DIR/" 2>/dev/null || true; fi
+
+# Copy templates and static from the same location (fallback to SRC_DIR)
+for d in templates static scripts; do
+    if [ -d "$SRC_DIR/$d" ]; then
+        cp -r "$SRC_DIR/$d" "$INSTALL_DIR/"
+    elif [ -d "$PROJECT_ROOT/$d" ]; then
+        cp -r "$PROJECT_ROOT/$d" "$INSTALL_DIR/"
     fi
 done
-
-# Copy routers package
-if [ -d "$SRC_DIR/routers" ]; then
-    cp -r "$SRC_DIR/routers" "$INSTALL_DIR/"
-fi
-
-# Copy templates and static
-if [ -d "$SRC_DIR/templates" ]; then
-    cp -r "$SRC_DIR/templates" "$INSTALL_DIR/"
-fi
-
-if [ -d "$SRC_DIR/static" ]; then
-    cp -r "$SRC_DIR/static" "$INSTALL_DIR/"
-fi
 
 # Copy requirements (prefer Linux-specific file on Linux)
 if [ -f "$SRC_DIR/requirements-linux.txt" ]; then
     cp "$SRC_DIR/requirements-linux.txt" "$INSTALL_DIR/requirements.txt"
+elif [ -f "$PROJECT_ROOT/requirements-linux.txt" ]; then
+    cp "$PROJECT_ROOT/requirements-linux.txt" "$INSTALL_DIR/requirements.txt"
+elif [ -f "$PROJECT_ROOT/requirements.txt" ]; then
+    cp "$PROJECT_ROOT/requirements.txt" "$INSTALL_DIR/"
+fi
 elif [ -f "$SRC_DIR/requirements.txt" ]; then
     cp "$SRC_DIR/requirements.txt" "$INSTALL_DIR/"
     # Remove Windows-specific packages on Linux
@@ -336,7 +342,7 @@ echo -e "${BLUE}Initializing database and default credentials...${NC}"
 INIT_OUT=$(export CONFIG_PATH="$CONFIG_DIR/config.json"; ./venv/bin/python -c "
 import asyncio, sys
 sys.path.insert(0, '$INSTALL_DIR')
-import models, auth_module
+from Uptime_Robot import models, auth_module
 async def main():
     await models.init_database('$DATA_DIR/sites.db')
     await auth_module.init_auth_tables('$DATA_DIR/sites.db')
@@ -377,7 +383,7 @@ Environment="PATH=$INSTALL_DIR/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="CONFIG_PATH=$CONFIG_DIR/config.json"
 Environment="UPTIME_MONITOR_LOG=$LOG_DIR/uptime-monitor.log"
 Environment="APP_VERSION=$APP_VERSION"
-ExecStart=$INSTALL_DIR/venv/bin/python $INSTALL_DIR/main.py
+ExecStart=$INSTALL_DIR/venv/bin/python -m Uptime_Robot.main
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -405,7 +411,7 @@ WorkingDirectory=$INSTALL_DIR
 Environment="PATH=$INSTALL_DIR/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="CONFIG_PATH=$CONFIG_DIR/config.json"
 Environment="UPTIME_MONITOR_LOG=$LOG_DIR/uptime-monitor-worker.log"
-ExecStart=$INSTALL_DIR/venv/bin/python $INSTALL_DIR/worker.py
+ExecStart=$INSTALL_DIR/venv/bin/python -m Uptime_Robot.worker
 Restart=always
 RestartSec=10
 StandardOutput=journal
