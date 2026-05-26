@@ -420,10 +420,17 @@ systemctl start $SERVICE_NAME
 systemctl start $SERVICE_NAME-worker
 
 # Check status
-sleep 3
+sleep 5
 if systemctl is-active --quiet $SERVICE_NAME; then
     # Get IP
     IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
+
+    # Try to grab the auto-generated password
+    ADMIN_PASSWORD=""
+    LOG_TEXT=$(journalctl -u $SERVICE_NAME -n 150 --no-pager 2>/dev/null || true)
+    if [ -n "$LOG_TEXT" ]; then
+        ADMIN_PASSWORD=$(echo "$LOG_TEXT" | grep 'Password:' | tail -1 | awk '{print $NF}' | tr -d '\r\n ' || true)
+    fi
 
     echo ""
     echo -e "${GREEN}=========================================="
@@ -439,7 +446,11 @@ if systemctl is-active --quiet $SERVICE_NAME; then
     echo ""
     echo -e "  ${YELLOW}Default Credentials:${NC}"
     echo -e "    Username: ${BLUE}admin${NC}"
-    echo -e "    Password: ${GREEN}auto-generated${NC} (check 'journalctl -u $SERVICE_NAME | grep ADMIN')"
+    if [ -n "$ADMIN_PASSWORD" ] && [ "${ADMIN_PASSWORD}" != "Password:" ]; then
+        echo -e "    Password: ${GREEN}$ADMIN_PASSWORD${NC}"
+    else
+        echo -e "    Password: ${GREEN}auto-generated${NC} (check 'journalctl -u $SERVICE_NAME | grep ADMIN')"
+    fi
     echo ""
     echo -e "  ${YELLOW}Please change the password after first login!${NC}"
     echo ""
