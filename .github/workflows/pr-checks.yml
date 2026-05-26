@@ -32,16 +32,26 @@ jobs:
       - name: Run isort
         run: isort --check-only Uptime_Robot/ --diff
 
+      - name: Run mypy
+        run: mypy Uptime_Robot/ --ignore-missing-imports
+
+      - name: Run bandit
+        run: bandit -r Uptime_Robot/ -x Uptime_Robot/tests.py -ll
+
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+    runs-on: ${{ matrix.os }}
     needs: lint
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Python 3.12
+      - name: Setup Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |

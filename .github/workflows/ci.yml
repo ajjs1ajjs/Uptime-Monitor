@@ -8,10 +8,14 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
+        os: [ubuntu-latest, windows-latest]
         python-version: ["3.9", "3.10", "3.11", "3.12"]
+        exclude:
+          - os: windows-latest
+            python-version: "3.9"
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
@@ -48,13 +52,19 @@ jobs:
 
       - name: Install linters
         run: |
-          pip install black ruff flake8
+          pip install black ruff flake8 mypy bandit
 
       - name: Run Black
         run: black --check Uptime_Robot/
 
       - name: Run Ruff
         run: ruff check Uptime_Robot/
+
+      - name: Run mypy
+        run: mypy Uptime_Robot/ --ignore-missing-imports
+
+      - name: Run bandit
+        run: bandit -r Uptime_Robot/ -x Uptime_Robot/tests.py -ll
 
   build:
     runs-on: ubuntu-latest
