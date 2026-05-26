@@ -387,6 +387,12 @@ async def send_notification(
         elif method == "sms":
             tasks.append(send_sms(message, method_config))
 
+        elif method == "webhook":
+            channels = method_config.get("channels", [])
+            for channel in channels:
+                if channel.get("webhook_url"):
+                    tasks.append(send_webhook(message, channel))
+
     if tasks:
         await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -549,3 +555,27 @@ async def send_sms(message: str, settings: Dict[str, Any]):
                     logger.error(f"SMS API error: {response.status}")
     except Exception as e:
         logger.error(f"SMS error: {e}")
+
+
+async def send_webhook(message: Union[str, Dict], settings: Dict[str, Any]):
+    """Відправляє кастомне POST-сповіщення (webhook)"""
+    webhook_url = settings.get("webhook_url")
+    if not webhook_url:
+        return
+
+    try:
+        if isinstance(message, dict):
+            payload = message
+        else:
+            payload = {
+                "alert_type": "info",
+                "message": message,
+                "checked_at": datetime.now().isoformat()
+            }
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.post(webhook_url, json=payload) as response:
+                if response.status not in [200, 201, 202, 204]:
+                    logger.error(f"Webhook HTTP error: {response.status}")
+    except Exception as e:
+        logger.error(f"Webhook error: {e}")

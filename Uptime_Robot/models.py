@@ -29,7 +29,8 @@ async def init_database(db_path: str):
             monitor_type TEXT DEFAULT 'http',
             failed_attempts INTEGER DEFAULT 0,
             success_attempts INTEGER DEFAULT 0,
-            last_down_alert TEXT
+            last_down_alert TEXT,
+            keyword TEXT DEFAULT NULL
         )""")
 
         # Таблиця історії статусів
@@ -109,6 +110,24 @@ async def init_database(db_path: str):
             await conn.execute("ALTER TABLE sites ADD COLUMN success_attempts INTEGER DEFAULT 0")
             await conn.execute("ALTER TABLE sites ADD COLUMN last_down_alert TEXT")
 
+        if "keyword" not in site_columns:
+            await conn.execute("ALTER TABLE sites ADD COLUMN keyword TEXT DEFAULT NULL")
+
+        # Таблиця періодів обслуговування (Maintenance Windows)
+        await conn.execute("""CREATE TABLE IF NOT EXISTS maintenance_windows (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            site_id INTEGER,
+            rule_type TEXT DEFAULT 'one_off',
+            start_time TEXT,
+            end_time TEXT,
+            day_of_week INTEGER,
+            start_hour_minute TEXT,
+            duration_minutes INTEGER,
+            is_active BOOLEAN DEFAULT 1,
+            FOREIGN KEY(site_id) REFERENCES sites(id)
+        )""")
+
         await conn.commit()
 
 
@@ -134,13 +153,15 @@ async def add_site(
     url: str,
     check_interval: int = 60,
     notify_methods: Optional[List[str]] = None,
+    monitor_type: str = "http",
+    keyword: Optional[str] = None,
 ) -> int:
     """Додає новий сайт"""
     async with get_db_connection(db_path) as conn:
         async with conn.execute(
-            """INSERT INTO sites (name, url, check_interval, notify_methods, is_active)
-                     VALUES (?, ?, ?, ?, 1)""",
-            (name, url, check_interval, json.dumps(notify_methods or [])),
+            """INSERT INTO sites (name, url, check_interval, notify_methods, monitor_type, keyword, is_active)
+                     VALUES (?, ?, ?, ?, ?, ?, 1)""",
+            (name, url, check_interval, json.dumps(notify_methods or []), monitor_type, keyword),
         ) as c:
             site_id = c.lastrowid
         await conn.commit()
@@ -160,7 +181,9 @@ async def update_site(db_path: str, site_id: int, **kwargs):
         "success_attempts",
         "status",
         "status_code",
-        "response_time"
+        "response_time",
+        "monitor_type",
+        "keyword"
     }
 
     updates = []
@@ -322,4 +345,55 @@ async def save_ssl_certificate(db_path: str, site_id: int, cert_data: Dict[str, 
                 ),
             )
 
+        await conn.commit()
+
+
+async def get_maintenance_windows(db_path: str) -> List[Dict[str, Any]]:
+    """Отримує всі періоди обслуговування"""
+    async with get_db_connection(db_path) as conn:
+        async with conn.execute(
+            """SELECT mw.*, s.name as site_name 
+               FROM maintenance_windows mw 
+               LEFT JOIN sites s ON mw.site_id = s.id 
+               ORDER BY mw.id DESC"""
+        ) as c:
+            rows = await c.fetchall()
+            return [dict(row) for row in rows]
+
+
+async def add_maintenance_window(
+    db_path: str,
+    name: str,
+    site_id: Optional[int],
+    rule_type: str,
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+    day_of_week: Optional[int] = None,
+    start_hour_minute: Optional[str] = None,
+    duration_minutes: Optional[int] = None,
+) -> int:
+    """Додає новий період обслуговування"""
+    async with get_db_connection(db_path) as conn:
+        async with conn.execute(
+            """INSERT INTO maintenance_windows 
+               (name, site_id, rule_type, start_time, end_time, day_of_week, start_hour_minute, duration_minutes, is_active)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)""",
+            (name, site_id, rule_type, start_time, end_time, day_of_week, start_hour_minute, duration_minutes),
+        ) as c:
+            window_id = c.lastrowid
+        await conn.commit()
+    return window_id
+
+
+async def delete_maintenance_window(db_path: str, window_id: int):
+    """Видаляє період обслуговування за ID"""
+    async with get_db_connection(db_path) as conn:
+        await conn.execute("DELETE FROM maintenance_windows WHERE id = ?", (window_id,))
+        await conn.commit()
+
+
+async def toggle_maintenance_window(db_path: str, window_id: int, is_active: bool):
+    """Вмикає або вимикає період обслуговування"""
+    async with get_db_connection(db_path) as conn:
+        await conn.execute("UPDATE maintenance_windows SET is_active = ? WHERE id = ?", (1 if is_active else 0, window_id))
         await conn.commit()

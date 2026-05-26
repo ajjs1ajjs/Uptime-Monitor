@@ -31,6 +31,7 @@
         <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('ssl')">🔒 SSL</button>
         <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('incidents')">⚠️ Інциденти</button>
         <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('settings')">⚙️ Налаштування</button>
+        <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('maintenance')">🛠️ Обслуговування</button>
     </div>
 </div>
 
@@ -105,12 +106,26 @@
             <div class="flex flex-wrap gap-2 mb-4" id="monitorFilters">
                 <button class="monitor-type-btn px-4 py-2 rounded-lg bg-accent/10 text-accent font-medium text-xs" data-filter="all" onclick="setFilter('all')">Всі</button>
             </div>
+            <div class="flex flex-col sm:flex-row gap-3 mb-4">
+                <input type="text" id="monitorSearch" name="search" placeholder="🔍 Пошук за назвою або URL..." 
+                       class="flex-1 px-4 py-2.5 rounded-xl border border-slate-700/50 bg-[#0f172a] text-slate-200 text-sm focus:outline-none focus:border-accent transition"
+                       onkeyup="renderMonitors()">
+                <select id="monitorSort" name="sort" 
+                        class="w-full sm:w-48 px-4 py-2.5 rounded-xl border border-slate-700/50 bg-[#0f172a] text-slate-200 text-sm focus:outline-none focus:border-accent transition"
+                        onchange="renderMonitors()">
+                    <option value="status">🚦 За статусом</option>
+                    <option value="name">🔤 За назвою</option>
+                    <option value="uptime">📈 За Uptime</option>
+                    <option value="response_time">⚡ За часом відповіді</option>
+                </select>
+            </div>
             <div id="dashboardMonitors"
                 class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
                 hx-get="/api/htmx/monitors"
-                hx-trigger="every 60s, load"
+                hx-trigger="every 60s, load, keyup changed delay:300ms from:#monitorSearch, change from:#monitorSort"
                 hx-target="this"
-                hx-swap="innerHTML">
+                hx-swap="innerHTML"
+                hx-include="#monitorSearch, #monitorSort">
                 <div class="col-span-full text-center py-10 text-slate-500">Завантаження моніторів...</div>
             </div>
         </div>
@@ -134,6 +149,96 @@
     </div>
 </div>
 
+<!-- Tab Обслуговування -->
+<div id="tab-maintenance" class="tab-content mt-6 px-4 md:px-8 hidden">
+    <div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Add Maintenance Window Form -->
+        <div class="glass rounded-2xl p-6 h-fit">
+            <h3 class="text-lg font-semibold mb-4">➕ Додати обслуговування</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="text-slate-400 text-sm mb-1.5 block">Назва періоду</label>
+                    <input type="text" id="maintName" placeholder="напр. Оновлення БД" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                </div>
+                <div>
+                    <label class="text-slate-400 text-sm mb-1.5 block">Монітор</label>
+                    <select id="maintSiteId" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                        <option value="">Всі монітори</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-slate-400 text-sm mb-1.5 block">Тип правила</label>
+                    <select id="maintRuleType" onchange="toggleMaintRuleFields()" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                        <option value="one_off">Одноразово</option>
+                        <option value="daily">Щодня</option>
+                        <option value="weekly">Щотижня</option>
+                    </select>
+                </div>
+
+                <!-- One off fields -->
+                <div id="maintOneOffFields" class="space-y-4">
+                    <div>
+                        <label class="text-slate-400 text-sm mb-1.5 block">Початок</label>
+                        <input type="datetime-local" id="maintStartTime" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent outline-none transition">
+                    </div>
+                    <div>
+                        <label class="text-slate-400 text-sm mb-1.5 block">Кінець</label>
+                        <input type="datetime-local" id="maintEndTime" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent outline-none transition">
+                    </div>
+                </div>
+
+                <!-- Recurring fields -->
+                <div id="maintRecurringFields" class="space-y-4 hidden">
+                    <div id="maintDayOfWeekContainer" class="hidden">
+                        <label class="text-slate-400 text-sm mb-1.5 block">День тижня</label>
+                        <select id="maintDayOfWeek" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent outline-none transition">
+                            <option value="1">Понеділок</option>
+                            <option value="2">Вівторок</option>
+                            <option value="3">Середа</option>
+                            <option value="4">Четвер</option>
+                            <option value="5">П'ятниця</option>
+                            <option value="6">Субота</option>
+                            <option value="7">Неділя</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-slate-400 text-sm mb-1.5 block">Час початку (ГГ:ХХ)</label>
+                        <input type="text" id="maintStartHourMinute" placeholder="напр. 03:00" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent outline-none transition">
+                    </div>
+                    <div>
+                        <label class="text-slate-400 text-sm mb-1.5 block">Тривалість (хвилин)</label>
+                        <input type="number" id="maintDurationMinutes" placeholder="60" min="1" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent outline-none transition">
+                    </div>
+                </div>
+
+                <button onclick="addMaintenanceWindow()" class="w-full py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">➕ Додати правило</button>
+            </div>
+        </div>
+
+        <!-- Maintenance Windows List -->
+        <div class="glass rounded-2xl p-6 lg:col-span-2">
+            <h3 class="text-lg font-semibold mb-4">📋 Активні та заплановані роботи</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-700/50 text-slate-400">
+                            <th class="py-3 px-4">Назва / Монітор</th>
+                            <th class="py-3 px-4">Правило / Розклад</th>
+                            <th class="py-3 px-4 text-center">Статус</th>
+                            <th class="py-3 px-4 text-right">Дії</th>
+                        </tr>
+                    </thead>
+                    <tbody id="maintenanceList" class="divide-y divide-slate-800/30">
+                        <tr>
+                            <td colspan="4" class="py-10 text-center text-slate-500">Немає запланованих робіт.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div id="tab-settings" class="tab-content mt-6 px-4 md:px-8 hidden">
     <div class="max-w-4xl mx-auto space-y-6">
         <div class="glass rounded-2xl p-6">
@@ -143,7 +248,7 @@
                 <input type="url" id="siteUrl" placeholder="URL" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                <select id="monitorType" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                <select id="monitorType" onchange="toggleKeywordField('monitorType', 'keywordFieldContainer')" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
                     <option value="http">🌐 HTTP(S)</option>
                     <option value="port">🔌 Порт</option>
                     <option value="ping">📡 Пінг</option>
@@ -153,6 +258,10 @@
                     <input type="number" id="siteCheckInterval" value="60" min="10" max="3600" step="10" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
                     <span class="text-slate-400 text-xs whitespace-nowrap">інтервал (сек)</span>
                 </div>
+            </div>
+            <div class="mt-4" id="keywordFieldContainer">
+                <label class="text-slate-400 text-sm mb-1.5 block">Ключове слово для пошуку (опціонально, тільки для HTTP)</label>
+                <input type="text" id="siteKeyword" placeholder="напр. Welcome, Success, etc." class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
             </div>
             <div class="mt-4">
                 <label class="text-slate-400 text-sm mb-2 block">Способи сповіщень</label>
@@ -169,6 +278,9 @@
                     <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
                         <input type="checkbox" value="email" class="accent-accent w-4 h-4"> 📧 Email
                     </label>
+                    <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
+                        <input type="checkbox" value="webhook" class="accent-accent w-4 h-4"> 🔗 Webhook
+                    </label>
                 </div>
             </div>
             <button onclick="addSite()" class="mt-6 w-full py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">➕ Додати монітор</button>
@@ -180,6 +292,15 @@
                 <input type="text" id="displayAddress" placeholder="Адреса для відображення"
                     class="flex-1 px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
                 <button onclick="saveAddress()" class="px-6 py-3 rounded-xl gradient-accent text-black font-semibold hover:shadow-lg hover:shadow-cyan-500/30 transition">💾 Зберегти</button>
+            </div>
+        </div>
+
+        <div class="glass rounded-2xl p-6">
+            <h3 class="text-lg font-semibold mb-4">📊 Звіти про доступність (SLA)</h3>
+            <p class="text-slate-400 text-sm mb-4">Виберіть період та завантажте звіт про доступність моніторів у форматі CSV.</p>
+            <div class="flex flex-wrap gap-3">
+                <a href="/api/reports/sla/export?days=7" class="px-5 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:border-accent hover:text-white transition text-sm font-medium">📅 Звіт за 7 днів (CSV)</a>
+                <a href="/api/reports/sla/export?days=30" class="px-5 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:border-accent hover:text-white transition text-sm font-medium">📅 Звіт за 30 днів (CSV)</a>
             </div>
         </div>
 
@@ -211,6 +332,19 @@
                 <p class="text-slate-500 text-xs mt-1">Мін: 10с, Макс: 60хв</p>
             </div>
             <div>
+                <label class="text-slate-400 text-sm mb-1.5 block">Тип монітора</label>
+                <select id="editSiteType" onchange="toggleKeywordField('editSiteType', 'editKeywordFieldContainer')" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                    <option value="http">🌐 HTTP(S)</option>
+                    <option value="port">🔌 Порт</option>
+                    <option value="ping">📡 Пінг</option>
+                    <option value="ssl">🔒 SSL</option>
+                </select>
+            </div>
+            <div id="editKeywordFieldContainer">
+                <label class="text-slate-400 text-sm mb-1.5 block">Ключове слово для пошуку (опціонально, тільки для HTTP)</label>
+                <input type="text" id="editSiteKeyword" placeholder="напр. Welcome, Success, etc." class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+            </div>
+            <div>
                 <label class="text-slate-400 text-sm mb-2 block">Сповіщення</label>
                 <div class="flex flex-wrap gap-3" id="editSiteNotify">
                     <label class="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
@@ -224,6 +358,9 @@
                     </label>
                     <label class="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
                         <input type="checkbox" value="email" class="accent-accent"> 📧 Email
+                    </label>
+                    <label class="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
+                        <input type="checkbox" value="webhook" class="accent-accent"> 🔗 Webhook
                     </label>
                 </div>
             </div>
@@ -323,6 +460,18 @@ document.addEventListener('DOMContentLoaded', function() {
 <script>
 var notifyConfig = {{ notify_config_json | safe }};
 let currentFilter = 'all';
+
+function toggleKeywordField(selectId, containerId) {
+    const select = document.getElementById(selectId);
+    const container = document.getElementById(containerId);
+    if (select && container) {
+        container.style.display = select.value === 'http' ? 'block' : 'none';
+        if (select.value !== 'http') {
+            const input = container.querySelector('input');
+            if (input) input.value = '';
+        }
+    }
+}
 let sitesData = [];
 let sslCertificatesData = [];
 let gaugeCharts = {};
@@ -520,23 +669,75 @@ async function loadUptimeChart() {
 function renderMonitors() {
     const grid = document.getElementById('dashboardMonitors');
     if (!grid) return;
+    
+    const searchQuery = (document.getElementById('monitorSearch')?.value || '').toLowerCase().trim();
+    const sortVal = document.getElementById('monitorSort')?.value || 'status';
+    
     let filtered = currentFilter === 'all' ? sitesData : sitesData.filter(s => s.monitor_type === currentFilter);
-    filtered.sort((a, b) => { const o = {down:0, slow:1, paused:2, unknown:3, up:4}; return (o[a.status]??5) - (o[b.status]??5); });
+    
+    if (searchQuery) {
+        filtered = filtered.filter(s => 
+            (s.name || '').toLowerCase().includes(searchQuery) || 
+            (s.url || '').toLowerCase().includes(searchQuery)
+        );
+    }
+    
+    if (sortVal === 'name') {
+        filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    } else if (sortVal === 'uptime') {
+        filtered.sort((a, b) => (b.uptime ?? 100) - (a.uptime ?? 100));
+    } else if (sortVal === 'response_time') {
+        filtered.sort((a, b) => {
+            const rtA = a.response_time ?? 999999;
+            const rtB = b.response_time ?? 999999;
+            return rtA - rtB;
+        });
+    } else {
+        // status
+        filtered.sort((a, b) => {
+            const o = {down:0, slow:1, maintenance:2, paused:3, unknown:4, up:5};
+            return (o[a.status]??6) - (o[b.status]??6);
+        });
+    }
+    
     if (filtered.length === 0) { grid.innerHTML = '<div class="col-span-full text-center py-10 text-slate-500">No monitors found.</div>'; return; }
     let html = '';
     filtered.forEach(site => {
-        const statusClass = site.status === 'up' ? 'up' : (site.status === 'paused' ? 'paused' : 'down');
-        const statusColor = site.status === 'up' ? '#10b981' : (site.status === 'paused' ? '#f59e0b' : '#ef4444');
-        const statusText = site.status === 'up' ? 'UP' : (site.status === 'paused' ? 'PAUSED' : 'DOWN');
+        let statusClass = 'down';
+        let statusColor = '#ef4444';
+        let statusText = 'DOWN';
+        if (site.status === 'up') {
+            statusClass = 'up';
+            statusColor = '#10b981';
+            statusText = 'UP';
+        } else if (site.status === 'paused') {
+            statusClass = 'paused';
+            statusColor = '#f59e0b';
+            statusText = 'PAUSED';
+        } else if (site.status === 'maintenance') {
+            statusClass = 'maintenance';
+            statusColor = '#a855f7';
+            statusText = 'MAINTENANCE';
+        }
+        
         const safeName = (site.name || '').replace(/'/g, "\\'");
         const safeUrl = (site.url || '').replace(/'/g, "\\'");
         const methods = Array.isArray(site.notify_methods) ? site.notify_methods : [];
+        const monitorType = site.monitor_type || 'http';
+        const safeKeyword = encodeURIComponent(site.keyword || '');
+        const keywordHtml = site.keyword ? `<div class="text-[11px] text-indigo-400 mt-1 flex items-center gap-1">🔑 Ключ: <span class="text-slate-300 font-mono">${site.keyword}</span></div>` : '';
+        
+        let borderClass = 'border-red-500';
+        if (statusClass === 'up') borderClass = 'border-emerald-500';
+        else if (statusClass === 'paused') borderClass = 'border-amber-500';
+        else if (statusClass === 'maintenance') borderClass = 'border-purple-500';
 
-        html += `<div class="gradient-card rounded-xl p-5 border-l-4 ${statusClass === 'up' ? 'border-emerald-500' : statusClass === 'paused' ? 'border-amber-500' : 'border-red-500'} border border-slate-700/30 card-hover transition">
+        html += `<div class="gradient-card rounded-xl p-5 border-l-4 ${borderClass} border border-slate-700/30 card-hover transition">
             <div class="flex justify-between items-start mb-4">
                 <div class="min-w-0 flex-1">
                     <div class="text-base font-semibold truncate" title="${safeName}">${site.name}</div>
                     <div class="text-xs text-slate-400 truncate mt-0.5" title="${safeUrl}">${site.url}</div>
+                    ${keywordHtml}
                 </div>
                 <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-accent/10 text-accent">${site.monitor_type}</span>
             </div>
@@ -548,7 +749,7 @@ function renderMonitors() {
             </div>
             <div class="flex gap-2 mt-4">
                 <button onclick="checkSite(${site.id})" class="flex-1 py-2.5 rounded-lg gradient-accent text-black text-xs font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">🔄 Check</button>
-                <button onclick="openEditModal(${site.id},'${safeName}','${encodeURIComponent(safeUrl)}','${encodeURIComponent(JSON.stringify(methods))}',${site.check_interval||60})" class="flex-1 py-2.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium">✏️ Edit</button>
+                <button onclick="openEditModal(${site.id},'${safeName}','${encodeURIComponent(safeUrl)}','${encodeURIComponent(JSON.stringify(methods))}',${site.check_interval||60},'${monitorType}','${safeKeyword}')" class="flex-1 py-2.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium">✏️ Edit</button>
                 <button onclick="deleteSite(${site.id})" class="flex-1 py-2.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-xs font-medium">🗑️ Delete</button>
             </div>
         </div>`;
@@ -567,19 +768,27 @@ function switchTab(tabId) {
     if (tabId === 'dashboard') { loadSites(); loadUptimeChart(); loadResponseTimeChart(); loadSSLTimelineChart(); }
     if (tabId === 'ssl') loadSSLCertificates();
     if (tabId === 'incidents') loadIncidents();
+    if (tabId === 'maintenance') loadMaintenanceWindows();
 }
 
 async function addSite() {
     const name = document.getElementById('siteName').value;
     const url = document.getElementById('siteUrl').value;
     const monitor_type = document.getElementById('monitorType').value;
+    const keyword = document.getElementById('siteKeyword').value;
     const check_interval = parseInt(document.getElementById('siteCheckInterval').value) || 60;
     const container = document.getElementById('siteNotifyOptions');
     const notify_methods = container ? Array.from(container.querySelectorAll('input:checked')).map(o => o.value) : [];
     if (!name || !url) return alert('Заповніть назву та URL');
     try {
-        const resp = await fetch('/api/sites', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, url, monitor_type, check_interval, notify_methods})});
-        if (resp.ok) { document.getElementById('siteName').value = ''; document.getElementById('siteUrl').value = ''; loadSites(); alert('Монітор додано!'); }
+        const resp = await fetch('/api/sites', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, url, monitor_type, check_interval, notify_methods, keyword})});
+        if (resp.ok) {
+            document.getElementById('siteName').value = '';
+            document.getElementById('siteUrl').value = '';
+            document.getElementById('siteKeyword').value = '';
+            loadSites();
+            alert('Монітор додано!');
+        }
     } catch(e) { console.error(e); }
 }
 
@@ -705,7 +914,7 @@ async function checkSSLCertificates() { try { await fetch('/api/ssl-certificates
 
 // Notifications
 function initNotifyUI() {
-    ['telegram','teams','discord','slack','email','sms'].forEach(method => {
+    ['telegram','teams','discord','slack','email','sms','webhook'].forEach(method => {
         const config = notifyConfig[method] || {};
         const toggle = document.getElementById('toggle-' + method);
         if (toggle && config.enabled) toggle.checked = true;
@@ -784,7 +993,7 @@ function removeChannel(method, channelId) { const el = document.getElementById('
 
 async function saveNotifySettings() {
     const settings = {};
-    ['telegram','discord','teams','email','slack','sms'].forEach(m => {
+    ['telegram','discord','teams','email','slack','sms','webhook'].forEach(m => {
         settings[m] = { enabled: document.getElementById('toggle-' + m)?.checked || false, channels: [] };
         const container = document.getElementById('channels-' + m);
         if (container) {
@@ -824,11 +1033,14 @@ async function saveAddress() {
     try { await fetch('/api/app-settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({display_address: addr})}); alert('✅ Address saved!'); } catch(e) { console.error(e); }
 }
 
-function openEditModal(id, name, url, notifyMethods, checkInterval) {
+function openEditModal(id, name, url, notifyMethods, checkInterval, monitorType, keyword) {
     document.getElementById('editSiteId').value = id;
     document.getElementById('editSiteName').value = name;
     document.getElementById('editSiteUrl').value = decodeURIComponent(url);
     document.getElementById('editSiteInterval').value = checkInterval || 60;
+    document.getElementById('editSiteType').value = monitorType || 'http';
+    document.getElementById('editSiteKeyword').value = keyword ? decodeURIComponent(keyword) : '';
+    toggleKeywordField('editSiteType', 'editKeywordFieldContainer');
     const methods = typeof notifyMethods === 'string' ? JSON.parse(decodeURIComponent(notifyMethods)) : notifyMethods || [];
     const container = document.getElementById('editSiteNotify');
     if (container) container.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = methods.includes(cb.value));
@@ -840,11 +1052,199 @@ async function saveEdit() {
     const id = document.getElementById('editSiteId').value;
     const name = document.getElementById('editSiteName').value.trim();
     const url = document.getElementById('editSiteUrl').value.trim();
+    const monitorType = document.getElementById('editSiteType').value;
+    const keyword = document.getElementById('editSiteKeyword').value.trim();
     const checkInterval = parseInt(document.getElementById('editSiteInterval').value) || 60;
     const container = document.getElementById('editSiteNotify');
     const notify_methods = container ? Array.from(container.querySelectorAll('input:checked')).map(o => o.value) : [];
     if (!name || !url) return alert('Fill all fields!');
-    try { await fetch('/api/sites/' + id, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, url, check_interval: checkInterval, notify_methods})}); closeEditModal(); loadSites(); } catch(e) { console.error(e); }
+    try {
+        await fetch('/api/sites/' + id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name,
+                url,
+                monitor_type: monitorType,
+                check_interval: checkInterval,
+                notify_methods,
+                keyword
+            })
+        });
+        closeEditModal();
+        loadSites();
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function toggleMaintRuleFields() {
+    const type = document.getElementById('maintRuleType').value;
+    if (type === 'one_off') {
+        document.getElementById('maintOneOffFields').classList.remove('hidden');
+        document.getElementById('maintRecurringFields').classList.add('hidden');
+    } else {
+        document.getElementById('maintOneOffFields').classList.add('hidden');
+        document.getElementById('maintRecurringFields').classList.remove('hidden');
+        
+        const dow = document.getElementById('maintDayOfWeekContainer');
+        if (type === 'weekly') {
+            dow.classList.remove('hidden');
+        } else {
+            dow.classList.add('hidden');
+        }
+    }
+}
+
+async function loadMaintenanceWindows() {
+    try {
+        const resp = await fetch('/api/sites');
+        const sites = await resp.json();
+        const select = document.getElementById('maintSiteId');
+        if (select) {
+            select.innerHTML = '<option value="">Всі монітори</option>';
+            sites.forEach(s => {
+                select.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+            });
+        }
+    } catch(e) {
+        console.error(e);
+    }
+
+    try {
+        const resp = await fetch('/api/maintenance-windows');
+        const windows = await resp.json();
+        renderMaintenanceWindows(windows);
+    } catch(e) {
+        console.error(e);
+    }
+}
+
+function renderMaintenanceWindows(windows) {
+    const tbody = document.getElementById('maintenanceList');
+    if (!tbody) return;
+    if (windows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="py-10 text-center text-slate-500">Немає запланованих робіт.</td></tr>';
+        return;
+    }
+    let html = '';
+    windows.forEach(w => {
+        const siteName = w.site_name || 'Всі монітори';
+        let schedule = '';
+        if (w.rule_type === 'one_off') {
+            const start = new Date(w.start_time).toLocaleString('uk-UA');
+            const end = new Date(w.end_time).toLocaleString('uk-UA');
+            schedule = `<div>${start}</div><div class="text-xs text-slate-500">до ${end}</div>`;
+        } else if (w.rule_type === 'daily') {
+            schedule = `<div>Щодня о ${w.start_hour_minute}</div><div class="text-xs text-slate-500">Тривалість: ${w.duration_minutes} хв</div>`;
+        } else if (w.rule_type === 'weekly') {
+            const days = ['', 'Пн', 'Вв', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
+            const dayName = days[w.day_of_week] || '';
+            schedule = `<div>Щотижня (${dayName}) о ${w.start_hour_minute}</div><div class="text-xs text-slate-500">Тривалість: ${w.duration_minutes} хв</div>`;
+        }
+
+        const checked = w.is_active ? 'checked' : '';
+        const toggleBtn = `<label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" ${checked} class="sr-only peer" onchange="toggleMaintWindow(${w.id}, this.checked)">
+            <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:height-4 after:w-4 after:h-4 after:transition-all peer-checked:bg-accent"></div>
+        </label>`;
+
+        html += `<tr class="border-b border-slate-800/30 hover:bg-slate-800/10">
+            <td class="py-3.5 px-4">
+                <div class="font-medium">${w.name}</div>
+                <div class="text-xs text-slate-400">${siteName}</div>
+            </td>
+            <td class="py-3.5 px-4">${schedule}</td>
+            <td class="py-3.5 px-4 text-center">${toggleBtn}</td>
+            <td class="py-3.5 px-4 text-right">
+                <button onclick="deleteMaintWindow(${w.id})" class="text-red-400 hover:text-red-300 transition">🗑️ Видалити</button>
+            </td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+}
+
+async function addMaintenanceWindow() {
+    const name = document.getElementById('maintName').value.trim();
+    const siteIdVal = document.getElementById('maintSiteId').value;
+    const ruleType = document.getElementById('maintRuleType').value;
+    
+    if (!name) return alert('Введіть назву періоду!');
+    
+    const payload = {
+        name,
+        site_id: siteIdVal ? parseInt(siteIdVal) : null,
+        rule_type: ruleType
+    };
+    
+    if (ruleType === 'one_off') {
+        const start = document.getElementById('maintStartTime').value;
+        const end = document.getElementById('maintEndTime').value;
+        if (!start || !end) return alert('Виберіть час початку та кінця!');
+        payload.start_time = new Date(start).toISOString();
+        payload.end_time = new Date(end).toISOString();
+    } else {
+        const startHM = document.getElementById('maintStartHourMinute').value.trim();
+        const duration = parseInt(document.getElementById('maintDurationMinutes').value);
+        if (!startHM || !duration) return alert('Введіть час початку та тривалість!');
+        
+        if (!/^\d{2}:\d{2}$/.test(startHM)) return alert('Введіть час у форматі ГГ:ХХ (напр. 03:00)!');
+        
+        payload.start_hour_minute = startHM;
+        payload.duration_minutes = duration;
+        
+        if (ruleType === 'weekly') {
+            payload.day_of_week = parseInt(document.getElementById('maintDayOfWeek').value);
+        }
+    }
+    
+    try {
+        const resp = await fetch('/api/maintenance-windows', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (resp.ok) {
+            document.getElementById('maintName').value = '';
+            document.getElementById('maintStartTime').value = '';
+            document.getElementById('maintEndTime').value = '';
+            document.getElementById('maintStartHourMinute').value = '';
+            document.getElementById('maintDurationMinutes').value = '';
+            loadMaintenanceWindows();
+            alert('Період обслуговування додано!');
+        } else {
+            const err = await resp.json();
+            alert('Помилка: ' + (err.detail || 'невідома помилка'));
+        }
+    } catch(e) {
+        console.error(e);
+    }
+}
+
+async function toggleMaintWindow(id, active) {
+    try {
+        await fetch(`/api/maintenance-windows/${id}/toggle`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_active: active })
+        });
+    } catch(e) {
+        console.error(e);
+    }
+}
+
+async function deleteMaintWindow(id) {
+    if (!confirm('Видалити цей період обслуговування?')) return;
+    try {
+        const resp = await fetch(`/api/maintenance-windows/${id}`, {
+            method: 'DELETE'
+        });
+        if (resp.ok) {
+            loadMaintenanceWindows();
+        }
+    } catch(e) {
+        console.error(e);
+    }
 }
 
 // Init
@@ -855,6 +1255,7 @@ loadSSLCertificates();
 loadIncidents();
 loadResponseTimeChart();
 loadSSLTimelineChart();
+toggleKeywordField('monitorType', 'keywordFieldContainer');
 // Manual load once (HTMX handles auto-refresh)
 loadSites();
 </script>

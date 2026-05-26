@@ -98,6 +98,72 @@ def normalize_ssl_url(url: str) -> Optional[str]:
     return url
 
 
+async def is_under_maintenance(site_id: int) -> bool:
+    """Перевіряє, чи знаходиться сайт у періоді обслуговування"""
+    current_time = datetime.now()
+    try:
+        async with get_db_connection() as conn:
+            async with conn.execute(
+                """SELECT * FROM maintenance_windows 
+                   WHERE is_active = 1 AND (site_id = ? OR site_id IS NULL)""",
+                (site_id,)
+            ) as c:
+                rows = await c.fetchall()
+    except Exception as e:
+        logger.error(f"Error checking maintenance windows for site {site_id}: {e}")
+        return False
+
+    for row in rows:
+        rule_type = row["rule_type"]
+        if rule_type == "one_off":
+            try:
+                start_str = row["start_time"].replace("Z", "")
+                end_str = row["end_time"].replace("Z", "")
+                start = datetime.fromisoformat(start_str)
+                end = datetime.fromisoformat(end_str)
+                if start <= current_time <= end:
+                    return True
+            except Exception:
+                pass
+        elif rule_type == "daily":
+            try:
+                start_h, start_m = map(int, row["start_hour_minute"].split(":"))
+                duration = int(row["duration_minutes"])
+                today_start = current_time.replace(hour=start_h, minute=start_m, second=0, microsecond=0)
+                today_end = today_start + timedelta(minutes=duration)
+                
+                if today_start <= current_time <= today_end:
+                    return True
+                if today_end < today_start:
+                    yesterday_start = today_start - timedelta(days=1)
+                    yesterday_end = yesterday_start + timedelta(minutes=duration)
+                    if yesterday_start <= current_time <= yesterday_end:
+                        return True
+            except Exception:
+                pass
+        elif rule_type == "weekly":
+            try:
+                target_dow = int(row["day_of_week"])
+                start_h, start_m = map(int, row["start_hour_minute"].split(":"))
+                duration = int(row["duration_minutes"])
+                
+                current_dow = current_time.isoweekday()
+                diff_days = target_dow - current_dow
+                target_start = (current_time + timedelta(days=diff_days)).replace(hour=start_h, minute=start_m, second=0, microsecond=0)
+                target_end = target_start + timedelta(minutes=duration)
+                
+                if target_start <= current_time <= target_end:
+                    return True
+                
+                prev_start = target_start - timedelta(weeks=1)
+                prev_end = prev_start + timedelta(minutes=duration)
+                if prev_start <= current_time <= prev_end:
+                    return True
+            except Exception:
+                pass
+    return False
+
+
 async def check_site_status(
     site_id: int, url: str, notify_methods: List[str], notify_settings: Dict[str, Any]
 ):
@@ -115,23 +181,117 @@ async def check_site_status(
 
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
+    monitor_type = "http"
+    keyword = None
+    try:
+        async with get_db_connection() as conn:
+            async with conn.execute(
+                "SELECT monitor_type, keyword FROM sites WHERE id = ?", (site_id,)
+            ) as c:
+                row = await c.fetchone()
+                if row:
+                    monitor_type = (row["monitor_type"] or "http").lower()
+                    keyword = row["keyword"]
+    except Exception as e:
+        logger.error(f"Failed to fetch monitor config for site {site_id}: {e}")
+
+    under_maint = False
+    try:
+        under_maint = await is_under_maintenance(site_id)
+    except Exception as e:
+        logger.error(f"Failed checking maintenance status for site {site_id}: {e}")
+
     try:
         policy = get_alert_policy()
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                url,
-                timeout=aiohttp.ClientTimeout(total=policy["request_timeout_seconds"]),
-                headers=headers,
-                ssl=policy.get("verify_ssl", True),
-                allow_redirects=True,
-            ) as response:
-                status_code = response.status
-                response_time = (datetime.now() - start_time).total_seconds() * 1000
+        if under_maint:
+            status = "maintenance"
+            status_code = None
+            response_time = None
+            error_message = "Maintenance Window Active"
+        elif monitor_type == "ping":
+            import sys
+            from urllib.parse import urlparse
+            parsed = urlparse(url)
+            host = parsed.hostname or parsed.path.split("/")[0]
+            if ":" in host:
+                host = host.split(":")[0]
+                
+            is_win = sys.platform == "win32"
+            ping_cmd = ["ping", "-n", "1", host] if is_win else ["ping", "-c", "1", "-W", "5", host]
+            proc = await asyncio.create_subprocess_exec(
+                *ping_cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await proc.communicate()
+            response_time = (datetime.now() - start_time).total_seconds() * 1000
+            if proc.returncode == 0:
+                status = "up"
+                status_code = 0
+            else:
+                status = "down"
+                error_message = "Ping failed"
+                status_code = 1
+                
+        elif monitor_type in ("port", "tcp"):
+            from urllib.parse import urlparse
+            parsed = urlparse(url)
+            host_port = parsed.netloc or parsed.path.split("/")[0]
+            if ":" in host_port:
+                host, port_str = host_port.split(":", 1)
+                try:
+                    port = int(port_str)
+                except ValueError:
+                    port = 80
+            else:
+                host = host_port
+                port = 80
+                
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(host, port),
+                timeout=policy["request_timeout_seconds"]
+            )
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except:
+                pass
+            status = "up"
+            response_time = (datetime.now() - start_time).total_seconds() * 1000
+            status_code = port
+            
+        else: # http
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    url,
+                    timeout=aiohttp.ClientTimeout(total=policy["request_timeout_seconds"]),
+                    headers=headers,
+                    ssl=policy.get("verify_ssl", True),
+                    allow_redirects=True,
+                ) as response:
+                    status_code = response.status
+                    response_time = (datetime.now() - start_time).total_seconds() * 1000
 
-                if policy["treat_4xx_as_down"]:
-                    status = "up" if 200 <= status_code < 400 else "down"
-                else:
-                    status = "up" if status_code < 500 else "down"
+                    # Read body if keyword is configured
+                    if keyword:
+                        try:
+                            body_text = await response.text(errors="ignore")
+                        except Exception:
+                            body_text = ""
+                        
+                        if keyword not in body_text:
+                            status = "down"
+                            error_message = "Keyword not found"
+                        else:
+                            if policy["treat_4xx_as_down"]:
+                                status = "up" if 200 <= status_code < 400 else "down"
+                            else:
+                                status = "up" if status_code < 500 else "down"
+                    else:
+                        if policy["treat_4xx_as_down"]:
+                            status = "up" if 200 <= status_code < 400 else "down"
+                        else:
+                            status = "up" if status_code < 500 else "down"
     except aiohttp.ClientConnectorError:
         error_message = "Connection failed"
     except asyncio.TimeoutError:

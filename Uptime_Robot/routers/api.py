@@ -29,6 +29,7 @@ class SiteCreate(BaseModel):
     is_active: bool = True
     notify_methods: Optional[List[str]] = []
     monitor_type: str = "http"
+    keyword: Optional[str] = None
 
 class SiteUpdate(BaseModel):
     name: Optional[str] = None
@@ -36,6 +37,8 @@ class SiteUpdate(BaseModel):
     check_interval: Optional[int] = None
     notify_methods: Optional[List[str]] = None
     is_active: Optional[bool] = None
+    monitor_type: Optional[str] = None
+    keyword: Optional[str] = None
 
 class NotifySettingsModel(BaseModel):
     telegram: Optional[dict] = None
@@ -44,6 +47,7 @@ class NotifySettingsModel(BaseModel):
     slack: Optional[dict] = None
     email: Optional[dict] = None
     sms: Optional[dict] = None
+    webhook: Optional[dict] = None
 
 class AppSettingsModel(BaseModel):
     display_address: Optional[str] = ""
@@ -214,7 +218,7 @@ async def add_site(site: SiteCreate, user: dict = Depends(require_admin)):
     try:
         async with get_db_connection() as conn:
             await conn.execute(
-                "INSERT INTO sites (name, url, check_interval, is_active, notify_methods, monitor_type) VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO sites (name, url, check_interval, is_active, notify_methods, monitor_type, keyword) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (
                     site.name,
                     url,
@@ -222,6 +226,7 @@ async def add_site(site: SiteCreate, user: dict = Depends(require_admin)):
                     site.is_active,
                     json.dumps(site.notify_methods),
                     m_type,
+                    site.keyword,
                 ),
             )
             await conn.commit()
@@ -250,7 +255,7 @@ async def update_site(site_id: int, site: SiteUpdate, user: dict = Depends(requi
         raise HTTPException(status_code=401)
     async with get_db_connection() as conn:
         async with conn.execute(
-            "SELECT name, url, check_interval, is_active, notify_methods, monitor_type FROM sites WHERE id = ?",
+            "SELECT name, url, check_interval, is_active, notify_methods, monitor_type, keyword FROM sites WHERE id = ?",
             (site_id,),
         ) as c:
             existing = await c.fetchone()
@@ -259,9 +264,9 @@ async def update_site(site_id: int, site: SiteUpdate, user: dict = Depends(requi
             raise HTTPException(404, "Site not found")
 
         name = site.name if site.name is not None else existing["name"]
-        current_monitor_type = existing["monitor_type"] or "http"
+        monitor_type = site.monitor_type.lower() if site.monitor_type is not None else (existing["monitor_type"] or "http")
         url = (
-            _normalize_and_validate_url(site.url, current_monitor_type)
+            _normalize_and_validate_url(site.url, monitor_type)
             if site.url is not None
             else existing["url"]
         )
@@ -274,10 +279,11 @@ async def update_site(site_id: int, site: SiteUpdate, user: dict = Depends(requi
             if site.notify_methods is not None
             else existing["notify_methods"]
         )
+        keyword = site.keyword if site.keyword is not None else existing["keyword"]
 
         await conn.execute(
-            "UPDATE sites SET name = ?, url = ?, check_interval = ?, is_active = ?, notify_methods = ? WHERE id = ?",
-            (name, url, check_interval, is_active, notify_methods, site_id),
+            "UPDATE sites SET name = ?, url = ?, check_interval = ?, is_active = ?, notify_methods = ?, monitor_type = ?, keyword = ? WHERE id = ?",
+            (name, url, check_interval, is_active, notify_methods, monitor_type, keyword, site_id),
         )
         await conn.commit()
     return {"message": "Updated"}
@@ -550,3 +556,127 @@ async def delete_user_api(username: str, current_user: dict = Depends(require_ad
         return {"message": f"User '{username}' deleted"}
     else:
         raise HTTPException(status_code=400, detail=error_message)
+
+
+class MaintenanceWindowCreate(BaseModel):
+    name: str
+    site_id: Optional[int] = None
+    rule_type: str = "one_off"
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    day_of_week: Optional[int] = None
+    start_hour_minute: Optional[str] = None
+    duration_minutes: Optional[int] = None
+
+class MaintenanceWindowToggle(BaseModel):
+    is_active: bool
+
+
+@router.get("/maintenance-windows")
+async def get_maint_windows(user: dict = Depends(require_viewer_or_higher)):
+    return await models.get_maintenance_windows(DB_PATH)
+
+
+@router.post("/maintenance-windows")
+async def create_maint_window(window: MaintenanceWindowCreate, user: dict = Depends(require_admin)):
+    window_id = await models.add_maintenance_window(
+        DB_PATH,
+        name=window.name,
+        site_id=window.site_id,
+        rule_type=window.rule_type,
+        start_time=window.start_time,
+        end_time=window.end_time,
+        day_of_week=window.day_of_week,
+        start_hour_minute=window.start_hour_minute,
+        duration_minutes=window.duration_minutes,
+    )
+    return {"id": window_id, "message": "Maintenance window added"}
+
+
+@router.delete("/maintenance-windows/{window_id}")
+async def delete_maint_window(window_id: int, user: dict = Depends(require_admin)):
+    await models.delete_maintenance_window(DB_PATH, window_id)
+    return {"message": "Maintenance window deleted"}
+
+
+@router.put("/maintenance-windows/{window_id}/toggle")
+async def toggle_maint_window(window_id: int, toggle: MaintenanceWindowToggle, user: dict = Depends(require_admin)):
+    await models.toggle_maintenance_window(DB_PATH, window_id, toggle.is_active)
+    return {"message": "Toggled"}
+
+
+@router.get("/reports/sla")
+async def get_sla_report(days: int = 7, user: dict = Depends(require_viewer_or_higher)):
+    async with get_db_connection() as conn:
+        async with conn.execute("SELECT id, name, url FROM sites") as c:
+            sites_raw = await c.fetchall()
+            sites = [dict(s) for s in sites_raw]
+            
+        report = []
+        for s in sites:
+            sid = s["id"]
+            async with conn.execute(
+                """SELECT 
+                    COUNT(*) as total,
+                    SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count,
+                    AVG(response_time) as avg_rt
+                  FROM status_history 
+                  WHERE site_id = ? AND checked_at >= datetime('now', ?)""",
+                (sid, f"-{days} days")
+            ) as c:
+                stats = await c.fetchone()
+            
+            async with conn.execute(
+                """SELECT COUNT(*) FROM status_history 
+                   WHERE site_id = ? AND status IN ('down', 'slow') AND checked_at >= datetime('now', ?)""",
+                (sid, f"-{days} days")
+            ) as c:
+                incidents = (await c.fetchone())[0]
+                
+            total = stats["total"] or 0
+            up_count = stats["up_count"] or 0
+            uptime = (up_count / total * 100) if total > 0 else 100.0
+            avg_rt = stats["avg_rt"] or 0
+            
+            report.append({
+                "id": sid,
+                "name": s["name"],
+                "url": s["url"],
+                "uptime": round(uptime, 2),
+                "avg_response_time": round(avg_rt, 1),
+                "total_checks": total,
+                "incidents": incidents
+            })
+        return report
+
+
+@router.get("/reports/sla/export")
+async def export_sla_report(days: int = 7, user: dict = Depends(require_viewer_or_higher)):
+    import csv
+    import io
+    from fastapi.responses import StreamingResponse
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["ID", "Name", "URL", "Uptime %", "Avg Response Time (ms)", "Total Checks", "Incidents"])
+    
+    report = await get_sla_report(days, user)
+    for item in report:
+        writer.writerow([
+            item["id"],
+            item["name"],
+            item["url"],
+            f"{item['uptime']}%",
+            item["avg_response_time"],
+            item["total_checks"],
+            item["incidents"]
+        ])
+        
+    output.seek(0)
+    
+    response = StreamingResponse(
+        io.StringIO(output.getvalue()),
+        media_type="text/csv"
+    )
+    response.headers["Content-Disposition"] = f"attachment; filename=sla_report_{days}days.csv"
+    return response

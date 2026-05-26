@@ -434,6 +434,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                     <option value="discord">🎮 Discord</option>
                     <option value="teams">🏢 MS Teams</option>
                     <option value="email">📧 Email</option>
+                    <option value="webhook">🔗 Webhook</option>
                 </select>
             </div>
             <div class="modal-field" style="margin-top: 16px;">
@@ -1487,6 +1488,7 @@ def get_notification_cards_html(config):
         ("discord", "🎮", "Discord", "Геймерські спільноти"),
         ("teams", "🏢", "MS Teams", "Робочі групи"),
         ("email", "📧", "Email", "Електронна пошта"),
+        ("webhook", "🔗", "Custom Webhooks", "Кастомні HTTP POST запити"),
     ]
 
     html = ""
