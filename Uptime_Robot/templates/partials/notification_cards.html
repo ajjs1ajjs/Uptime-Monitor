@@ -4,6 +4,9 @@
     ("teams", "🏢", "MS Teams", "Робочі групи"),
     ("email", "📧", "Email", "Електронна пошта"),
     ("webhook", "🔗", "Custom Webhooks", "Кастомні HTTP POST запити"),
+    ("pushover", "🔔", "Pushover", "Push-сповіщення на телефон"),
+    ("gotify", "📨", "Gotify", "Self-hosted push сервер"),
+    ("ntfy", "📬", "ntfy.sh", "Простий push-сервіс"),
 ] %}
 
 {% for key, icon, name, desc in methods %}
@@ -43,6 +46,15 @@
             <input type="hidden" id="{{ key }}_{{ ch_id }}_username" value="{{ ch.get("username", "") }}">
             <input type="hidden" id="{{ key }}_{{ ch_id }}_password" value="{{ ch.get("password", "") }}">
             <input type="hidden" id="{{ key }}_{{ ch_id }}_to_email" value="{{ ch.get("to_email", "") }}">
+        {% elif key == "pushover" %}
+            <input type="hidden" id="{{ key }}_{{ ch_id }}_user_key" value="{{ ch.get("user_key", "") }}">
+            <input type="hidden" id="{{ key }}_{{ ch_id }}_token" value="{{ ch.get("token", "") }}">
+        {% elif key == "gotify" %}
+            <input type="hidden" id="{{ key }}_{{ ch_id }}_server_url" value="{{ ch.get("server_url", "") }}">
+            <input type="hidden" id="{{ key }}_{{ ch_id }}_token" value="{{ ch.get("token", "") }}">
+        {% elif key == "ntfy" %}
+            <input type="hidden" id="{{ key }}_{{ ch_id }}_topic" value="{{ ch.get("topic", "") }}">
+            <input type="hidden" id="{{ key }}_{{ ch_id }}_server_url" value="{{ ch.get("server_url", "") }}">
         {% else %}
             <input type="hidden" id="{{ key }}_{{ ch_id }}_webhook_url" value="{{ ch.get("webhook_url", "") }}">
         {% endif %}
