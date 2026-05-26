@@ -236,14 +236,21 @@ if [ -f "$PROJECT_ROOT/pyproject.toml" ]; then cp "$PROJECT_ROOT/pyproject.toml"
 if [ -f "$PROJECT_ROOT/Dockerfile" ]; then cp "$PROJECT_ROOT/Dockerfile" "$INSTALL_DIR/" 2>/dev/null || true; fi
 if [ -f "$PROJECT_ROOT/docker-compose.yml" ]; then cp "$PROJECT_ROOT/docker-compose.yml" "$INSTALL_DIR/" 2>/dev/null || true; fi
 
-# Copy templates and static from the same location (fallback to SRC_DIR)
-for d in templates static scripts; do
+# Copy templates and static
+for d in templates static; do
     if [ -d "$SRC_DIR/$d" ]; then
         cp -r "$SRC_DIR/$d" "$INSTALL_DIR/"
     elif [ -d "$PROJECT_ROOT/$d" ]; then
         cp -r "$PROJECT_ROOT/$d" "$INSTALL_DIR/"
     fi
 done
+
+# Copy scripts to top-level (references like $INSTALL_DIR/scripts/backup.sh)
+if [ -d "$SRC_DIR/scripts" ]; then
+    cp -r "$SRC_DIR/scripts" "$INSTALL_DIR/"
+    chmod +x "$INSTALL_DIR/scripts/"*.sh 2>/dev/null || true
+    chmod +x "$INSTALL_DIR/scripts/"*.py 2>/dev/null || true
+fi
 
 # Copy requirements (prefer Linux-specific file on Linux)
 if [ -f "$SRC_DIR/requirements-linux.txt" ]; then
@@ -252,7 +259,6 @@ elif [ -f "$PROJECT_ROOT/requirements-linux.txt" ]; then
     cp "$PROJECT_ROOT/requirements-linux.txt" "$INSTALL_DIR/requirements.txt"
 elif [ -f "$PROJECT_ROOT/requirements.txt" ]; then
     cp "$PROJECT_ROOT/requirements.txt" "$INSTALL_DIR/"
-fi
 elif [ -f "$SRC_DIR/requirements.txt" ]; then
     cp "$SRC_DIR/requirements.txt" "$INSTALL_DIR/"
     # Remove Windows-specific packages on Linux
@@ -323,14 +329,6 @@ fi
 # Create SSL directory
 mkdir -p "$CONFIG_DIR/ssl"
 mkdir -p "$CONFIG_DIR/config.backups"
-
-# Copy scripts
-echo -e "${BLUE}Installing management scripts...${NC}"
-if [ -d "$SRC_DIR/scripts" ]; then
-    cp -r "$SRC_DIR/scripts" "$INSTALL_DIR/"
-    chmod +x "$INSTALL_DIR/scripts/"*.sh 2>/dev/null || true
-    chmod +x "$INSTALL_DIR/scripts/"*.py 2>/dev/null || true
-fi
 
 # Create default backup directory
 echo -e "${BLUE}Creating backup directories...${NC}"
