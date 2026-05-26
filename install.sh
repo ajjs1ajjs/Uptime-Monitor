@@ -130,7 +130,7 @@ case "$OS_NAME" in
         wait_for_apt
         
         # Try running apt-get update with retries
-        local success=false
+        success=false
         for i in {1..5}; do
             if apt-get update -qq; then
                 success=true
