@@ -91,7 +91,7 @@ sudo systemctl зупинити безперебійну роботу
 sudo wget -O main.py "https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/Uptime_Robot/main.py"
 sudo wget -O models.py "https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/Uptime_Robot/models.py"
 sudo wget -O monitoring.py "https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/Uptime_Robot/monitoring.py"
-sudo wget -O ui_templates.py "https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/Uptime_Robot/ui_templates.py"
+# ui_templates.py removed in v2.0.1 — replaced by Jinja2 templates in templates/
 sudo systemctl запускає монітор безперебійної роботи
 
 Перевірити після оновлення:

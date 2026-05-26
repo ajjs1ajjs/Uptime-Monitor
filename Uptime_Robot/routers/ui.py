@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from .. import ui_templates
 from ..database import get_db_connection
 from ..dependencies import get_current_user, require_admin
 from ..state import NOTIFY_SETTINGS, CONFIG
@@ -182,7 +181,10 @@ async def dashboard(request: Request, user: dict = Depends(get_current_user)):
             row = await c.fetchone()
             down_sites = row[0]
 
-    notification_cards = ui_templates.get_notification_cards_html(NOTIFY_SETTINGS)
+    notify_cards_template = templates.get_template("partials/notification_cards.html")
+    notification_cards = notify_cards_template.render({
+        "request": request, "notify_settings": NOTIFY_SETTINGS
+    })
     notify_config_json = json.dumps(NOTIFY_SETTINGS)
 
     return templates.TemplateResponse(request, "dashboard.html", {

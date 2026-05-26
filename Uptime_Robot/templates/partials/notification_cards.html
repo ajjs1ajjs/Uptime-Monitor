@@ -1,0 +1,54 @@
+{% set methods = [
+    ("telegram", "📱", "Telegram", "Миттєві сповіщення"),
+    ("discord", "🎮", "Discord", "Геймерські спільноти"),
+    ("teams", "🏢", "MS Teams", "Робочі групи"),
+    ("email", "📧", "Email", "Електронна пошта"),
+    ("webhook", "🔗", "Custom Webhooks", "Кастомні HTTP POST запити"),
+] %}
+
+{% for key, icon, name, desc in methods %}
+{% set enabled = notify_settings.get(key, {}).get("enabled", false) %}
+{% set channels = notify_settings.get(key, {}).get("channels", []) %}
+<div class="gradient-card rounded-xl p-5 border {{ 'border-emerald-500/40' if enabled else 'border-slate-700/30' }} transition" id="card-{{ key }}" style="border-color: {{ 'rgba(16,185,129,0.4)' if enabled else 'rgba(148,163,184,0.1)' }};">
+    <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-3">
+            <span class="text-2xl">{{ icon }}</span>
+            <div>
+                <div class="font-semibold text-sm">{{ name }}</div>
+                <div class="text-xs text-slate-400">{{ desc }}</div>
+            </div>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="toggle-{{ key }}" class="sr-only peer" onchange="toggleNotify('{{ key }}')" {{ 'checked' if enabled else '' }}>
+            <div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-accent peer-focus:ring-1 peer-focus:ring-accent transition after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+        </label>
+    </div>
+    <div id="channels-{{ key }}" class="mb-3">
+    {% for ch in channels %}
+        {% set ch_id = ch.get("id", "") %}
+        {% set ch_name = ch.get("name", "Channel") %}
+        {% set border_cls = "border-emerald-500/30" if enabled else "border-slate-700/30" %}
+        <div class="p-3 rounded-lg bg-slate-800/50 border {{ border_cls }} mb-2" id="ch_{{ ch_id }}">
+            <div class="flex justify-between items-center mb-1">
+                <span class="text-sm font-medium">{{ icon }} {{ ch_name }}</span>
+                <button onclick="removeChannel('{{ key }}','{{ ch_id }}')" class="text-red-400 hover:text-red-300 text-xs transition">✕</button>
+            </div>
+            <input type="hidden" id="{{ key }}_{{ ch_id }}_name" value="{{ ch_name }}">
+        {% if key == "telegram" %}
+            <input type="hidden" id="{{ key }}_{{ ch_id }}_token" value="{{ ch.get("token", "") }}">
+            <input type="hidden" id="{{ key }}_{{ ch_id }}_chat_id" value="{{ ch.get("chat_id", "") }}">
+        {% elif key == "email" %}
+            <input type="hidden" id="{{ key }}_{{ ch_id }}_smtp_server" value="{{ ch.get("smtp_server", "") }}">
+            <input type="hidden" id="{{ key }}_{{ ch_id }}_smtp_port" value="{{ ch.get("smtp_port", 587) }}">
+            <input type="hidden" id="{{ key }}_{{ ch_id }}_username" value="{{ ch.get("username", "") }}">
+            <input type="hidden" id="{{ key }}_{{ ch_id }}_password" value="{{ ch.get("password", "") }}">
+            <input type="hidden" id="{{ key }}_{{ ch_id }}_to_email" value="{{ ch.get("to_email", "") }}">
+        {% else %}
+            <input type="hidden" id="{{ key }}_{{ ch_id }}_webhook_url" value="{{ ch.get("webhook_url", "") }}">
+        {% endif %}
+        </div>
+    {% endfor %}
+    </div>
+    <button onclick="openAddChannelModal('{{ key }}')" class="w-full py-2.5 rounded-lg border border-dashed border-slate-600 text-slate-400 hover:border-accent hover:text-accent transition text-xs font-medium bg-transparent">➕ Add Channel</button>
+</div>
+{% endfor %}
