@@ -6,12 +6,8 @@ from datetime import datetime
 
 import uvicorn
 
-try:
-    from . import main as app_main
-    from . import state as app_state
-except ImportError:
-    import main as app_main
-    import state as app_state
+from . import main as app_main
+from . import state as app_state
 
 
 IS_WINDOWS = sys.platform == "win32"
@@ -29,8 +25,10 @@ else:
 
 app = app_main.app
 DB_PATH = app_main.DB_PATH
-SERVER_HOST = app_main.SERVER_HOST
 DEFAULT_PORT = app_main.DEFAULT_PORT
+
+def get_server_host():
+    return app_main.get_default_host()
 
 
 if IS_WINDOWS:
@@ -84,7 +82,7 @@ if IS_WINDOWS:
                 ssl_context = app_main.config_manager.setup_ssl(app_main.CONFIG)
                 config = uvicorn.Config(
                     app,
-                    host=app_main.SERVER_HOST,
+                    host=get_server_host(),
                     port=app_main.DEFAULT_PORT,
                     ssl_keyfile=app_main.CONFIG["ssl"].get("key_path") if ssl_context else None,
                     ssl_certfile=app_main.CONFIG["ssl"].get("cert_path") if ssl_context else None,
@@ -103,9 +101,9 @@ if IS_WINDOWS:
                     with open(error_log_path, "a", encoding="utf-8") as f:
                         f.write(f"[{datetime.now().isoformat()}] Service runtime error\n")
                         f.write(err + "\n")
-                except: pass
+                except Exception: pass
                 try: servicemanager.LogErrorMsg(err)
-                except: pass
+                except Exception: pass
             finally:
                 self.ReportServiceStatus(win32service.SERVICE_STOPPED)
 

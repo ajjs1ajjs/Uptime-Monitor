@@ -4,10 +4,7 @@ import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-try:
-    from .database import get_db_connection
-except ImportError:
-    from database import get_db_connection
+from .database import get_db_connection
 
 
 async def init_database(db_path: str):

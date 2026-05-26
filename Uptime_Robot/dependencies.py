@@ -1,10 +1,6 @@
 from fastapi import Depends, HTTPException, Request
-try:
-    from . import auth_module
-    from .state import DB_PATH
-except ImportError:
-    import auth_module
-    from state import DB_PATH
+from . import auth_module
+from .state import DB_PATH
 
 async def get_current_user(request: Request):
     session_id = request.cookies.get("session_id")

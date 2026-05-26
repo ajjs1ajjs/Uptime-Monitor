@@ -7,16 +7,10 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-try:
-    from .. import ui_templates
-    from ..database import get_db_connection
-    from ..dependencies import get_current_user, require_admin
-    from ..state import NOTIFY_SETTINGS, CONFIG
-except ImportError:
-    import ui_templates
-    from database import get_db_connection
-    from dependencies import get_current_user, require_admin
-    from state import NOTIFY_SETTINGS, CONFIG
+from .. import ui_templates
+from ..database import get_db_connection
+from ..dependencies import get_current_user, require_admin
+from ..state import NOTIFY_SETTINGS, CONFIG
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -50,7 +44,7 @@ def _monitor_card_html(site: dict) -> str:
     uptime = site.get("uptime", 100)
     if isinstance(uptime, str):
         try: uptime = float(uptime)
-        except: uptime = 100.0
+        except Exception: uptime = 100.0
     name = (site.get("name") or "").replace("'", "\\'")
     url = (site.get("url") or "").replace("'", "\\'")
     sid = site.get("id", 0)

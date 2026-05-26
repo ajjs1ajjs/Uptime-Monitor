@@ -3,22 +3,10 @@ import json
 import os
 import sys
 
-# Add current folder to path to support imports when run directly or in other environments
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-# Now import local modules (supporting both flat and package/relative environments)
-try:
-    from . import models, monitoring, config_manager
-    from . import state as app_state
-    from .database import get_db_connection
-    from .logger import logger
-except ImportError:
-    import models
-    import monitoring
-    import config_manager
-    import state as app_state
-    from database import get_db_connection
-    from logger import logger
+from . import models, monitoring, config_manager
+from . import state as app_state
+from .database import get_db_connection
+from .logger import logger
 
 DB_PATH = app_state.DB_PATH
 NOTIFY_SETTINGS = app_state.NOTIFY_SETTINGS

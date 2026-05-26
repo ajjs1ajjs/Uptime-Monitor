@@ -1,7 +1,4 @@
-try:
-    from . import config_manager
-except ImportError:
-    import config_manager
+from . import config_manager
 
 # Avoid circular imports by hosting global dynamic states here
 config_manager.init_paths()

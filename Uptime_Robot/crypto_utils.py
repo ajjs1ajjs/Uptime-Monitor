@@ -8,10 +8,7 @@ except ImportError:
     Fernet = None
     InvalidToken = None
 
-try:
-    from .logger import logger
-except ImportError:
-    from logger import logger
+from .logger import logger
 
 MASTER_KEY_FILE = "master.key"
 _FERNET_INSTANCE = None

@@ -5,12 +5,8 @@ import ssl as ssl_module
 import sys
 from datetime import datetime
 
-try:
-    from .logger import logger
-    from .crypto_utils import decrypt_config_sensitive, encrypt_config_sensitive, init_crypto
-except ImportError:
-    from logger import logger
-    from crypto_utils import decrypt_config_sensitive, encrypt_config_sensitive, init_crypto
+from .logger import logger
+from .crypto_utils import decrypt_config_sensitive, encrypt_config_sensitive, init_crypto
 
 # Windows-specific imports (only on Windows)
 IS_WINDOWS = sys.platform == "win32"

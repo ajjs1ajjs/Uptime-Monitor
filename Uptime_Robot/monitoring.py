@@ -7,16 +7,11 @@ from typing import Any, Dict, List, Optional
 
 import aiohttp
 
-try:
-    from .config_manager import load_config
-    from .database import get_db_connection
-    from .logger import logger
-    from .ssl_checker import check_ssl_certificate
-except ImportError:
-    from config_manager import load_config
-    from database import get_db_connection
-    from logger import logger
-    from ssl_checker import check_ssl_certificate
+from .config_manager import load_config
+from .database import get_db_connection
+from .logger import logger
+from .notifications import send_notification
+from .ssl_checker import check_ssl_certificate
 
 # Чутливий профіль (конфігуровані значення з fallback)
 SENSITIVE_DEFAULTS = {
@@ -168,11 +163,6 @@ async def check_site_status(
     site_id: int, url: str, notify_methods: List[str], notify_settings: Dict[str, Any]
 ):
     """Перевіряє статус сайту та відправляє сповіщення"""
-    try:
-        from .notifications import send_notification
-    except ImportError:
-        from notifications import send_notification
-
     start_time = datetime.now()
     status = "down"
     status_code = None
@@ -254,7 +244,7 @@ async def check_site_status(
             writer.close()
             try:
                 await writer.wait_closed()
-            except:
+            except Exception:
                 pass
             status = "up"
             response_time = (datetime.now() - start_time).total_seconds() * 1000
@@ -433,11 +423,6 @@ async def check_site_certificate(
     site_id: int, url: str, notify_methods: List[str], notify_settings: Dict[str, Any]
 ):
     """Перевіряє SSL сертифікат сайту"""
-    try:
-        from .notifications import send_notification
-    except ImportError:
-        from notifications import send_notification
-
     # Тільки для HTTPS
     if not url.lower().startswith("https://"):
         # Спробуємо нормалізувати

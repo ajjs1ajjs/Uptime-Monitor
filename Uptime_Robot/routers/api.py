@@ -7,18 +7,11 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-try:
-    from .. import auth_module, models, monitoring
-    from ..database import get_db_connection
-    from ..dependencies import require_admin, require_viewer_or_higher, get_current_user
-    from ..state import DB_PATH
-    from .. import state as app_state
-except ImportError:
-    import auth_module, models, monitoring
-    from database import get_db_connection
-    from dependencies import require_admin, require_viewer_or_higher, get_current_user
-    from state import DB_PATH
-    import state as app_state
+from .. import auth_module, models, monitoring
+from ..database import get_db_connection
+from ..dependencies import require_admin, require_viewer_or_higher, get_current_user
+from ..state import DB_PATH
+from .. import state as app_state
 
 router = APIRouter(prefix="/api")
 
@@ -448,7 +441,7 @@ async def get_incidents(user: dict = Depends(require_viewer_or_higher)):
                                 duration_found = f"{int(hours)}год {int(mins)}хв"
                             else:
                                 duration_found = f"{int(mins)}хв"
-                        except:
+                        except Exception:
                             duration_found = None
                         break
 

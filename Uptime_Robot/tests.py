@@ -366,7 +366,7 @@ class TestApiSmoke:
             for p in patchers:
                 try:
                     p.stop()
-                except:
+                except Exception:
                     pass
             monitoring.check_site_status = original_check_site_status
             monitoring.check_site_certificate = original_check_site_certificate

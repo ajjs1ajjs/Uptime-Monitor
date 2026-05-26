@@ -3,10 +3,7 @@ import socket
 from datetime import datetime
 from urllib.parse import urlparse
 
-try:
-    from .logger import logger
-except ImportError:
-    from logger import logger
+from .logger import logger
 
 async def check_ssl_certificate(url: str):
     """Перевіряє SSL сертифікат сайту"""

@@ -7,16 +7,10 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-try:
-    from .. import auth_module
-    from ..database import get_db_connection
-    from ..dependencies import get_current_user, require_admin
-    from ..state import DB_PATH
-except ImportError:
-    import auth_module
-    from database import get_db_connection
-    from dependencies import get_current_user, require_admin
-    from state import DB_PATH
+from .. import auth_module
+from ..database import get_db_connection
+from ..dependencies import get_current_user, require_admin
+from ..state import DB_PATH
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))

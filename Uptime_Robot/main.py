@@ -11,21 +11,11 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-try:
-    from . import auth_module, config_manager, models, monitoring
-    from . import state as app_state
-    from .database import get_db_connection
-    from .logger import logger
-    from .routers import api, auth, ui
-except ImportError:
-    import auth_module
-    import config_manager
-    import models
-    import monitoring
-    import state as app_state
-    from database import get_db_connection
-    from logger import logger
-    from routers import api, auth, ui
+from . import auth_module, config_manager, models, monitoring
+from . import state as app_state
+from .database import get_db_connection
+from .logger import logger
+from .routers import api, auth, ui
 
 IS_WINDOWS = sys.platform == "win32"
 if IS_WINDOWS:

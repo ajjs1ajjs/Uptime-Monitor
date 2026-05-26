@@ -10,10 +10,7 @@ from typing import Optional
 def get_db_path() -> str:
     """Отримує шлях до БД з config_manager або з директорії застосунку."""
     try:
-        try:
-            from . import config_manager
-        except ImportError:
-            import config_manager
+        from . import config_manager
 
         if config_manager.DB_PATH:
             return config_manager.DB_PATH

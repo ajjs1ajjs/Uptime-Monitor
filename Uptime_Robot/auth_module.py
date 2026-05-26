@@ -2,12 +2,8 @@ import secrets
 from datetime import datetime, timedelta
 import bcrypt
 
-try:
-    from .database import get_db_connection
-    from .logger import logger
-except ImportError:
-    from database import get_db_connection
-    from logger import logger
+from .database import get_db_connection
+from .logger import logger
 
 
 async def init_auth_tables(db_path):
