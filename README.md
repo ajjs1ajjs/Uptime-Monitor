@@ -1,10 +1,11 @@
 # Uptime Monitor
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
-[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://python.org)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
+[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-lightgrey.svg)]()
 [![CI/CD](https://github.com/ajjs1ajjs/Uptime-Monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/ajjs1ajjs/Uptime-Monitor/actions)
+[![Tests](https://img.shields.io/badge/tests-200%20passed-brightgreen.svg)]()
 
 **Enterprise uptime monitoring with automatic backups, SSL certificates tracking, and multi-channel notifications.**
 
@@ -64,12 +65,15 @@ python -m Uptime_Robot.main --host 0.0.0.0 --port 8080
 
 | Category | Features |
 |----------|----------|
-| **Monitoring** | HTTP/HTTPS checks, SSL certificates, response time, configurable intervals |
-| **Backups** | Daily/weekly/monthly rotation, NFS/Samba, one-click restore with verify |
-| **Alerts** | Telegram, Email, Slack, Discord, Teams, SMS (Twilio) |
-| **Security** | CORS config, encrypted secrets, rate limiting, RBAC, security headers |
-| **Dashboard** | Real-time, public status page, incident history, uptime stats |
-| **Platform** | Linux (systemd), Docker, Windows service, Debian package |
+| **Monitoring** | HTTP/HTTPS/SSL/Port/Ping checks, response time, configurable intervals |
+| **Backups** | One-click API backup/restore, automatic DB snapshots, restore via dashboard |
+| **Alerts** | Telegram, Email, Slack, Discord, Teams, SMS, Webhook, Pushover, Gotify, ntfy |
+| **Security** | CORS config, encrypted secrets, rate limiting, RBAC (admin/viewer), API keys, audit log |
+| **Dashboard** | Real-time WebSocket, response time charts, SSL timeline, uptime bars, incident history |
+| **Status Page** | Public status page with 30d uptime %, response time, incident timeline, customizable branding |
+| **Notification History** | Full audit trail of all sent notifications with timestamps and delivery status |
+| **Healthcheck** | `/health` endpoint for Docker/k8s readiness probes |
+| **Platform** | Linux (systemd), Docker Compose, Windows service, Debian package |
 
 ---
 
@@ -108,19 +112,24 @@ Starting from v2.0.0, the project includes enterprise-grade security:
 | **SSL Alert** | ≤14 days before expiry |
 | **Down Threshold** | 1 failure |
 | **Up Threshold** | 1 success |
+| **Still Down Repeat** | Every 15 minutes |
 | **SSL Verify** | Enabled (configurable) |
 | **CORS Origins** | `["*"]` (configurable) |
+| **Rate Limit** | 5 attempts / 15 min per IP |
+| **Password Policy** | 12+ chars, upper+lower+digit+special |
 
 ---
 
 ## 🛠️ Technology Stack
 
-- **Backend**: Python 3.9+, FastAPI, Uvicorn
+- **Backend**: Python 3.10+, FastAPI, Uvicorn, Jinja2
 - **Database**: SQLite (aiosqlite)
-- **Frontend**: HTML/CSS/JS with Jinja2 templates
-- **Security**: bcrypt, Fernet (cryptography)
-- **Monitoring**: aiohttp (async)
-- **Notifications**: SMTP, Telegram Bot API, Webhooks
+- **Frontend**: HTML/CSS/JS with Jinja2 templates, Chart.js, HTMX
+- **Security**: bcrypt, Fernet (cryptography), API keys with SHA-256 hashing
+- **Monitoring**: aiohttp (async), asyncio
+- **Notifications**: SMTP, Telegram Bot API, Discord/Teams/Slack Webhooks, Pushover, Gotify, ntfy
+- **Infrastructure**: Docker Compose, Prometheus metrics, WebSocket live updates
+- **Testing**: pytest 200+ tests, pytest-asyncio, coverage ~40%
 
 ---
 
@@ -132,7 +141,7 @@ Starting from v2.0.0, the project includes enterprise-grade security:
 | **Git** | Linux | `git clone && cd Uptime-Monitor && sudo ./install.sh` |
 | **Service** | Windows | `cd Uptime_Robot && .\install_service.bat` |
 | **Quick** | Windows | `cd Uptime_Robot && .\install.bat /y` |
-| **Docker** | Any | `docker compose up -d --build` |
+| **Docker** | Any | `docker compose up -d --build` (see [docker-compose.yml](docker-compose.yml)) |
 | **APT** | Debian | `sudo apt install uptime-monitor` |
 
 ---

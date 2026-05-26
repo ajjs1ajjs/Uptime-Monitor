@@ -341,10 +341,12 @@ class NotificationService:
 
 
 async def send_notification(
-    message: Union[str, Dict], methods: List[str], notify_settings: Dict[str, Any]
+    message: Union[str, Dict], methods: List[str], notify_settings: Dict[str, Any],
+    site_id: Optional[int] = None, site_name: Optional[str] = None,
 ):
     """Відправляє сповіщення через вказані методи"""
     tasks = []
+    site_name_val = site_name or (message.get("site_name", "Unknown") if isinstance(message, dict) else "Unknown")
     for method in methods:
         method_config = notify_settings.get(method, {})
 
@@ -410,6 +412,18 @@ async def send_notification(
 
     if tasks:
         await asyncio.gather(*tasks, return_exceptions=True)
+
+    if site_id is not None:
+        try:
+            from . import models
+            from .state import DB_PATH
+            for method in methods:
+                await models.log_notification(
+                    DB_PATH, site_id, site_name_val, method,
+                    "sent", str(message)[:100],
+                )
+        except Exception:
+            pass
 
 
 async def send_telegram(message: Union[str, Dict], settings: Dict[str, Any]):

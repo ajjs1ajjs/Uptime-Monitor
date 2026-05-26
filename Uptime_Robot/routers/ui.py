@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
@@ -209,13 +209,54 @@ async def users_page(request: Request, user: dict = Depends(require_admin)):
 @router.get("/status", response_class=HTMLResponse)
 @router.get("/public-status", response_class=HTMLResponse)
 async def public_status_page(request: Request):
-    """Public status page."""
+    """Public status page with uptime %, response time, and incident history."""
     async with get_db_connection() as conn:
         async with conn.execute(
-            "SELECT id, name, url, monitor_type, status FROM sites WHERE is_active = 1 ORDER BY id"
+            "SELECT id, name, url, monitor_type, status, response_time FROM sites WHERE is_active = 1 ORDER BY id"
         ) as c:
             sites_raw = await c.fetchall()
             sites = [dict(s) for s in sites_raw]
+
+        cutoff_30d = (datetime.now() - timedelta(days=30)).isoformat()
+
+        incidents_raw = []
+        for s in sites:
+            sid = s["id"]
+            async with conn.execute(
+                "SELECT COUNT(*) as total, SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count "
+                "FROM status_history WHERE site_id = ? AND checked_at >= ?",
+                (sid, cutoff_30d)
+            ) as c:
+                row = await c.fetchone()
+                total_checks = row[0] or 0
+                up_checks = row[1] or 0
+                s["uptime_pct"] = round((up_checks / total_checks * 100) if total_checks > 0 else 100.0, 2)
+
+            async with conn.execute(
+                "SELECT status, response_time, checked_at FROM status_history "
+                "WHERE site_id = ? AND checked_at >= ? ORDER BY checked_at DESC LIMIT 1",
+                (sid, cutoff_30d)
+            ) as c:
+                last = await c.fetchone()
+                s["latest_response_time"] = round(last[1], 2) if last and last[1] is not None else None
+
+            async with conn.execute(
+                "SELECT checked_at FROM status_history "
+                "WHERE site_id = ? AND status = 'down' AND checked_at >= ? "
+                "ORDER BY checked_at DESC LIMIT 5",
+                (sid, cutoff_30d)
+            ) as c:
+                down_events = await c.fetchall()
+                for de in down_events:
+                    incidents_raw.append({
+                        "site_name": s["name"],
+                        "time": de[0][:19].replace("T", " "),
+                    })
+
+        thirty_day_uptime = 100.0
+        if sites:
+            total_up = sum(s["uptime_pct"] for s in sites)
+            thirty_day_uptime = round(total_up / len(sites), 2)
 
     def status_of(site_row: dict) -> str:
         value = site_row["status"]
@@ -239,7 +280,6 @@ async def public_status_page(request: Request):
 
     sites.sort(key=get_sort_order)
 
-    # Prep sites for template
     for s in sites:
         status = (s["status"] or "unknown").lower()
         if status == "up":
@@ -282,6 +322,8 @@ async def public_status_page(request: Request):
         "primary_color": PRIMARY_COLOR,
         "brand_accent_color": BRAND_ACCENT_COLOR,
         "display_address": DISPLAY_ADDRESS,
+        "thirty_day_uptime": thirty_day_uptime,
+        "incidents": sorted(incidents_raw, key=lambda x: x["time"], reverse=True)[:10],
     })
 
 

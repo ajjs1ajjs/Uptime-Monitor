@@ -259,7 +259,7 @@ async def check_site_status(
                         "checked_at": checked_at_iso,
                     }
 
-                await send_notification(msg, notify_methods, notify_settings)
+                await send_notification(msg, notify_methods, notify_settings, site_id, site_name)
                 last_down_alert = checked_at
 
         if status == "up":
@@ -280,7 +280,7 @@ async def check_site_status(
                     "response_time": response_time,
                     "checked_at": checked_at_iso,
                 }
-                await send_notification(msg, notify_methods, notify_settings)
+                await send_notification(msg, notify_methods, notify_settings, site_id, site_name)
                 last_down_alert = None
         else:
             if status != "down":
@@ -399,7 +399,7 @@ async def check_site_certificate(
                     "expire_date": expire_date,
                     "urgency": urgency,
                 }
-                await send_notification(msg, notify_methods, notify_settings)
+                await send_notification(msg, notify_methods, notify_settings, site_id, site_name)
 
                 await conn.execute(
                     "UPDATE ssl_certificates SET last_notified = ? WHERE site_id = ?",

@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import sqlite3
 from typing import List, Optional
 from datetime import datetime
@@ -756,3 +757,46 @@ async def get_audit_log_endpoint(limit: int = 200):
     """Get recent audit log entries (admin only)."""
     entries = await models.get_audit_log(DB_PATH, limit)
     return entries
+
+
+@router.get("/notification-history", dependencies=[Depends(require_admin)])
+async def get_notification_history_endpoint(limit: int = 100):
+    """Get notification history (admin only)."""
+    entries = await models.get_notification_history(DB_PATH, limit)
+    return entries
+
+
+@router.post("/backup", dependencies=[Depends(require_admin)])
+async def create_backup_endpoint():
+    """Create a DB backup (admin only)."""
+    from datetime import datetime
+    backup_dir = os.path.join(os.path.dirname(DB_PATH), "backups")
+    os.makedirs(backup_dir, exist_ok=True)
+    filename = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+    backup_path = os.path.join(backup_dir, filename)
+    result = await models.create_backup(DB_PATH, backup_path)
+    return result
+
+
+@router.get("/backups", dependencies=[Depends(require_admin)])
+async def list_backups_endpoint():
+    """List all backups (admin only)."""
+    result = await models.get_backups(DB_PATH)
+    return result
+
+
+@router.post("/backup/restore/{backup_id}", dependencies=[Depends(require_admin)])
+async def restore_backup_endpoint(backup_id: int):
+    """Restore a backup by ID (admin only)."""
+    backups = await models.get_backups(DB_PATH)
+    target = None
+    for b in backups:
+        if b["id"] == backup_id:
+            target = b
+            break
+    if not target:
+        raise HTTPException(status_code=404, detail="Backup not found")
+    import shutil
+    shutil.copy2(target["filepath"], DB_PATH)
+    await models.log_audit_event(DB_PATH, 0, "system", "backup_restored", "backup", str(backup_id), f"restored {target['filename']}")
+    return {"status": "restored", "backup": target["filename"]}

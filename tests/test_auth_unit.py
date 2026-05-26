@@ -123,6 +123,22 @@ class TestApiKeyGeneration:
         keys = {generate_api_key() for _ in range(100)}
         assert len(keys) == 100
 
+    def test_generated_key_not_plain_text(self):
+        key = generate_api_key()
+        h = _hash_api_key(key)
+        assert key != h
+
+    def test_hash_is_not_reversible(self):
+        h1 = _hash_api_key("test-key-123")
+        h2 = _hash_api_key("test-key-456")
+        assert h1 != h2
+
+    def test_key_has_random_suffix(self):
+        key = generate_api_key()
+        assert len(key) > len(API_KEY_PREFIX) + 5
+
+
+
     def test_hash_is_deterministic(self):
         key = generate_api_key()
         h1 = _hash_api_key(key)

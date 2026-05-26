@@ -82,3 +82,27 @@ class TestNormalizeAndValidateURL:
 
         with pytest.raises(Exception):
             _normalize_and_validate_url("", "http")
+
+    def test_invalid_url_raises(self):
+        from Uptime_Robot.routers.api import _normalize_and_validate_url
+
+        with pytest.raises(Exception):
+            _normalize_and_validate_url("not a url at all !!!", "http")
+
+    def test_ftp_url_rejected_for_http(self):
+        from Uptime_Robot.routers.api import _normalize_and_validate_url
+
+        with pytest.raises(Exception):
+            _normalize_and_validate_url("ftp://example.com", "http")
+
+    def test_http_scheme_added_automatically(self):
+        from Uptime_Robot.routers.api import _normalize_and_validate_url
+
+        url = _normalize_and_validate_url("example.com/path", "http")
+        assert url.startswith("http://")
+
+    def test_ip_address_accepted(self):
+        from Uptime_Robot.routers.api import _normalize_and_validate_url
+
+        url = _normalize_and_validate_url("192.168.1.1:8080", "http")
+        assert "192.168.1.1" in url

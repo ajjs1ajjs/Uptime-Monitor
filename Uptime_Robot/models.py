@@ -1,6 +1,7 @@
 """Модуль для роботи з базою даних"""
 
 import json
+import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -137,6 +138,25 @@ async def init_database(db_path: str):
 
         if "keyword" not in site_columns:
             await conn.execute("ALTER TABLE sites ADD COLUMN keyword TEXT DEFAULT NULL")
+
+        await conn.execute("""CREATE TABLE IF NOT EXISTS notification_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            site_id INTEGER,
+            site_name TEXT,
+            method TEXT,
+            status TEXT,
+            message_preview TEXT,
+            sent_at TEXT
+        )""")
+
+        await conn.execute("""CREATE TABLE IF NOT EXISTS backups (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            filename TEXT,
+            filepath TEXT,
+            size_bytes INTEGER,
+            site_count INTEGER,
+            created_at TEXT
+        )""")
 
         # Таблиця періодів обслуговування (Maintenance Windows)
         await conn.execute("""CREATE TABLE IF NOT EXISTS maintenance_windows (
@@ -448,6 +468,62 @@ async def get_audit_log(db_path: str, limit: int = 200) -> list:
     async with get_db_connection(db_path) as conn:
         async with conn.execute(
             "SELECT * FROM audit_log ORDER BY id DESC LIMIT ?", (limit,)
+        ) as c:
+            rows = await c.fetchall()
+            return [dict(row) for row in rows]
+
+
+async def log_notification(
+    db_path: str,
+    site_id: int,
+    site_name: str,
+    method: str,
+    status: str,
+    message_preview: str = "",
+):
+    """Log a sent notification."""
+    async with get_db_connection(db_path) as conn:
+        await conn.execute(
+            """INSERT INTO notification_history (site_id, site_name, method, status, message_preview, sent_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (site_id, site_name, method, status, (message_preview or "")[:200], datetime.now().isoformat()),
+        )
+        await conn.commit()
+
+
+async def get_notification_history(db_path: str, limit: int = 100) -> list:
+    """Get recent notification history."""
+    async with get_db_connection(db_path) as conn:
+        async with conn.execute(
+            "SELECT * FROM notification_history ORDER BY id DESC LIMIT ?", (limit,)
+        ) as c:
+            rows = await c.fetchall()
+            return [dict(row) for row in rows]
+
+
+async def create_backup(db_path: str, backup_path: str) -> dict:
+    """Create a backup of the database."""
+    import shutil
+    os.makedirs(os.path.dirname(backup_path), exist_ok=True)
+    shutil.copy2(db_path, backup_path)
+    async with get_db_connection(db_path) as conn:
+        async with conn.execute("SELECT COUNT(*) FROM sites") as c:
+            row = await c.fetchone()
+            site_count = row[0] if row else 0
+        await conn.execute(
+            """INSERT INTO backups (filename, filepath, size_bytes, site_count, created_at)
+               VALUES (?, ?, ?, ?, ?)""",
+            (os.path.basename(backup_path), backup_path, os.path.getsize(backup_path), site_count, datetime.now().isoformat()),
+        )
+        await conn.commit()
+    return {"filename": os.path.basename(backup_path), "path": backup_path, "site_count": site_count}
+
+
+async def get_backups(db_path: str) -> list:
+    """List all backups."""
+    async with get_db_connection(db_path) as conn:
+        async with conn.execute(
+            "SELECT * FROM backups ORDER BY id DESC LIMIT 20"
         ) as c:
             rows = await c.fetchall()
             return [dict(row) for row in rows]

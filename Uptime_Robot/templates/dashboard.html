@@ -32,6 +32,7 @@
         <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('incidents')">⚠️ Інциденти</button>
         <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('settings')">⚙️ Налаштування</button>
         <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('maintenance')">🛠️ Обслуговування</button>
+        <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('notifications')">🔔 Сповіщення</button>
     </div>
 </div>
 
@@ -235,6 +236,30 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+    </div>
+</div>
+
+<div id="tab-notifications" class="tab-content mt-6 px-4 md:px-8 hidden">
+    <div class="glass rounded-2xl p-6">
+        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">🔔 Історія сповіщень</h3>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-sm">
+                <thead>
+                    <tr class="border-b border-slate-700/50 text-slate-400">
+                        <th class="py-3 px-4">Час</th>
+                        <th class="py-3 px-4">Сайт</th>
+                        <th class="py-3 px-4">Метод</th>
+                        <th class="py-3 px-4">Статус</th>
+                        <th class="py-3 px-4">Повідомлення</th>
+                    </tr>
+                </thead>
+                <tbody id="notificationHistoryList" class="divide-y divide-slate-800/30">
+                    <tr>
+                        <td colspan="5" class="py-10 text-center text-slate-500">Завантаження...</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
@@ -797,6 +822,34 @@ function switchTab(tabId) {
     if (tabId === 'ssl') loadSSLCertificates();
     if (tabId === 'incidents') loadIncidents();
     if (tabId === 'maintenance') loadMaintenanceWindows();
+    if (tabId === 'notifications') loadNotificationsHistory();
+}
+
+async function loadNotificationsHistory() {
+    const tbody = document.getElementById('notificationHistoryList');
+    if (!tbody) return;
+    try {
+        const resp = await fetch('/api/notification-history');
+        const data = await resp.json();
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="py-10 text-center text-slate-500">Ще не було сповіщень.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.map(n => {
+            const methodIcons = {telegram:'📱', discord:'🎮', teams:'🏢', email:'📧', slack:'💬', sms:'📱', webhook:'🔗', pushover:'📲', gotify:'🔔', ntfy:'📡'};
+            const icon = methodIcons[n.method] || '🔔';
+            const time = (n.sent_at || '').substring(0, 19).replace('T', ' ');
+            const statusClass = n.status === 'sent' ? 'text-emerald-400' : 'text-red-400';
+            const preview = (n.message_preview || '').substring(0, 80);
+            return `<tr class="hover:bg-slate-800/30 transition">
+                <td class="py-3 px-4 text-xs text-slate-400">${time}</td>
+                <td class="py-3 px-4 text-sm">${n.site_name || '-'}</td>
+                <td class="py-3 px-4 text-sm">${icon} ${n.method}</td>
+                <td class="py-3 px-4 text-sm ${statusClass}">${n.status}</td>
+                <td class="py-3 px-4 text-xs text-slate-400 max-w-xs truncate">${preview}</td>
+            </tr>`;
+        }).join('');
+    } catch(e) { console.error(e); tbody.innerHTML = '<tr><td colspan="5" class="py-10 text-center text-red-400">Помилка завантаження</td></tr>'; }
 }
 
 async function addSite() {

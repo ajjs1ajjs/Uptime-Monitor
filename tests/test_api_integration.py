@@ -454,3 +454,56 @@ class TestRateLimiting:
         data = r.json()
         assert "timestamp" in data
         assert "iso" in data
+
+    def test_healthcheck_endpoint(self, client):
+        r = client.get("/health")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["status"] == "healthy"
+        assert "timestamp" in data
+
+    def test_notification_history_requires_auth(self, client):
+        r = client.get("/api/notification-history")
+        assert r.status_code == 401
+
+    def test_notification_history_admin_only(self, client, admin_headers):
+        r = client.get("/api/notification-history", headers=admin_headers)
+        assert r.status_code == 200
+        assert isinstance(r.json(), list)
+
+    def test_backup_requires_admin(self, client):
+        r = client.post("/api/backup")
+        assert r.status_code == 401
+
+    def test_backup_endpoint_admin(self, client, admin_headers):
+        r = client.post("/api/backup", headers=admin_headers)
+        assert r.status_code == 200
+        data = r.json()
+        assert "filename" in data
+        assert "path" in data
+
+    def test_list_backups_requires_admin(self, client):
+        r = client.get("/api/backups")
+        assert r.status_code == 401
+
+    def test_list_backups_admin(self, client, admin_headers):
+        r = client.get("/api/backups", headers=admin_headers)
+        assert r.status_code == 200
+        assert isinstance(r.json(), list)
+
+    def test_stats_response_time_requires_auth(self, client):
+        r = client.get("/api/stats/response-time")
+        assert r.status_code in (401, 403)
+
+    def test_public_status_page_html(self, client):
+        r = client.get("/status")
+        assert r.status_code == 200
+        assert "text/html" in r.headers.get("content-type", "")
+
+    def test_public_status_page_has_sites(self, client):
+        r = client.get("/status")
+        assert r.status_code == 200
+
+    def test_public_status_alternative_path(self, client):
+        r = client.get("/public-status")
+        assert r.status_code == 200

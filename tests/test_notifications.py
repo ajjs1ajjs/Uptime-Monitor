@@ -7,6 +7,7 @@ from Uptime_Robot.notifications import (
     format_telegram_message,
     format_discord_message,
     format_teams_message,
+    send_notification,
 )
 
 
@@ -227,3 +228,39 @@ class TestParseMessage:
         data = parse_message("")
         assert data["site_name"] == ""
         assert data["url"] == ""
+
+    def test_format_telegram_ssl_message(self):
+        from Uptime_Robot.notifications import format_telegram_message
+        ssl_data = SAMPLE_DATA.copy()
+        ssl_data["days_left"] = 3
+        ssl_data["expire_date"] = "2026-06-01"
+        ssl_data["urgency"] = "ВАЖЛИВО"
+        msg = format_telegram_message(ssl_data, "ssl")
+        assert isinstance(msg, str)
+        assert "3" in msg
+
+    @pytest.mark.asyncio
+    async def test_send_notification_empty_methods(self):
+        with patch("Uptime_Robot.notifications.send_telegram", AsyncMock()):
+            await send_notification({"alert_type": "down"}, [], {})
+            # Should not crash
+
+    @pytest.mark.asyncio
+    async def test_send_notification_no_enabled_methods(self):
+        with patch("Uptime_Robot.notifications.send_telegram", AsyncMock()):
+            await send_notification(
+                {"alert_type": "down"},
+                ["telegram"],
+                {"telegram": {"enabled": False}},
+            )
+            # Should not crash
+
+    @pytest.mark.asyncio
+    async def test_send_notification_single_channel(self):
+        with patch("Uptime_Robot.notifications.send_telegram", AsyncMock()) as mock:
+            await send_notification(
+                {"alert_type": "down"},
+                ["telegram"],
+                {"telegram": {"enabled": True, "channels": [{"token": "x", "chat_id": "y"}]}},
+            )
+            mock.assert_awaited_once()
