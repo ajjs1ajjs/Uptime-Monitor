@@ -249,13 +249,13 @@ jobs:
           
           ### Linux (CURL)
           \`\`\`bash
-          curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor-APP/main/install.sh | sudo bash
+          curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
           \`\`\`
           
           ### Linux (APT)
           \`\`\`bash
-          curl -fsSL https://ajjs1ajjs.github.io/Uptime-Monitor-APP/KEY.gpg | sudo gpg --dearmor -o /usr/share/keyrings/uptime-monitor.gpg
-          echo "deb [signed-by=/usr/share/keyrings/uptime-monitor.gpg] https://ajjs1ajjs.github.io/Uptime-Monitor-APP stable main" | sudo tee /etc/apt/sources.list.d/uptime-monitor.list
+          curl -fsSL https://ajjs1ajjs.github.io/Uptime-Monitor/KEY.gpg | sudo gpg --dearmor -o /usr/share/keyrings/uptime-monitor.gpg
+          echo "deb [signed-by=/usr/share/keyrings/uptime-monitor.gpg] https://ajjs1ajjs.github.io/Uptime-Monitor stable main" | sudo tee /etc/apt/sources.list.d/uptime-monitor.list
           sudo apt update && sudo apt install uptime-monitor
           \`\`\`
           
@@ -269,7 +269,7 @@ jobs:
           
           ## Default Credentials
           - Username: \`admin\`
-          - Password: \`admin\`
+          - Password: \`auto-generated (check terminal output or run sudo journalctl -u uptime-monitor -n 100)\`
           
           **Please change the password after first login!**
           EOF

@@ -170,7 +170,7 @@ http://localhost:8080
 ```
 
 Логін: `admin`  
-Пароль: `admin`
+Пароль: випадковий (генерується автоматично при першому запуску; див. у лог-файлі `C:\ProgramData\UptimeMonitor\uptime_monitor.log` або `%USERPROFILE%\UptimeMonitor\uptime_monitor.log`)
 
 ### Крок 6: Тест видалення
 

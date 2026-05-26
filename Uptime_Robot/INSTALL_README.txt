@@ -23,7 +23,7 @@ sudo journalctl -u uptime-monitor -n 80 --no-pager
 Доступ:
 - URL: http://<SERVER_IP>:8080
 - Логін: admin
-- Пароль: admin
+- Пароль: випадковий (генерується при встановленні та виводиться на екран; також можна переглянути в логах: sudo journalctl -u uptime-monitor -n 100)
 
 Важливо: змінити пароль після першого входу.
 
@@ -111,8 +111,8 @@ grep -n "Глобальні налаштування сповіщень" /opt/up
 Основна перевірка HTTP:
 curl -sS -o /dev/null -w "GET /login -> HTTP %{http_code}\n" http://127.0.0.1:8080/login
 
-Якщо admin/admin не працює:
-curl -X POST -d "ім'я користувача=адміністратор" http://127.0.0.1:8080/забули-пароль
+Якщо ви забули або не можете отримати пароль:
+sudo /opt/uptime-monitor/venv/bin/python /opt/uptime-monitor/auth_cli.py reset-password --password ВАШ_НОВИЙ_ПАРОЛЬ
 
 
 7) Troubleshooting

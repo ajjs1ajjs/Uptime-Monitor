@@ -55,63 +55,7 @@ def get_default_host():
     return "0.0.0.0"
 
 
-SERVER_HOST = "0.0.0.0" if DEFAULT_HOST == "auto" else DEFAULT_HOST
-
-# FastAPI app
-app = FastAPI(title="Uptime Monitor")
-
-# Static files (for PWA manifest, service worker, icons)
-BASE_DIR = Path(__file__).resolve().parent
-static_dir = BASE_DIR / "static"
-if static_dir.exists():
-    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
-
-# CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=CONFIG.get("cors", {}).get("allow_origins", ["*"]),
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
-    allow_headers=["Content-Type", "Authorization"],
-)
-
-# Add security headers middleware
-@app.middleware("http")
-async def add_security_headers(request: Request, call_next):
-    response = await call_next(request)
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    return response
-
-
-# Add cache-control middleware to prevent HTML caching
-@app.middleware("http")
-async def add_cache_control(request: Request, call_next):
-    response = await call_next(request)
-    if request.url.path in [
-        "/",
-        "/users",
-        "/status",
-        "/public-status",
-        "/login",
-        "/change-password",
-        "/forgot-password",
-    ]:
-        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
-    return response
-
-
-# Middleware for HTTPS redirect and HSTS
-@app.middleware("http")
-async def https_redirect_middleware(request: Request, call_next):
-    return await config_manager.https_redirect_middleware(request, call_next, CONFIG)
-
-
 from contextlib import asynccontextmanager
-
 
 # --- Initialization ---
 async def initialize_app_async():
@@ -172,6 +116,55 @@ async def lifespan(app: FastAPI):
 
 # FastAPI app
 app = FastAPI(title="Uptime Monitor", lifespan=lifespan)
+
+# Static files (for PWA manifest, service worker, icons)
+BASE_DIR = Path(__file__).resolve().parent
+static_dir = BASE_DIR / "static"
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CONFIG.get("cors", {}).get("allow_origins", ["*"]),
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Content-Type", "Authorization"],
+)
+
+# Add security headers middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
+
+# Add cache-control middleware to prevent HTML caching
+@app.middleware("http")
+async def add_cache_control(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path in [
+        "/",
+        "/users",
+        "/status",
+        "/public-status",
+        "/login",
+        "/change-password",
+        "/forgot-password",
+    ]:
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
+
+# Middleware for HTTPS redirect and HSTS
+@app.middleware("http")
+async def https_redirect_middleware(request: Request, call_next):
+    return await config_manager.https_redirect_middleware(request, call_next, CONFIG)
 
 
 @app.get("/health")
