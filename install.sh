@@ -224,7 +224,7 @@ else
 fi
 
 # Copy Python files
-for f in main.py worker.py state.py dependencies.py auth_module.py database.py logger.py models.py notifications.py monitoring.py ssl_checker.py config_manager.py ui_templates.py crypto_utils.py; do
+for f in main.py worker.py state.py dependencies.py auth_module.py database.py logger.py models.py notifications.py monitoring.py ssl_checker.py config_manager.py ui_templates.py crypto_utils.py auth_cli.py; do
     if [ -f "$SRC_DIR/$f" ]; then
         cp "$SRC_DIR/$f" "$INSTALL_DIR/"
     fi
@@ -477,7 +477,7 @@ if systemctl is-active --quiet $SERVICE_NAME; then
     if [ -n "$ADMIN_PASSWORD" ] && [ "${ADMIN_PASSWORD}" != "Password:" ]; then
         echo -e "    Password: ${GREEN}$ADMIN_PASSWORD${NC}"
     else
-        echo -e "    Password: ${GREEN}auto-generated${NC} (check 'journalctl -u $SERVICE_NAME | grep ADMIN')"
+        echo -e "    Password: ${GREEN}existing database detected${NC} (if forgotten, reset via: sudo $INSTALL_DIR/venv/bin/python $INSTALL_DIR/auth_cli.py reset-password --password YOUR_NEW_PASSWORD)"
     fi
     echo ""
     echo -e "  ${YELLOW}Please change the password after first login!${NC}"
