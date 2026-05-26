@@ -125,19 +125,19 @@ async def htmx_monitors(
             sites_raw = await c.fetchall()
             sites = [dict(s) for s in sites_raw]
 
-    for site in sites:
-        sid = site["id"]
-        async with conn.execute(
-            "SELECT status FROM status_history WHERE site_id = ? ORDER BY checked_at DESC LIMIT 1", (sid,)
-        ) as c:
-            last = await c.fetchone()
-        site["status"] = last["status"] if last else "unknown"
-        async with conn.execute(
-            "SELECT COUNT(*) as total, SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count FROM status_history WHERE site_id = ?", (sid,)
-        ) as c:
-            st = await c.fetchone()
-        site["uptime"] = round((st["up_count"] / st["total"] * 100), 1) if st and st["total"] > 0 else 100.0
-        site["notify_methods"] = json.loads(site.get("notify_methods") or "[]")
+        for site in sites:
+            sid = site["id"]
+            async with conn.execute(
+                "SELECT status FROM status_history WHERE site_id = ? ORDER BY checked_at DESC LIMIT 1", (sid,)
+            ) as c:
+                last = await c.fetchone()
+            site["status"] = last["status"] if last else "unknown"
+            async with conn.execute(
+                "SELECT COUNT(*) as total, SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count FROM status_history WHERE site_id = ?", (sid,)
+            ) as c:
+                st = await c.fetchone()
+            site["uptime"] = round((st["up_count"] / st["total"] * 100), 1) if st and st["total"] > 0 else 100.0
+            site["notify_methods"] = json.loads(site.get("notify_methods") or "[]")
 
     if search:
         search_lower = search.lower().strip()
