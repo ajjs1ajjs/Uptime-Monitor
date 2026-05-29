@@ -94,7 +94,9 @@
     {% block content %}{% endblock %}
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/static/sw.js').catch(function(err) {
+            navigator.serviceWorker.register('/static/sw.js').then(function(reg) {
+                reg.update();
+            }).catch(function(err) {
                 console.log('SW registration failed:', err);
             });
         }
