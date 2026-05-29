@@ -112,10 +112,6 @@
                 <input type="text" id="monitorSearch" name="search" placeholder="Search by name or URL..." data-i18n="search_placeholder" 
                        class="flex-1 px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:border-accent transition"
                        onkeyup="renderMonitors()">
-                <select id="tagFilter" name="tag" onchange="renderMonitors()"
-                         class="w-full sm:w-40 px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:border-accent transition">
-                    <option value="" data-i18n="all_tags">All tags</option>
-                </select>
                 <select id="monitorSort" name="sort" 
                         class="w-full sm:w-48 px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:border-accent transition"
                         onchange="renderMonitors()">
@@ -128,10 +124,10 @@
             <div id="dashboardMonitors"
                 class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
                 hx-get="/api/htmx/monitors"
-                hx-trigger="every 60s, load, keyup changed delay:300ms from:#monitorSearch, change from:#monitorSort, change from:#tagFilter"
+                hx-trigger="every 60s, load, keyup changed delay:300ms from:#monitorSearch, change from:#monitorSort"
                 hx-target="this"
                 hx-swap="innerHTML"
-                hx-include="#monitorSearch, #monitorSort, #tagFilter">
+                hx-include="#monitorSearch, #monitorSort">
                 <div class="col-span-full text-center py-10 text-slate-500">Завантаження моніторів...</div>
             </div>
         </div>
@@ -295,10 +291,6 @@
                 <input type="text" id="siteKeyword" placeholder="напр. Welcome, Success, або regex:^Welcome to .*$" data-i18n="keyword_lbl" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
             </div>
             <div class="mt-4">
-                <label class="text-slate-400 text-sm mb-1.5 block" data-i18n="tags_lbl">Теги (через кому, напр. prod, api, critical)</label>
-                <input type="text" id="siteTags" placeholder="prod, internal, web" data-i18n="tags_lbl" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
-            </div>
-            <div class="mt-4">
                 <label class="text-slate-400 text-sm mb-2 block" data-i18n="notifications_lbl">Способи сповіщень</label>
                 <div class="flex flex-wrap gap-3" id="siteNotifyOptions">
                     <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
@@ -411,7 +403,6 @@
             </div>
             <div>
                 <label class="text-slate-400 text-sm mb-1.5 block">Теги (через кому, напр. prod, api, critical)</label>
-                <input type="text" id="editSiteTags" placeholder="prod, internal, web" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
             </div>
             <div>
                 <label class="text-slate-400 text-sm mb-2 block">Сповіщення</label>
@@ -586,30 +577,7 @@ async function loadSites() {
                     filters.appendChild(btn);
                 }
             });
-        }
-        
-        // Update tag filter select options
-        const tagFilter = document.getElementById('tagFilter');
-        if (tagFilter) {
-            const lang = localStorage.getItem('lang') || 'uk';
-            const dict = i18n[lang] || i18n.uk;
-            const currentTag = tagFilter.value;
-            const allTags = new Set();
-            sitesData.forEach(s => {
-                if (Array.isArray(s.tags)) {
-                    s.tags.forEach(t => allTags.add(t));
-                }
-            });
-            const allTagsText = dict.all_tags || 'All tags';
-            tagFilter.innerHTML = `<option value="" data-i18n="all_tags">${allTagsText}</option>`;
-            const sortedTags = Array.from(allTags).sort();
-            sortedTags.forEach(t => {
-                const opt = document.createElement('option');
-                opt.value = t;
-                opt.textContent = t;
-                if (t === currentTag) opt.selected = true;
-                tagFilter.appendChild(opt);
-            });
+        });
         }
     } catch(e) { console.error(e); }
 }
@@ -765,11 +733,6 @@ function renderMonitors() {
     
     let filtered = currentFilter === 'all' ? sitesData : sitesData.filter(s => s.monitor_type === currentFilter);
     
-    const tagFilterVal = document.getElementById('tagFilter')?.value || '';
-    if (tagFilterVal) {
-        filtered = filtered.filter(s => Array.isArray(s.tags) && s.tags.includes(tagFilterVal));
-    }
-    
     if (searchQuery) {
         filtered = filtered.filter(s => 
             (s.name || '').toLowerCase().includes(searchQuery) || 
@@ -825,15 +788,6 @@ function renderMonitors() {
         const monitorType = site.monitor_type || 'http';
         const safeKeyword = encodeURIComponent(site.keyword || '');
         const keywordHtml = site.keyword ? `<div class="text-[11px] text-indigo-400 mt-1 flex items-center gap-1">🔑 Ключ: <span class="text-slate-300 font-mono">${site.keyword}</span></div>` : '';
-        
-        const tags = Array.isArray(site.tags) ? site.tags : [];
-        let tagsHtml = '';
-        if (tags.length > 0) {
-            tagsHtml = `<div class="flex gap-1 mt-1 flex-wrap">` +
-                tags.slice(0, 3).map(tag => `<span class="px-2 py-0.5 bg-slate-700/50 rounded-full text-[10px] text-slate-400">${tag}</span>`).join('') +
-                `</div>`;
-        }
-        const safeTags = encodeURIComponent(JSON.stringify(tags));
 
         let borderClass = 'border-red-500';
         if (statusClass === 'up') borderClass = 'border-emerald-500';
@@ -846,8 +800,7 @@ function renderMonitors() {
                     <div class="text-base font-semibold truncate" title="${safeName}">${site.name}</div>
                     <a href="${site.url}" target="_blank" class="text-xs text-slate-400 hover:text-accent hover:underline truncate mt-0.5 block" title="${safeUrl}">${site.url}</a>
                     ${keywordHtml}
-                    ${tagsHtml}
-                </div>
+                                    </div>
                 <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-accent/10 text-accent">${site.monitor_type}</span>
             </div>
             <div class="grid grid-cols-4 gap-2 py-3 border-y border-slate-700/30 text-center text-xs">
@@ -858,7 +811,7 @@ function renderMonitors() {
             </div>
             <div class="flex gap-2 mt-4">
                 <button onclick="checkSite(${site.id})" class="flex-1 py-2.5 rounded-lg gradient-accent text-black text-xs font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">${dict.card_check || '🔄 Check'}</button>
-                <button onclick="openEditModal(${site.id},'${safeName}','${encodeURIComponent(safeUrl)}','${encodeURIComponent(JSON.stringify(methods))}',${site.check_interval||60},'${monitorType}','${safeKeyword}','${safeTags}')" class="flex-1 py-2.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium">${dict.card_edit || '✏️ Edit'}</button>
+                <button onclick="openEditModal(${site.id},'${safeName}','${encodeURIComponent(safeUrl)}','${encodeURIComponent(JSON.stringify(methods))}',${site.check_interval||60},'${monitorType}','${safeKeyword}')" class="flex-1 py-2.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium">${dict.card_edit || '✏️ Edit'}</button>
                 <button onclick="deleteSite(${site.id})" class="flex-1 py-2.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-xs font-medium">${dict.card_delete || '🗑️ Delete'}</button>
             </div>
         </div>`;
@@ -913,19 +866,16 @@ async function addSite() {
     const url = document.getElementById('siteUrl').value;
     const monitor_type = document.getElementById('monitorType').value;
     const keyword = document.getElementById('siteKeyword').value;
-    const tagsVal = document.getElementById('siteTags').value;
-    const tags = tagsVal ? tagsVal.split(',').map(t => t.trim()).filter(Boolean) : [];
     const check_interval = parseInt(document.getElementById('siteCheckInterval').value) || 60;
     const container = document.getElementById('siteNotifyOptions');
     const notify_methods = container ? Array.from(container.querySelectorAll('input:checked')).map(o => o.value) : [];
     if (!name || !url) return alert('Заповніть назву та URL');
     try {
-        const resp = await fetch('/api/sites', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, url, monitor_type, check_interval, notify_methods, keyword, tags})});
+        const resp = await fetch('/api/sites', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, url, monitor_type, check_interval, notify_methods, keyword})});
         if (resp.ok) {
             document.getElementById('siteName').value = '';
             document.getElementById('siteUrl').value = '';
             document.getElementById('siteKeyword').value = '';
-            document.getElementById('siteTags').value = '';
             loadSites();
             alert('Монітор додано!');
         }
@@ -1196,7 +1146,7 @@ async function saveStatusSettings() {
     } catch(e) { console.error(e); }
 }
 
-function openEditModal(id, name, url, notifyMethods, checkInterval, monitorType, keyword, tagsEncoded) {
+function openEditModal(id, name, url, notifyMethods, checkInterval, monitorType, keyword) {
     document.getElementById('editSiteId').value = id;
     document.getElementById('editSiteName').value = name;
     document.getElementById('editSiteUrl').value = decodeURIComponent(url);
@@ -1204,9 +1154,6 @@ function openEditModal(id, name, url, notifyMethods, checkInterval, monitorType,
     document.getElementById('editSiteType').value = monitorType || 'http';
     document.getElementById('editSiteKeyword').value = keyword ? decodeURIComponent(keyword) : '';
     toggleKeywordField('editSiteType', 'editKeywordFieldContainer');
-    
-    const tags = tagsEncoded ? JSON.parse(decodeURIComponent(tagsEncoded)) : [];
-    document.getElementById('editSiteTags').value = Array.isArray(tags) ? tags.join(', ') : '';
 
     const methods = typeof notifyMethods === 'string' ? JSON.parse(decodeURIComponent(notifyMethods)) : notifyMethods || [];
     const container = document.getElementById('editSiteNotify');
@@ -1222,9 +1169,6 @@ async function saveEdit() {
     const monitorType = document.getElementById('editSiteType').value;
     const keyword = document.getElementById('editSiteKeyword').value.trim();
     const checkInterval = parseInt(document.getElementById('editSiteInterval').value) || 60;
-    
-    const tagsVal = document.getElementById('editSiteTags').value;
-    const tags = tagsVal ? tagsVal.split(',').map(t => t.trim()).filter(Boolean) : [];
 
     const container = document.getElementById('editSiteNotify');
     const notify_methods = container ? Array.from(container.querySelectorAll('input:checked')).map(o => o.value) : [];
@@ -1239,8 +1183,7 @@ async function saveEdit() {
                 monitor_type: monitorType,
                 check_interval: checkInterval,
                 notify_methods,
-                keyword,
-                tags
+                keyword
             })
         });
         closeEditModal();
