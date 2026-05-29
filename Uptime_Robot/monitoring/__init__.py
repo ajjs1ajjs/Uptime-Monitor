@@ -37,6 +37,23 @@ async def load_notify_settings_from_db() -> Dict[str, Any]:
     return {}
 
 
+async def _check_dns(url: str, start_time: datetime) -> tuple:
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    host = parsed.hostname or parsed.path.split("/")[0]
+    if ":" in host:
+        host = host.split(":")[0]
+
+    loop = asyncio.get_event_loop()
+    try:
+        await loop.getaddrinfo(host, None)
+        response_time = (datetime.now() - start_time).total_seconds() * 1000
+        return "up", 0, response_time, None
+    except Exception as e:
+        response_time = (datetime.now() - start_time).total_seconds() * 1000
+        return "down", 1, response_time, f"DNS resolution failed: {e}"
+
+
 async def _check_ping(url: str, start_time: datetime) -> tuple:
     import sys
     from urllib.parse import urlparse
@@ -104,8 +121,17 @@ async def _check_http(url: str, start_time: datetime, policy: dict, keyword: Opt
                     body_text = await response.text(errors="ignore")
                 except Exception:
                     body_text = ""
-                if keyword not in body_text:
-                    return "down", status_code, response_time, "Keyword not found"
+                if keyword.startswith("regex:"):
+                    import re
+                    pattern = keyword[6:]
+                    try:
+                        if not re.search(pattern, body_text):
+                            return "down", status_code, response_time, "Regex pattern not matched"
+                    except Exception as e:
+                        return "down", status_code, response_time, f"Invalid regex pattern: {e}"
+                else:
+                    if keyword not in body_text:
+                        return "down", status_code, response_time, "Keyword not found"
 
             if policy["treat_4xx_as_down"]:
                 status = "up" if 200 <= status_code < 400 else "down"
@@ -215,6 +241,8 @@ async def check_site_status(
             error_message = "Maintenance Window Active"
         elif monitor_type == "ping":
             status, status_code, response_time, error_message = await _check_ping(url, start_time)
+        elif monitor_type == "dns":
+            status, status_code, response_time, error_message = await _check_dns(url, start_time)
         elif monitor_type in ("port", "tcp"):
             status, status_code, response_time, error_message = await _check_port(
                 url, start_time, policy["request_timeout_seconds"]

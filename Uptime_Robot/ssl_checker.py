@@ -1,6 +1,6 @@
 import ssl
 import socket
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 from .logger import logger
@@ -39,7 +39,7 @@ async def check_ssl_certificate(url: str):
                     start_date = datetime.strptime(not_before, '%b %d %H:%M:%S %Y %Z') if not_before else None
                     
                     # Розраховуємо дні до закінчення
-                    days_until_expire = (expire_date - datetime.utcnow()).days
+                    days_until_expire = (expire_date - datetime.now(timezone.utc).replace(tzinfo=None)).days
                     
                     # Отримуємо issuer
                     issuer = cert.get('issuer', [])

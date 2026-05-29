@@ -106,12 +106,14 @@ class TestLoginEndpoint:
         assert "error=Invalid" in r.headers.get("location", "")
 
     def test_login_redirects_when_authenticated(self, client, admin_session):
-        r = client.get("/login", cookies={"session_id": admin_session}, follow_redirects=False)
+        client.cookies.clear()
+        r = client.get("/login", headers={"Cookie": f"session_id={admin_session}"}, follow_redirects=False)
         assert r.status_code == 302
         assert r.headers.get("location") == "/"
 
     def test_logout(self, client, admin_session):
-        r = client.get("/logout", cookies={"session_id": admin_session}, follow_redirects=False)
+        client.cookies.clear()
+        r = client.get("/logout", headers={"Cookie": f"session_id={admin_session}"}, follow_redirects=False)
         assert r.status_code == 302
         assert r.headers.get("location") == "/login"
 
@@ -346,6 +348,7 @@ class TestApiKeyAuth:
         assert r.status_code == 200
         api_key = r.json()["api_key"]
 
+        client.cookies.clear()
         r = client.get("/api/sites", headers={"X-API-Key": api_key})
         assert r.status_code == 200
 
@@ -366,6 +369,7 @@ class TestApiKeyAuth:
         key_id = data["key_id"]
 
         # Verify key works before revoke
+        client.cookies.clear()
         r = client.get("/api/sites", headers={"X-API-Key": api_key})
         assert r.status_code == 200
 
@@ -382,12 +386,10 @@ class TestApiKeyAuth:
         assert row is not None, f"Key {key_id} not found in DB"
         assert row[0] == 0, f"is_active={row[0]}, expected 0"
 
-        # Verify via API - accept either 401 (properly rejected) or 200 (if caching bug)
+        # Verify via API - MUST be 401 now that cookies are cleared
+        client.cookies.clear()
         r = client.get("/api/sites", headers={"X-API-Key": api_key})
-        assert r.status_code in (200, 401), f"Unexpected status: {r.status_code}"
-        if r.status_code == 200:
-            import warnings
-            warnings.warn("API key returned 200 after DB revoke - possible caching/connection isolation issue")
+        assert r.status_code == 401
 
 
 class TestAuditLog:
@@ -517,3 +519,25 @@ class TestRateLimiting:
     def test_public_status_alternative_path(self, client):
         r = client.get("/public-status")
         assert r.status_code == 200
+
+
+class TestDnsMonitorApi:
+    def test_create_dns_monitor(self, client, admin_headers):
+        r = client.post("/api/sites", json={
+            "name": "DNS Test Monitor",
+            "url": "dns.google",
+            "check_interval": 60,
+            "monitor_type": "dns",
+        }, headers=admin_headers)
+        assert r.status_code == 200
+        data = r.json()
+        assert "id" in data
+        
+        # Verify it lists as dns type
+        r = client.get("/api/sites", headers=admin_headers)
+        assert r.status_code == 200
+        sites = r.json()
+        dns_sites = [s for s in sites if s["monitor_type"] == "dns"]
+        assert len(dns_sites) >= 1
+        assert dns_sites[0]["name"] == "DNS Test Monitor"
+

@@ -106,3 +106,105 @@ class TestNormalizeAndValidateURL:
 
         url = _normalize_and_validate_url("192.168.1.1:8080", "http")
         assert "192.168.1.1" in url
+
+
+class TestCheckDNS:
+    @pytest.mark.asyncio
+    async def test_dns_check_success(self):
+        from Uptime_Robot.monitoring import _check_dns
+        from datetime import datetime
+        with patch("asyncio.get_event_loop") as mock_loop:
+            mock_loop.return_value.getaddrinfo = AsyncMock(return_value=[("family", "type", "proto", "canonname", "sockaddr")])
+            status, code, rt, err = await _check_dns("http://example.com", datetime.now())
+            assert status == "up"
+            assert code == 0
+            assert err is None
+            assert rt >= 0
+
+    @pytest.mark.asyncio
+    async def test_dns_check_failure(self):
+        from Uptime_Robot.monitoring import _check_dns
+        from datetime import datetime
+        with patch("asyncio.get_event_loop") as mock_loop:
+            mock_loop.return_value.getaddrinfo = AsyncMock(side_effect=Exception("Name or service not known"))
+            status, code, rt, err = await _check_dns("http://nonexistent-domain-xyz.com", datetime.now())
+            assert status == "down"
+            assert code == 1
+            assert "DNS resolution failed" in err
+            assert rt >= 0
+
+
+class TestCheckHttpRegex:
+    @pytest.mark.asyncio
+    async def test_regex_match_success(self):
+        from Uptime_Robot.monitoring import _check_http
+        from datetime import datetime
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.text.return_value = "<html><body>Welcome to My Uptime Monitor page!</body></html>"
+
+        mock_context = AsyncMock()
+        mock_context.__aenter__.return_value = mock_response
+
+        mock_session = MagicMock() if "MagicMock" in globals() else patch("unittest.mock.MagicMock")
+        from unittest.mock import MagicMock
+        mock_session = MagicMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock()
+        mock_session.get = MagicMock(return_value=mock_context)
+
+        with patch("aiohttp.ClientSession", return_value=mock_session):
+            policy = {"request_timeout_seconds": 5, "treat_4xx_as_down": True, "verify_ssl": True}
+            status, code, rt, err = await _check_http("http://example.com", datetime.now(), policy, "regex:Welcome to.*page!")
+            assert status == "up"
+            assert code == 200
+            assert err is None
+
+    @pytest.mark.asyncio
+    async def test_regex_match_failure(self):
+        from Uptime_Robot.monitoring import _check_http
+        from datetime import datetime
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.text.return_value = "<html><body>Welcome to My Uptime Monitor page!</body></html>"
+
+        mock_context = AsyncMock()
+        mock_context.__aenter__.return_value = mock_response
+
+        from unittest.mock import MagicMock
+        mock_session = MagicMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock()
+        mock_session.get = MagicMock(return_value=mock_context)
+
+        with patch("aiohttp.ClientSession", return_value=mock_session):
+            policy = {"request_timeout_seconds": 5, "treat_4xx_as_down": True, "verify_ssl": True}
+            status, code, rt, err = await _check_http("http://example.com", datetime.now(), policy, "regex:Welcome to.*dashboard!")
+            assert status == "down"
+            assert code == 200
+            assert err == "Regex pattern not matched"
+
+    @pytest.mark.asyncio
+    async def test_regex_invalid_pattern(self):
+        from Uptime_Robot.monitoring import _check_http
+        from datetime import datetime
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.text.return_value = "<html><body>Some page</body></html>"
+
+        mock_context = AsyncMock()
+        mock_context.__aenter__.return_value = mock_response
+
+        from unittest.mock import MagicMock
+        mock_session = MagicMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock()
+        mock_session.get = MagicMock(return_value=mock_context)
+
+        with patch("aiohttp.ClientSession", return_value=mock_session):
+            policy = {"request_timeout_seconds": 5, "treat_4xx_as_down": True, "verify_ssl": True}
+            status, code, rt, err = await _check_http("http://example.com", datetime.now(), policy, "regex:[invalid-regex-(")
+            assert status == "down"
+            assert code == 200
+            assert "Invalid regex pattern" in err
+
