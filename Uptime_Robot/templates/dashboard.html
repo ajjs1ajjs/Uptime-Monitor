@@ -1359,8 +1359,11 @@ async function deleteMaintWindow(id) {
 // WebSocket for real-time updates
 let ws = null;
 let wsReconnectTimer = null;
+let wsRetries = 0;
+const WS_MAX_RETRIES = 5;
 
 function connectWebSocket() {
+    if (wsRetries >= WS_MAX_RETRIES) return;
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const url = `${protocol}//${location.host}/ws`;
     try {
@@ -1375,7 +1378,8 @@ function connectWebSocket() {
         };
         ws.onclose = function() {
             ws = null;
-            if (!wsReconnectTimer) {
+            wsRetries++;
+            if (wsRetries < WS_MAX_RETRIES && !wsReconnectTimer) {
                 wsReconnectTimer = setTimeout(function() {
                     wsReconnectTimer = null;
                     connectWebSocket();

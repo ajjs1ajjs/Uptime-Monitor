@@ -1,7 +1,5 @@
-const CACHE_NAME = 'uptime-monitor-v1';
+const CACHE_NAME = 'uptime-monitor-v2';
 const STATIC_URLS = [
-    '/',
-    '/login',
     '/static/icon-192.svg',
     '/static/icon-512.svg',
     '/static/manifest.json'
@@ -22,37 +20,33 @@ self.addEventListener('activate', (event) => {
             return Promise.all(
                 keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
             );
-        })
+        }).then(() => self.clients.claim())
     );
-    self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
-
-    // Only handle same-origin requests
     if (url.origin !== self.location.origin) return;
 
-    // Network-first for API calls, cache-first for static assets
     if (url.pathname.startsWith('/api/')) {
         event.respondWith(
-            fetch(event.request).catch(() => {
-                return new Response(JSON.stringify({ error: 'offline' }), {
+            fetch(event.request).catch(() =>
+                new Response(JSON.stringify({ error: 'offline' }), {
                     headers: { 'Content-Type': 'application/json' }
-                });
-            })
+                })
+            )
         );
-    } else {
-        event.respondWith(
-            caches.match(event.request).then((cached) => {
-                return cached || fetch(event.request).then((response) => {
-                    if (response.status === 200) {
-                        const clone = response.clone();
-                        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-                    }
-                    return response;
-                });
-            })
-        );
+        return;
     }
+
+    event.respondWith(
+        fetch(event.request).then((response) => {
+            const cacheable = response.status === 200 && !url.pathname.startsWith('/login');
+            if (cacheable) {
+                const clone = response.clone();
+                caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            }
+            return response;
+        }).catch(() => caches.match(event.request))
+    );
 });
