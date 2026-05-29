@@ -17,9 +17,6 @@
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
-
-# Access dashboard
-http://YOUR_SERVER_IP:8080
 ```
 
 ### Install (Windows — Service)
