@@ -175,9 +175,9 @@ case "$OS_NAME" in
 esac
 
 # Create user
-if ! id "$USER" &>/dev/null; then
-    echo -e "${BLUE}Creating user: $USER${NC}"
-    useradd -r -s /bin/false -d "$DATA_DIR" "$USER"
+if ! id "$APP_USER" &>/dev/null; then
+    echo -e "${BLUE}Creating user: $APP_USER${NC}"
+    useradd -r -s /bin/false -d "$DATA_DIR" "$APP_USER"
 fi
 
 # Create directories
