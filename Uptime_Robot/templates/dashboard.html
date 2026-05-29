@@ -976,7 +976,7 @@ async function loadSSLTimelineChart() {
 }
 
 async function loadIncidents() {
-    try { const resp = await fetch('/api/incidents'); incidentsData = await resp.json(); renderIncidents(); document.getElementById('incidentCount').textContent = incidentsData.length; } catch(e) { console.error(e); }
+    try { const resp = await fetch('/api/incidents'); incidentsData = await resp.json(); renderIncidents(); const icEl = document.getElementById('incidentCount'); if (icEl) icEl.textContent = incidentsData.length; } catch(e) { console.error(e); }
 }
 function renderIncidents() {
     const list = document.getElementById('incidentsList');
