@@ -3,7 +3,6 @@
 
 import argparse
 import os
-import secrets
 import sqlite3
 import sys
 from datetime import datetime
@@ -64,9 +63,7 @@ def init_auth(db_path):
     if "role" not in columns:
         c.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'admin'")
         c.execute("UPDATE users SET role = 'admin' WHERE is_admin = 1")
-        c.execute(
-            "UPDATE users SET role = 'viewer' WHERE is_admin = 0 OR is_admin IS NULL"
-        )
+        c.execute("UPDATE users SET role = 'viewer' WHERE is_admin = 0 OR is_admin IS NULL")
 
     c.execute("SELECT id FROM users WHERE username = 'admin'")
     if not c.fetchone():
@@ -172,7 +169,7 @@ def delete_user(db_path, username):
         sys.exit(1)
 
     if user_row[0] == "admin" and admin_count <= 1:
-        print(f"[ERROR] Cannot delete the last admin user")
+        print("[ERROR] Cannot delete the last admin user")
         conn.close()
         sys.exit(1)
 
@@ -186,18 +183,14 @@ def list_users(db_path):
     conn = sqlite3.connect(db_path)
     c = conn.cursor()
 
-    c.execute(
-        "SELECT id, username, role, must_change_password, last_login FROM users ORDER BY id"
-    )
+    c.execute("SELECT id, username, role, must_change_password, last_login FROM users ORDER BY id")
     rows = c.fetchall()
 
     if not rows:
         print("No users found")
     else:
         print("\nUsers:")
-        print(
-            f"{'ID':<5} {'Username':<15} {'Role':<10} {'Must Change':<12} {'Last Login'}"
-        )
+        print(f"{'ID':<5} {'Username':<15} {'Role':<10} {'Must Change':<12} {'Last Login'}")
         print("-" * 70)
         for row in rows:
             print(
@@ -240,9 +233,7 @@ if __name__ == "__main__":
     # Update role command
     role_parser = subparsers.add_parser("set-role", help="Update user role")
     role_parser.add_argument("--username", required=True, help="Username")
-    role_parser.add_argument(
-        "--role", required=True, choices=["admin", "viewer"], help="New role"
-    )
+    role_parser.add_argument("--role", required=True, choices=["admin", "viewer"], help="New role")
 
     # Delete user command
     delete_parser = subparsers.add_parser("delete-user", help="Delete a user")

@@ -2,39 +2,42 @@ import asyncio
 import json
 import os
 import sqlite3
-from typing import List, Optional
 from datetime import datetime
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from .. import auth_module, models, monitoring
-from ..database import get_db_connection
-from ..dependencies import require_admin, require_viewer_or_higher, get_current_user
-from ..state import DB_PATH
 from .. import state as app_state
+from ..database import get_db_connection
+from ..dependencies import get_current_user, require_admin, require_viewer_or_higher
+from ..state import DB_PATH
 
 router = APIRouter(prefix="/api")
+
 
 class SiteCreate(BaseModel):
     name: str
     url: str
     check_interval: int = 60
     is_active: bool = True
-    notify_methods: Optional[List[str]] = []
+    notify_methods: Optional[list[str]] = []
     monitor_type: str = "http"
     keyword: Optional[str] = None
-    tags: Optional[List[str]] = []
+    tags: Optional[list[str]] = []
+
 
 class SiteUpdate(BaseModel):
     name: Optional[str] = None
     url: Optional[str] = None
     check_interval: Optional[int] = None
-    notify_methods: Optional[List[str]] = None
+    notify_methods: Optional[list[str]] = None
     is_active: Optional[bool] = None
     monitor_type: Optional[str] = None
     keyword: Optional[str] = None
-    tags: Optional[List[str]] = None
+    tags: Optional[list[str]] = None
+
 
 class NotifySettingsModel(BaseModel):
     telegram: Optional[dict] = None
@@ -45,6 +48,7 @@ class NotifySettingsModel(BaseModel):
     sms: Optional[dict] = None
     webhook: Optional[dict] = None
 
+
 class AppSettingsModel(BaseModel):
     display_address: Optional[str] = ""
     site_title: Optional[str] = "Uptime Monitor"
@@ -53,35 +57,45 @@ class AppSettingsModel(BaseModel):
     primary_color: Optional[str] = "#00ff88"
     brand_accent_color: Optional[str] = "#06b6d4"
 
+
 class UserCreate(BaseModel):
     username: str
     password: str
     role: str = "viewer"
 
+
 class UserUpdate(BaseModel):
     role: Optional[str] = None
     password: Optional[str] = None
 
+
 def _normalize_and_validate_url(raw_url: str, monitor_type: str) -> str:
-    from urllib.parse import urlparse
     import ipaddress
-        
+    from urllib.parse import urlparse
+
     def _is_valid_host(hostname: Optional[str]) -> bool:
-        if not hostname: return False
+        if not hostname:
+            return False
         host = hostname.strip().lower().rstrip(".")
-        if not host: return False
-        if host == "localhost": return True
+        if not host:
+            return False
+        if host == "localhost":
+            return True
         try:
             ipaddress.ip_address(host)
             return True
         except ValueError:
             pass
         labels = host.split(".")
-        if len(labels) < 2: return False
+        if len(labels) < 2:
+            return False
         for label in labels:
-            if not label or len(label) > 63: return False
-            if label.startswith("-") or label.endswith("-"): return False
-            if not all(ch.isalnum() or ch == "-" for ch in label): return False
+            if not label or len(label) > 63:
+                return False
+            if label.startswith("-") or label.endswith("-"):
+                return False
+            if not all(ch.isalnum() or ch == "-" for ch in label):
+                return False
         return True
 
     url = (raw_url or "").strip()
@@ -89,7 +103,7 @@ def _normalize_and_validate_url(raw_url: str, monitor_type: str) -> str:
         raise HTTPException(400, "URL required")
 
     m_type = (monitor_type or "http").lower()
-    
+
     # Pre-processing for HTTP/SSL if missing scheme
     if m_type == "http" and not (url.startswith("http://") or url.startswith("https://")):
         url = "http://" + url
@@ -101,7 +115,7 @@ def _normalize_and_validate_url(raw_url: str, monitor_type: str) -> str:
         url = normalized
 
     parsed = urlparse(url)
-    
+
     # For HTTP/SSL, we require a scheme and netloc
     if m_type in ("http", "ssl"):
         if parsed.scheme not in ("http", "https") or not parsed.netloc:
@@ -118,8 +132,9 @@ def _normalize_and_validate_url(raw_url: str, monitor_type: str) -> str:
                 raise HTTPException(400, "Invalid host")
         elif not _is_valid_host(host):
             raise HTTPException(400, "Invalid host/IP")
-            
+
     return url
+
 
 @router.get("/sites")
 async def get_sites(user: dict = Depends(require_viewer_or_higher)):
@@ -141,19 +156,26 @@ async def get_sites(user: dict = Depends(require_viewer_or_higher)):
                 (site["id"],),
             ) as c:
                 stats = await c.fetchone()
-            uptime = (stats["up_count"] / stats["total"] * 100) if stats and stats["total"] > 0 else 0
+            uptime = (
+                (stats["up_count"] / stats["total"] * 100) if stats and stats["total"] > 0 else 0
+            )
             result.append(
                 {
                     **dict(site),
                     "status": last_status["status"] if last_status else "unknown",
                     "uptime": round(uptime, 2),
-                    "notify_methods": json.loads(site["notify_methods"])
-                    if site["notify_methods"]
-                    else [],
-                    "tags": json.loads(site.get("tags", "[]")) if site.get("tags") and site.get("tags") != "[]" else [],
+                    "notify_methods": (
+                        json.loads(site["notify_methods"]) if site["notify_methods"] else []
+                    ),
+                    "tags": (
+                        json.loads(site.get("tags", "[]"))
+                        if site.get("tags") and site.get("tags") != "[]"
+                        else []
+                    ),
                 }
             )
     return result
+
 
 @router.get("/sites/history-all")
 async def get_all_sites_history(user: dict = Depends(require_viewer_or_higher)):
@@ -161,23 +183,21 @@ async def get_all_sites_history(user: dict = Depends(require_viewer_or_higher)):
         raise HTTPException(status_code=401)
     async with get_db_connection() as conn:
         async with conn.execute("""
-            SELECT site_id, status, checked_at 
-            FROM status_history 
+            SELECT site_id, status, checked_at
+            FROM status_history
             WHERE checked_at >= datetime('now', '-24 hours')
             ORDER BY checked_at ASC
         """) as c:
             results_raw = await c.fetchall()
-            
+
         history = {}
         for r in results_raw:
             sid = r["site_id"]
             if sid not in history:
                 history[sid] = []
-            history[sid].append({
-                "status": r["status"],
-                "checked_at": r["checked_at"]
-            })
+            history[sid].append({"status": r["status"], "checked_at": r["checked_at"]})
     return history
+
 
 @router.get("/sites/{site_id}/history")
 async def get_site_history(
@@ -201,6 +221,7 @@ async def get_site_history(
         for h in history
     ]
 
+
 @router.get("/server-time")
 async def get_server_time():
     now = datetime.now()
@@ -209,6 +230,7 @@ async def get_server_time():
         "iso": now.isoformat(),
         "timezone": now.astimezone().tzname() if now.tzinfo else "local",
     }
+
 
 @router.post("/sites")
 async def add_site(site: SiteCreate, user: dict = Depends(require_admin)):
@@ -237,14 +259,18 @@ async def add_site(site: SiteCreate, user: dict = Depends(require_admin)):
             async with conn.execute("SELECT last_insert_rowid()") as c:
                 row = await c.fetchone()
                 site_id = row[0]
-    except sqlite3.IntegrityError:
-        raise HTTPException(status_code=400, detail="Monitor with this URL already exists")
+    except sqlite3.IntegrityError as e:
+        raise HTTPException(status_code=400, detail="Monitor with this URL already exists") from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
     await models.log_audit_event(
-        DB_PATH, user["user_id"], user["username"],
-        "site_created", "site", str(site_id),
+        DB_PATH,
+        user["user_id"],
+        user["username"],
+        "site_created",
+        "site",
+        str(site_id),
         f"name={site.name}, url={url}",
     )
 
@@ -253,10 +279,13 @@ async def add_site(site: SiteCreate, user: dict = Depends(require_admin)):
     )
     if m_type == "ssl" or url.lower().startswith("https://"):
         asyncio.create_task(
-            monitoring.check_site_certificate(site_id, url, site.notify_methods, app_state.NOTIFY_SETTINGS)
+            monitoring.check_site_certificate(
+                site_id, url, site.notify_methods, app_state.NOTIFY_SETTINGS
+            )
         )
 
     return {"id": site_id, "message": "Site added"}
+
 
 @router.put("/sites/{site_id}")
 async def update_site(site_id: int, site: SiteUpdate, user: dict = Depends(require_admin)):
@@ -268,12 +297,16 @@ async def update_site(site_id: int, site: SiteUpdate, user: dict = Depends(requi
             (site_id,),
         ) as c:
             existing = await c.fetchone()
-        
+
         if not existing:
             raise HTTPException(404, "Site not found")
 
         name = site.name if site.name is not None else existing["name"]
-        monitor_type = site.monitor_type.lower() if site.monitor_type is not None else (existing["monitor_type"] or "http")
+        monitor_type = (
+            site.monitor_type.lower()
+            if site.monitor_type is not None
+            else (existing["monitor_type"] or "http")
+        )
         url = (
             _normalize_and_validate_url(site.url, monitor_type)
             if site.url is not None
@@ -293,10 +326,21 @@ async def update_site(site_id: int, site: SiteUpdate, user: dict = Depends(requi
 
         await conn.execute(
             "UPDATE sites SET name = ?, url = ?, check_interval = ?, is_active = ?, notify_methods = ?, monitor_type = ?, keyword = ?, tags = ? WHERE id = ?",
-            (name, url, check_interval, is_active, notify_methods, monitor_type, keyword, tags, site_id),
+            (
+                name,
+                url,
+                check_interval,
+                is_active,
+                notify_methods,
+                monitor_type,
+                keyword,
+                tags,
+                site_id,
+            ),
         )
         await conn.commit()
     return {"message": "Updated"}
+
 
 @router.delete("/sites/{site_id}")
 async def delete_site(site_id: int, user: dict = Depends(require_admin)):
@@ -304,18 +348,25 @@ async def delete_site(site_id: int, user: dict = Depends(require_admin)):
         raise HTTPException(status_code=401)
     await models.delete_site(DB_PATH, site_id)
     await models.log_audit_event(
-        DB_PATH, user["user_id"], user["username"],
-        "site_deleted", "site", str(site_id),
+        DB_PATH,
+        user["user_id"],
+        user["username"],
+        "site_deleted",
+        "site",
+        str(site_id),
         None,
     )
     return {"message": "Deleted"}
+
 
 @router.post("/sites/{site_id}/check")
 async def manual_check(site_id: int, user: dict = Depends(require_admin)):
     if not user:
         raise HTTPException(401)
     async with get_db_connection() as conn:
-        async with conn.execute("SELECT url, notify_methods FROM sites WHERE id = ?", (site_id,)) as c:
+        async with conn.execute(
+            "SELECT url, notify_methods FROM sites WHERE id = ?", (site_id,)
+        ) as c:
             site = await c.fetchone()
     if not site:
         raise HTTPException(404)
@@ -323,11 +374,13 @@ async def manual_check(site_id: int, user: dict = Depends(require_admin)):
     await monitoring.check_site_status(site_id, site["url"], methods, app_state.NOTIFY_SETTINGS)
     return {"message": "Check triggered"}
 
+
 @router.get("/ssl-certificates")
 async def get_ssl_certs(user: dict = Depends(require_viewer_or_higher)):
     if not user:
         raise HTTPException(401)
     return await models.get_ssl_certificates(DB_PATH)
+
 
 @router.post("/ssl-certificates/check")
 async def manual_ssl_check(user: dict = Depends(require_admin)):
@@ -335,6 +388,7 @@ async def manual_ssl_check(user: dict = Depends(require_admin)):
         raise HTTPException(401)
     await monitoring.check_all_certificates(app_state.NOTIFY_SETTINGS)
     return {"message": "SSL check triggered"}
+
 
 @router.get("/stats/response-time")
 async def get_response_time_stats(user: dict = Depends(require_viewer_or_higher)):
@@ -351,7 +405,7 @@ async def get_response_time_stats(user: dict = Depends(require_viewer_or_higher)
         """) as c:
             results_raw = await c.fetchall()
             results = [dict(r) for r in results_raw]
-            
+
         return [
             {
                 "site_id": r["site_id"],
@@ -363,6 +417,7 @@ async def get_response_time_stats(user: dict = Depends(require_viewer_or_higher)
             }
             for r in results
         ]
+
 
 @router.get("/incidents")
 async def get_incidents(user: dict = Depends(require_viewer_or_higher)):
@@ -391,7 +446,7 @@ async def get_incidents(user: dict = Depends(require_viewer_or_higher)):
             results = [dict(r) for r in results_raw]
 
         down_times = {}
-        for site_id in set(r["site_id"] for r in results):
+        for site_id in {r["site_id"] for r in results}:
             async with conn.execute(
                 """
                 SELECT status, checked_at
@@ -454,6 +509,7 @@ async def get_incidents(user: dict = Depends(require_viewer_or_higher)):
                         end = dt["ended_at"] or start
                         try:
                             from datetime import datetime
+
                             start_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
                             end_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
                             duration = end_dt - start_dt
@@ -474,6 +530,7 @@ async def get_incidents(user: dict = Depends(require_viewer_or_higher)):
 
         return incidents
 
+
 @router.post("/notify-settings")
 async def save_notify(settings: NotifySettingsModel, user: dict = Depends(require_admin)):
     if not user:
@@ -484,6 +541,7 @@ async def save_notify(settings: NotifySettingsModel, user: dict = Depends(requir
             app_state.NOTIFY_SETTINGS[k] = v
     await models.save_notify_settings(DB_PATH, app_state.NOTIFY_SETTINGS)
     return {"message": "Saved"}
+
 
 @router.post("/app-settings")
 async def save_app(settings: AppSettingsModel, user: dict = Depends(require_admin)):
@@ -512,6 +570,7 @@ async def save_app(settings: AppSettingsModel, user: dict = Depends(require_admi
         await conn.commit()
     return {"message": "Saved"}
 
+
 @router.get("/app-settings")
 async def get_app(user: dict = Depends(require_viewer_or_higher)):
     if not user:
@@ -525,6 +584,7 @@ async def get_app(user: dict = Depends(require_viewer_or_higher)):
         "brand_accent_color": app_state.BRAND_ACCENT_COLOR,
     }
 
+
 @router.get("/user")
 async def get_user_info(user: dict = Depends(get_current_user)):
     if not user:
@@ -535,6 +595,7 @@ async def get_user_info(user: dict = Depends(get_current_user)):
         "is_admin": auth_module.is_admin(user),
     }
 
+
 @router.get("/users")
 async def get_users(user: dict = Depends(require_admin)):
     users = await auth_module.get_all_users(DB_PATH)
@@ -542,22 +603,30 @@ async def get_users(user: dict = Depends(require_admin)):
         u.pop("password_hash", None)
     return users
 
+
 @router.post("/users")
 async def create_user_api(user_data: UserCreate, current_user: dict = Depends(require_admin)):
     if user_data.role not in ["admin", "viewer"]:
         raise HTTPException(status_code=400, detail="Invalid role. Must be 'admin' or 'viewer'")
 
-    success = await auth_module.create_user(DB_PATH, user_data.username, user_data.password, user_data.role)
+    success = await auth_module.create_user(
+        DB_PATH, user_data.username, user_data.password, user_data.role
+    )
 
     if success:
         await models.log_audit_event(
-            DB_PATH, current_user["user_id"], current_user["username"],
-            "user_created", "user", user_data.username,
+            DB_PATH,
+            current_user["user_id"],
+            current_user["username"],
+            "user_created",
+            "user",
+            user_data.username,
             f"role={user_data.role}",
         )
         return {"message": f"User '{user_data.username}' created with role '{user_data.role}'"}
     else:
         raise HTTPException(status_code=400, detail="User already exists or error creating user")
+
 
 @router.put("/users/{username}")
 async def update_user_api(
@@ -572,8 +641,12 @@ async def update_user_api(
         if not success:
             raise HTTPException(status_code=404, detail="User not found")
         await models.log_audit_event(
-            DB_PATH, current_user["user_id"], current_user["username"],
-            "user_role_updated", "user", username,
+            DB_PATH,
+            current_user["user_id"],
+            current_user["username"],
+            "user_role_updated",
+            "user",
+            username,
             f"new_role={user_data.role}",
         )
         return {"message": f"User '{username}' role updated to '{user_data.role}'"}
@@ -582,18 +655,24 @@ async def update_user_api(
         async with get_db_connection() as conn:
             async with conn.execute("SELECT id FROM users WHERE username = ?", (username,)) as c:
                 user_row = await c.fetchone()
-                
+
         if not user_row:
             raise HTTPException(status_code=404, detail="User not found")
 
         await auth_module.change_password(user_row["id"], user_data.password, DB_PATH)
         await models.log_audit_event(
-            DB_PATH, current_user["user_id"], current_user["username"],
-            "user_password_reset", "user", username, None,
+            DB_PATH,
+            current_user["user_id"],
+            current_user["username"],
+            "user_password_reset",
+            "user",
+            username,
+            None,
         )
         return {"message": f"Password updated for user '{username}'"}
 
     raise HTTPException(status_code=400, detail="No updates provided")
+
 
 @router.delete("/users/{username}")
 async def delete_user_api(username: str, current_user: dict = Depends(require_admin)):
@@ -604,8 +683,13 @@ async def delete_user_api(username: str, current_user: dict = Depends(require_ad
 
     if success:
         await models.log_audit_event(
-            DB_PATH, current_user["user_id"], current_user["username"],
-            "user_deleted", "user", username, None,
+            DB_PATH,
+            current_user["user_id"],
+            current_user["username"],
+            "user_deleted",
+            "user",
+            username,
+            None,
         )
         return {"message": f"User '{username}' deleted"}
     else:
@@ -621,6 +705,7 @@ class MaintenanceWindowCreate(BaseModel):
     day_of_week: Optional[int] = None
     start_hour_minute: Optional[str] = None
     duration_minutes: Optional[int] = None
+
 
 class MaintenanceWindowToggle(BaseModel):
     is_active: bool
@@ -654,7 +739,9 @@ async def delete_maint_window(window_id: int, user: dict = Depends(require_admin
 
 
 @router.put("/maintenance-windows/{window_id}/toggle")
-async def toggle_maint_window(window_id: int, toggle: MaintenanceWindowToggle, user: dict = Depends(require_admin)):
+async def toggle_maint_window(
+    window_id: int, toggle: MaintenanceWindowToggle, user: dict = Depends(require_admin)
+):
     await models.toggle_maintenance_window(DB_PATH, window_id, toggle.is_active)
     return {"message": "Toggled"}
 
@@ -665,42 +752,44 @@ async def get_sla_report(days: int = 7, user: dict = Depends(require_viewer_or_h
         async with conn.execute("SELECT id, name, url FROM sites") as c:
             sites_raw = await c.fetchall()
             sites = [dict(s) for s in sites_raw]
-            
+
         report = []
         for s in sites:
             sid = s["id"]
             async with conn.execute(
-                """SELECT 
+                """SELECT
                     COUNT(*) as total,
                     SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count,
                     AVG(response_time) as avg_rt
-                  FROM status_history 
+                  FROM status_history
                   WHERE site_id = ? AND checked_at >= datetime('now', ?)""",
-                (sid, f"-{days} days")
+                (sid, f"-{days} days"),
             ) as c:
                 stats = await c.fetchone()
-            
+
             async with conn.execute(
-                """SELECT COUNT(*) FROM status_history 
+                """SELECT COUNT(*) FROM status_history
                    WHERE site_id = ? AND status IN ('down', 'slow') AND checked_at >= datetime('now', ?)""",
-                (sid, f"-{days} days")
+                (sid, f"-{days} days"),
             ) as c:
                 incidents = (await c.fetchone())[0]
-                
+
             total = stats["total"] or 0
             up_count = stats["up_count"] or 0
             uptime = (up_count / total * 100) if total > 0 else 100.0
             avg_rt = stats["avg_rt"] or 0
-            
-            report.append({
-                "id": sid,
-                "name": s["name"],
-                "url": s["url"],
-                "uptime": round(uptime, 2),
-                "avg_response_time": round(avg_rt, 1),
-                "total_checks": total,
-                "incidents": incidents
-            })
+
+            report.append(
+                {
+                    "id": sid,
+                    "name": s["name"],
+                    "url": s["url"],
+                    "uptime": round(uptime, 2),
+                    "avg_response_time": round(avg_rt, 1),
+                    "total_checks": total,
+                    "incidents": incidents,
+                }
+            )
         return report
 
 
@@ -708,30 +797,32 @@ async def get_sla_report(days: int = 7, user: dict = Depends(require_viewer_or_h
 async def export_sla_report(days: int = 7, user: dict = Depends(require_viewer_or_higher)):
     import csv
     import io
+
     from fastapi.responses import StreamingResponse
-    
+
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["ID", "Name", "URL", "Uptime %", "Avg Response Time (ms)", "Total Checks", "Incidents"])
-    
+    writer.writerow(
+        ["ID", "Name", "URL", "Uptime %", "Avg Response Time (ms)", "Total Checks", "Incidents"]
+    )
+
     report = await get_sla_report(days, user)
     for item in report:
-        writer.writerow([
-            item["id"],
-            item["name"],
-            item["url"],
-            f"{item['uptime']}%",
-            item["avg_response_time"],
-            item["total_checks"],
-            item["incidents"]
-        ])
-        
+        writer.writerow(
+            [
+                item["id"],
+                item["name"],
+                item["url"],
+                f"{item['uptime']}%",
+                item["avg_response_time"],
+                item["total_checks"],
+                item["incidents"],
+            ]
+        )
+
     output.seek(0)
-    
-    response = StreamingResponse(
-        io.StringIO(output.getvalue()),
-        media_type="text/csv"
-    )
+
+    response = StreamingResponse(io.StringIO(output.getvalue()), media_type="text/csv")
     response.headers["Content-Disposition"] = f"attachment; filename=sla_report_{days}days.csv"
     return response
 
@@ -775,6 +866,7 @@ async def get_notification_history_endpoint(limit: int = 100):
 async def create_backup_endpoint():
     """Create a DB backup (admin only)."""
     from datetime import datetime
+
     backup_dir = os.path.join(os.path.dirname(DB_PATH), "backups")
     os.makedirs(backup_dir, exist_ok=True)
     filename = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
@@ -802,8 +894,17 @@ async def restore_backup_endpoint(backup_id: int):
     if not target:
         raise HTTPException(status_code=404, detail="Backup not found")
     import shutil
+
     shutil.copy2(target["filepath"], DB_PATH)
-    await models.log_audit_event(DB_PATH, 0, "system", "backup_restored", "backup", str(backup_id), f"restored {target['filename']}")
+    await models.log_audit_event(
+        DB_PATH,
+        0,
+        "system",
+        "backup_restored",
+        "backup",
+        str(backup_id),
+        f"restored {target['filename']}",
+    )
     return {"status": "restored", "backup": target["filename"]}
 
 
@@ -811,7 +912,9 @@ async def restore_backup_endpoint(backup_id: int):
 async def get_all_tags(user: dict = Depends(require_viewer_or_higher)):
     """Get all unique tags across all sites."""
     async with get_db_connection() as conn:
-        async with conn.execute("SELECT tags FROM sites WHERE tags IS NOT NULL AND tags != '[]'") as c:
+        async with conn.execute(
+            "SELECT tags FROM sites WHERE tags IS NOT NULL AND tags != '[]'"
+        ) as c:
             rows = await c.fetchall()
     all_tags = set()
     for row in rows:
@@ -820,4 +923,4 @@ async def get_all_tags(user: dict = Depends(require_viewer_or_higher)):
             all_tags.update(tag_list)
         except (json.JSONDecodeError, TypeError):
             pass
-    return sorted(list(all_tags))
+    return sorted(all_tags)

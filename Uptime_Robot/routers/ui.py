@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional
 
 from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -9,7 +9,15 @@ from fastapi.templating import Jinja2Templates
 
 from ..database import get_db_connection
 from ..dependencies import get_current_user, require_admin
-from ..state import NOTIFY_SETTINGS, CONFIG, SITE_TITLE, DISPLAY_ADDRESS, LOGO_URL, FOOTER_TEXT, PRIMARY_COLOR, BRAND_ACCENT_COLOR
+from ..state import (
+    BRAND_ACCENT_COLOR,
+    DISPLAY_ADDRESS,
+    FOOTER_TEXT,
+    LOGO_URL,
+    NOTIFY_SETTINGS,
+    PRIMARY_COLOR,
+    SITE_TITLE,
+)
 from ..wss.manager import manager
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,6 +28,7 @@ router = APIRouter()
 
 def _monitor_card_html(site: dict) -> str:
     import urllib.parse
+
     status = (site.get("status") or "unknown").lower()
     if status == "up":
         scolor = "#10b981"
@@ -36,40 +45,54 @@ def _monitor_card_html(site: dict) -> str:
 
     stext = status.upper()
     mtype = site.get("monitor_type", "http")
-    methods = json.loads(site.get("notify_methods", "[]")) if isinstance(site.get("notify_methods"), str) else (site.get("notify_methods") or [])
+    methods = (
+        json.loads(site.get("notify_methods", "[]"))
+        if isinstance(site.get("notify_methods"), str)
+        else (site.get("notify_methods") or [])
+    )
     uptime = site.get("uptime", 100)
     if isinstance(uptime, str):
-        try: uptime = float(uptime)
-        except Exception: uptime = 100.0
+        try:
+            uptime = float(uptime)
+        except Exception:
+            uptime = 100.0
 
-    tags = json.loads(site.get("tags", "[]")) if isinstance(site.get("tags"), str) else (site.get("tags") or [])
+    tags = (
+        json.loads(site.get("tags", "[]"))
+        if isinstance(site.get("tags"), str)
+        else (site.get("tags") or [])
+    )
     if isinstance(tags, str):
-        try: tags = json.loads(tags)
-        except Exception: tags = []
+        try:
+            tags = json.loads(tags)
+        except Exception:
+            tags = []
 
     keyword = site.get("keyword") or ""
 
     template = templates.get_template("partials/monitor_card.html")
-    return template.render({
-        "name": site.get("name", ""),
-        "url": site.get("url", ""),
-        "escaped_name": (site.get("name") or "").replace("'", "\\'"),
-        "escaped_url": (site.get("url") or "").replace("'", "\\'"),
-        "escaped_methods": urllib.parse.quote(json.dumps(methods)),
-        "escaped_keyword": urllib.parse.quote(keyword),
-        "escaped_tags": urllib.parse.quote(json.dumps(tags)),
-        "keyword": keyword,
-        "tags": tags,
-        "scolor": scolor,
-        "border": border,
-        "stext": stext,
-        "mtype": mtype,
-        "uptime": uptime,
-        "rt": site.get("response_time") or "—",
-        "sc": site.get("status_code") or "—",
-        "sid": site.get("id", 0),
-        "check_interval": site.get("check_interval", 60),
-    })
+    return template.render(
+        {
+            "name": site.get("name", ""),
+            "url": site.get("url", ""),
+            "escaped_name": (site.get("name") or "").replace("'", "\\'"),
+            "escaped_url": (site.get("url") or "").replace("'", "\\'"),
+            "escaped_methods": urllib.parse.quote(json.dumps(methods)),
+            "escaped_keyword": urllib.parse.quote(keyword),
+            "escaped_tags": urllib.parse.quote(json.dumps(tags)),
+            "keyword": keyword,
+            "tags": tags,
+            "scolor": scolor,
+            "border": border,
+            "stext": stext,
+            "mtype": mtype,
+            "uptime": uptime,
+            "rt": site.get("response_time") or "—",
+            "sc": site.get("status_code") or "—",
+            "sid": site.get("id", 0),
+            "check_interval": site.get("check_interval", 60),
+        }
+    )
 
 
 def _hero_stat_html(label: str, value, color: str = "text-accent") -> str:
@@ -94,10 +117,10 @@ async def htmx_hero_stats(user: dict = Depends(get_current_user)):
             slow = (await c.fetchone())[0]
     incidents = down + slow
     return HTMLResponse(
-        _hero_stat_html("Monitors", total) +
-        _hero_stat_html("Online", up, "text-emerald-400") +
-        _hero_stat_html("Offline", down, "text-red-400") +
-        _hero_stat_html("Incidents", incidents, "text-amber-400")
+        _hero_stat_html("Monitors", total)
+        + _hero_stat_html("Online", up, "text-emerald-400")
+        + _hero_stat_html("Offline", down, "text-red-400")
+        + _hero_stat_html("Incidents", incidents, "text-amber-400")
     )
 
 
@@ -106,7 +129,7 @@ async def htmx_monitors(
     search: Optional[str] = None,
     sort: Optional[str] = None,
     tag: Optional[str] = None,
-    user: dict = Depends(get_current_user)
+    user: dict = Depends(get_current_user),
 ):
     if not user:
         return HTMLResponse("")
@@ -120,46 +143,62 @@ async def htmx_monitors(
         for site in sites:
             sid = site["id"]
             async with conn.execute(
-                "SELECT status FROM status_history WHERE site_id = ? ORDER BY checked_at DESC LIMIT 1", (sid,)
+                "SELECT status FROM status_history WHERE site_id = ? ORDER BY checked_at DESC LIMIT 1",
+                (sid,),
             ) as c:
                 last = await c.fetchone()
             site["status"] = last["status"] if last else "unknown"
             async with conn.execute(
-                "SELECT COUNT(*) as total, SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count FROM status_history WHERE site_id = ?", (sid,)
+                "SELECT COUNT(*) as total, SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count FROM status_history WHERE site_id = ?",
+                (sid,),
             ) as c:
                 st = await c.fetchone()
-            site["uptime"] = round((st["up_count"] / st["total"] * 100), 1) if st and st["total"] > 0 else 100.0
+            site["uptime"] = (
+                round((st["up_count"] / st["total"] * 100), 1) if st and st["total"] > 0 else 100.0
+            )
             site["notify_methods"] = json.loads(site.get("notify_methods") or "[]")
-            site["tags"] = json.loads(site.get("tags", "[]")) if site.get("tags") and site.get("tags") != "[]" else []
+            site["tags"] = (
+                json.loads(site.get("tags", "[]"))
+                if site.get("tags") and site.get("tags") != "[]"
+                else []
+            )
 
     if search:
         search_lower = search.lower().strip()
         sites = [
-            s for s in sites 
-            if search_lower in (s.get("name") or "").lower() or search_lower in (s.get("url") or "").lower()
+            s
+            for s in sites
+            if search_lower in (s.get("name") or "").lower()
+            or search_lower in (s.get("url") or "").lower()
         ]
 
     if tag:
-        sites = [
-            s for s in sites
-            if tag in s.get("tags", [])
-        ]
+        sites = [s for s in sites if tag in s.get("tags", [])]
 
     if sort == "name":
         sites.sort(key=lambda s: (s.get("name") or "").lower())
     elif sort == "uptime":
         sites.sort(key=lambda s: s.get("uptime", 100.0), reverse=True)
     elif sort == "response_time":
-        sites.sort(key=lambda s: s.get("response_time") if isinstance(s.get("response_time"), (int, float)) else 999999)
+        sites.sort(
+            key=lambda s: (
+                s.get("response_time")
+                if isinstance(s.get("response_time"), (int, float))
+                else 999999
+            )
+        )
     else:
         status_order = {"down": 0, "slow": 1, "maintenance": 2, "paused": 3, "unknown": 4, "up": 5}
         sites.sort(key=lambda s: status_order.get((s.get("status") or "unknown").lower(), 6))
 
     if not sites:
-        return HTMLResponse('<div class="col-span-full text-center py-10 text-slate-500">No monitors found.</div>')
+        return HTMLResponse(
+            '<div class="col-span-full text-center py-10 text-slate-500">No monitors found.</div>'
+        )
 
     html = "".join(_monitor_card_html(s) for s in sites)
     return HTMLResponse(html)
+
 
 @router.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, user: dict = Depends(get_current_user)):
@@ -181,20 +220,25 @@ async def dashboard(request: Request, user: dict = Depends(get_current_user)):
             down_sites = row[0]
 
     notify_cards_template = templates.get_template("partials/notification_cards.html")
-    notification_cards = notify_cards_template.render({
-        "request": request, "notify_settings": NOTIFY_SETTINGS
-    })
+    notification_cards = notify_cards_template.render(
+        {"request": request, "notify_settings": NOTIFY_SETTINGS}
+    )
     notify_config_json = json.dumps(NOTIFY_SETTINGS)
 
-    return templates.TemplateResponse(request, "dashboard.html", {
-        "request": request,
-        "total": total_sites,
-        "total_sites": total_sites,
-        "up_sites": up_sites,
-        "down_sites": down_sites,
-        "notification_cards": notification_cards,
-        "notify_config_json": notify_config_json
-    })
+    return templates.TemplateResponse(
+        request,
+        "dashboard.html",
+        {
+            "request": request,
+            "total": total_sites,
+            "total_sites": total_sites,
+            "up_sites": up_sites,
+            "down_sites": down_sites,
+            "notification_cards": notification_cards,
+            "notify_config_json": notify_config_json,
+        },
+    )
+
 
 @router.get("/users", response_class=HTMLResponse)
 async def users_page(request: Request, user: dict = Depends(require_admin)):
@@ -203,6 +247,7 @@ async def users_page(request: Request, user: dict = Depends(require_admin)):
         return RedirectResponse(url="/login", status_code=302)
 
     return templates.TemplateResponse(request, "users.html", {"request": request})
+
 
 @router.get("/status", response_class=HTMLResponse)
 @router.get("/public-status", response_class=HTMLResponse)
@@ -223,33 +268,39 @@ async def public_status_page(request: Request):
             async with conn.execute(
                 "SELECT COUNT(*) as total, SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count "
                 "FROM status_history WHERE site_id = ? AND checked_at >= ?",
-                (sid, cutoff_30d)
+                (sid, cutoff_30d),
             ) as c:
                 row = await c.fetchone()
                 total_checks = row[0] or 0
                 up_checks = row[1] or 0
-                s["uptime_pct"] = round((up_checks / total_checks * 100) if total_checks > 0 else 100.0, 2)
+                s["uptime_pct"] = round(
+                    (up_checks / total_checks * 100) if total_checks > 0 else 100.0, 2
+                )
 
             async with conn.execute(
                 "SELECT status, response_time, checked_at FROM status_history "
                 "WHERE site_id = ? AND checked_at >= ? ORDER BY checked_at DESC LIMIT 1",
-                (sid, cutoff_30d)
+                (sid, cutoff_30d),
             ) as c:
                 last = await c.fetchone()
-                s["latest_response_time"] = round(last[1], 2) if last and last[1] is not None else None
+                s["latest_response_time"] = (
+                    round(last[1], 2) if last and last[1] is not None else None
+                )
 
             async with conn.execute(
                 "SELECT checked_at FROM status_history "
                 "WHERE site_id = ? AND status = 'down' AND checked_at >= ? "
                 "ORDER BY checked_at DESC LIMIT 5",
-                (sid, cutoff_30d)
+                (sid, cutoff_30d),
             ) as c:
                 down_events = await c.fetchall()
                 for de in down_events:
-                    incidents_raw.append({
-                        "site_name": s["name"],
-                        "time": de[0][:19].replace("T", " "),
-                    })
+                    incidents_raw.append(
+                        {
+                            "site_name": s["name"],
+                            "time": de[0][:19].replace("T", " "),
+                        }
+                    )
 
         thirty_day_uptime = 100.0
         if sites:
@@ -305,24 +356,28 @@ async def public_status_page(request: Request):
     overall_status_text = "All systems operational" if down_count == 0 else "Some issues detected"
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    return templates.TemplateResponse(request, "public_status.html", {
-        "request": request,
-        "overall_status_class": overall_status_class,
-        "overall_status_text": overall_status_text,
-        "total": total,
-        "up_count": up_count,
-        "down_count": down_count,
-        "sites": sites,
-        "timestamp": timestamp,
-        "site_title": SITE_TITLE,
-        "logo_url": LOGO_URL,
-        "footer_text": FOOTER_TEXT,
-        "primary_color": PRIMARY_COLOR,
-        "brand_accent_color": BRAND_ACCENT_COLOR,
-        "display_address": DISPLAY_ADDRESS,
-        "thirty_day_uptime": thirty_day_uptime,
-        "incidents": sorted(incidents_raw, key=lambda x: x["time"], reverse=True)[:10],
-    })
+    return templates.TemplateResponse(
+        request,
+        "public_status.html",
+        {
+            "request": request,
+            "overall_status_class": overall_status_class,
+            "overall_status_text": overall_status_text,
+            "total": total,
+            "up_count": up_count,
+            "down_count": down_count,
+            "sites": sites,
+            "timestamp": timestamp,
+            "site_title": SITE_TITLE,
+            "logo_url": LOGO_URL,
+            "footer_text": FOOTER_TEXT,
+            "primary_color": PRIMARY_COLOR,
+            "brand_accent_color": BRAND_ACCENT_COLOR,
+            "display_address": DISPLAY_ADDRESS,
+            "thirty_day_uptime": thirty_day_uptime,
+            "incidents": sorted(incidents_raw, key=lambda x: x["time"], reverse=True)[:10],
+        },
+    )
 
 
 @router.websocket("/ws")

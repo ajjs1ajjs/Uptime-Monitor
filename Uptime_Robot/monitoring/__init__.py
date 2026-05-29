@@ -3,7 +3,7 @@
 import asyncio
 import json
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import aiohttp
 
@@ -25,7 +25,7 @@ def normalize_ssl_url(url: str) -> Optional[str]:
     return url
 
 
-async def load_notify_settings_from_db() -> Dict[str, Any]:
+async def load_notify_settings_from_db() -> dict[str, Any]:
     try:
         async with get_db_connection() as conn:
             async with conn.execute("SELECT config FROM notify_config WHERE id = 1") as c:
@@ -39,6 +39,7 @@ async def load_notify_settings_from_db() -> Dict[str, Any]:
 
 async def _check_dns(url: str, start_time: datetime) -> tuple:
     from urllib.parse import urlparse
+
     parsed = urlparse(url)
     host = parsed.hostname or parsed.path.split("/")[0]
     if ":" in host:
@@ -57,6 +58,7 @@ async def _check_dns(url: str, start_time: datetime) -> tuple:
 async def _check_ping(url: str, start_time: datetime) -> tuple:
     import sys
     from urllib.parse import urlparse
+
     parsed = urlparse(url)
     host = parsed.hostname or parsed.path.split("/")[0]
     if ":" in host:
@@ -65,9 +67,7 @@ async def _check_ping(url: str, start_time: datetime) -> tuple:
     is_win = sys.platform == "win32"
     ping_cmd = ["ping", "-n", "1", host] if is_win else ["ping", "-c", "1", "-W", "5", host]
     proc = await asyncio.create_subprocess_exec(
-        *ping_cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE
+        *ping_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
     stdout, stderr = await proc.communicate()
     response_time = (datetime.now() - start_time).total_seconds() * 1000
@@ -78,6 +78,7 @@ async def _check_ping(url: str, start_time: datetime) -> tuple:
 
 async def _check_port(url: str, start_time: datetime, timeout: int) -> tuple:
     from urllib.parse import urlparse
+
     parsed = urlparse(url)
     host_port = parsed.netloc or parsed.path.split("/")[0]
     if ":" in host_port:
@@ -90,10 +91,7 @@ async def _check_port(url: str, start_time: datetime, timeout: int) -> tuple:
         host = host_port
         port = 80
 
-    reader, writer = await asyncio.wait_for(
-        asyncio.open_connection(host, port),
-        timeout=timeout
-    )
+    reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=timeout)
     writer.close()
     try:
         await writer.wait_closed()
@@ -103,7 +101,9 @@ async def _check_port(url: str, start_time: datetime, timeout: int) -> tuple:
     return "up", port, response_time, None
 
 
-async def _check_http(url: str, start_time: datetime, policy: dict, keyword: Optional[str]) -> tuple:
+async def _check_http(
+    url: str, start_time: datetime, policy: dict, keyword: Optional[str]
+) -> tuple:
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     async with aiohttp.ClientSession() as session:
         async with session.get(
@@ -123,6 +123,7 @@ async def _check_http(url: str, start_time: datetime, policy: dict, keyword: Opt
                     body_text = ""
                 if keyword.startswith("regex:"):
                     import re
+
                     pattern = keyword[6:]
                     try:
                         if not re.search(pattern, body_text):
@@ -141,9 +142,19 @@ async def _check_http(url: str, start_time: datetime, policy: dict, keyword: Opt
 
 
 async def _process_alerting(
-    status, prev_status, notify_methods, notify_settings,
-    site_id, site_name, url, status_code, error_message, checked_at,
-    failed_attempts, success_attempts, last_down_alert_str
+    status,
+    prev_status,
+    notify_methods,
+    notify_settings,
+    site_id,
+    site_name,
+    url,
+    status_code,
+    error_message,
+    checked_at,
+    failed_attempts,
+    success_attempts,
+    last_down_alert_str,
 ):
     checked_at_dt = checked_at
     last_down_alert = datetime.fromisoformat(last_down_alert_str) if last_down_alert_str else None
@@ -160,9 +171,11 @@ async def _process_alerting(
                 should_alert = True
                 alert_type = "NEW"
         else:
-            if (last_down_alert is None
+            if (
+                last_down_alert is None
                 or (checked_at_dt - last_down_alert).total_seconds()
-                    >= policy["still_down_repeat_seconds"]):
+                >= policy["still_down_repeat_seconds"]
+            ):
                 should_alert = True
                 alert_type = "REPEAT"
 
@@ -182,8 +195,11 @@ async def _process_alerting(
     if status == "up":
         failed_attempts = 0
         success_attempts += 1
-        if (prev_status == "down" and notify_methods
-                and success_attempts >= policy["up_success_threshold"]):
+        if (
+            prev_status == "down"
+            and notify_methods
+            and success_attempts >= policy["up_success_threshold"]
+        ):
             msg = {
                 "alert_type": "up",
                 "site_name": site_name,
@@ -202,7 +218,7 @@ async def _process_alerting(
 
 
 async def check_site_status(
-    site_id: int, url: str, notify_methods: List[str], notify_settings: Dict[str, Any]
+    site_id: int, url: str, notify_methods: list[str], notify_settings: dict[str, Any]
 ):
     start_time = datetime.now()
     status = "down"
@@ -266,15 +282,18 @@ async def check_site_status(
 
     try:
         from ..wss.manager import manager
-        await manager.broadcast({
-            "type": "site_status",
-            "site_id": site_id,
-            "status": status,
-            "status_code": status_code,
-            "response_time": round(response_time, 2) if response_time else None,
-            "error_message": error_message,
-            "checked_at": checked_at_iso,
-        })
+
+        await manager.broadcast(
+            {
+                "type": "site_status",
+                "site_id": site_id,
+                "status": status,
+                "status_code": status_code,
+                "response_time": round(response_time, 2) if response_time else None,
+                "error_message": error_message,
+                "checked_at": checked_at_iso,
+            }
+        )
     except Exception:
         pass
 
@@ -287,23 +306,42 @@ async def check_site_status(
 
         site_name = row["name"] if row else url
         prev_status = row["status"] if row else None
-        failed_attempts = row["failed_attempts"] if row and row["failed_attempts"] is not None else 0
-        success_attempts = row["success_attempts"] if row and row["success_attempts"] is not None else 0
+        failed_attempts = (
+            row["failed_attempts"] if row and row["failed_attempts"] is not None else 0
+        )
+        success_attempts = (
+            row["success_attempts"] if row and row["success_attempts"] is not None else 0
+        )
         last_down_alert_str = row["last_down_alert"] if row else None
 
         if prev_status != status:
             await conn.execute(
                 """INSERT INTO status_history (site_id, status, status_code, response_time, error_message, checked_at)
                    VALUES (?, ?, ?, ?, ?, ?)""",
-                (site_id, status, status_code,
-                 round(response_time, 2) if response_time else None,
-                 error_message, checked_at_iso),
+                (
+                    site_id,
+                    status,
+                    status_code,
+                    round(response_time, 2) if response_time else None,
+                    error_message,
+                    checked_at_iso,
+                ),
             )
 
         failed_attempts, success_attempts, last_down_alert = await _process_alerting(
-            status, prev_status, notify_methods, notify_settings,
-            site_id, site_name, url, status_code, error_message, checked_at,
-            failed_attempts, success_attempts, last_down_alert_str
+            status,
+            prev_status,
+            notify_methods,
+            notify_settings,
+            site_id,
+            site_name,
+            url,
+            status_code,
+            error_message,
+            checked_at,
+            failed_attempts,
+            success_attempts,
+            last_down_alert_str,
         )
 
         last_down_str = last_down_alert.isoformat() if last_down_alert else None
@@ -312,9 +350,15 @@ async def check_site_status(
                status = ?, status_code = ?, response_time = ?,
                failed_attempts = ?, success_attempts = ?, last_down_alert = ?
                WHERE id = ?""",
-            (status, status_code,
-             round(response_time, 2) if response_time else None,
-             failed_attempts, success_attempts, last_down_str, site_id),
+            (
+                status,
+                status_code,
+                round(response_time, 2) if response_time else None,
+                failed_attempts,
+                success_attempts,
+                last_down_str,
+                site_id,
+            ),
         )
         await conn.commit()
 
@@ -322,7 +366,7 @@ async def check_site_status(
 
 
 async def check_site_certificate(
-    site_id: int, url: str, notify_methods: List[str], notify_settings: Dict[str, Any]
+    site_id: int, url: str, notify_methods: list[str], notify_settings: dict[str, Any]
 ):
     if not url.lower().startswith("https://"):
         if "." in url and "://" not in url:
@@ -421,7 +465,7 @@ async def check_site_certificate(
                 await conn.commit()
 
 
-async def check_all_certificates(notify_settings: Dict[str, Any]):
+async def check_all_certificates(notify_settings: dict[str, Any]):
     async with get_db_connection() as conn:
         async with conn.execute(
             "SELECT id, url, notify_methods FROM sites WHERE is_active = 1 AND (url LIKE 'https://%' OR monitor_type = 'ssl')"
@@ -435,7 +479,7 @@ async def check_all_certificates(notify_settings: Dict[str, Any]):
         await asyncio.sleep(1)
 
 
-async def monitor_loop(notify_settings: Dict[str, Any], default_check_interval: int = 60):
+async def monitor_loop(notify_settings: dict[str, Any], default_check_interval: int = 60):
     policy = get_alert_policy()
     ssl_check_interval = policy["ssl_check_interval_hours"] * 3600
     last_cert_check = datetime.now() - timedelta(hours=25)

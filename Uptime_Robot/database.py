@@ -2,9 +2,11 @@
 
 import os
 import sys
-import aiosqlite
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator, Optional
+from typing import Optional
+
+import aiosqlite
 
 _db_connection: Optional[aiosqlite.Connection] = None
 

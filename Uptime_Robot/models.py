@@ -3,7 +3,7 @@
 import json
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from .database import get_db_connection
 
@@ -103,7 +103,9 @@ async def init_database(db_path: str):
         )
 
         # Migrations for legacy users
-        async with conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'") as c:
+        async with conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
+        ) as c:
             users_table_exists = await c.fetchone() is not None
 
         if users_table_exists:
@@ -113,13 +115,15 @@ async def init_database(db_path: str):
             if "role" not in columns:
                 await conn.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'admin'")
                 await conn.execute("UPDATE users SET role = 'admin' WHERE is_admin = 1")
-                await conn.execute("UPDATE users SET role = 'viewer' WHERE is_admin = 0 OR is_admin IS NULL")
-                
+                await conn.execute(
+                    "UPDATE users SET role = 'viewer' WHERE is_admin = 0 OR is_admin IS NULL"
+                )
+
         # Migrations for legacy sites
         async with conn.execute("PRAGMA table_info(sites)") as c:
             rows = await c.fetchall()
             site_columns = {row[1] for row in rows}
-        
+
         if "failed_attempts" not in site_columns:
             await conn.execute("ALTER TABLE sites ADD COLUMN failed_attempts INTEGER DEFAULT 0")
             await conn.execute("ALTER TABLE sites ADD COLUMN success_attempts INTEGER DEFAULT 0")
@@ -128,8 +132,14 @@ async def init_database(db_path: str):
         async with conn.execute("PRAGMA table_info(app_settings)") as c:
             rows = await c.fetchall()
             settings_columns = {row[1] for row in rows}
-        
-        for col, col_type in [("site_title", "TEXT DEFAULT 'Uptime Monitor'"), ("logo_url", "TEXT DEFAULT ''"), ("footer_text", "TEXT DEFAULT ''"), ("primary_color", "TEXT DEFAULT '#00ff88'"), ("brand_accent_color", "TEXT DEFAULT '#06b6d4'")]:
+
+        for col, col_type in [
+            ("site_title", "TEXT DEFAULT 'Uptime Monitor'"),
+            ("logo_url", "TEXT DEFAULT ''"),
+            ("footer_text", "TEXT DEFAULT ''"),
+            ("primary_color", "TEXT DEFAULT '#00ff88'"),
+            ("brand_accent_color", "TEXT DEFAULT '#06b6d4'"),
+        ]:
             if col not in settings_columns:
                 await conn.execute(f"ALTER TABLE app_settings ADD COLUMN {col} {col_type}")
 
@@ -168,7 +178,7 @@ async def init_database(db_path: str):
             attempt_count INTEGER DEFAULT 1,
             reset_at REAL NOT NULL
         )""")
-        await conn.execute("""CREATE INDEX IF NOT EXISTS idx_rate_limits_lookup 
+        await conn.execute("""CREATE INDEX IF NOT EXISTS idx_rate_limits_lookup
             ON rate_limits(endpoint, ip)""")
 
         # Таблиця періодів обслуговування (Maintenance Windows)
@@ -189,7 +199,7 @@ async def init_database(db_path: str):
         await conn.commit()
 
 
-async def get_all_sites(db_path: str) -> List[Dict[str, Any]]:
+async def get_all_sites(db_path: str) -> list[dict[str, Any]]:
     """Отримує всі сайти"""
     async with get_db_connection(db_path) as conn:
         async with conn.execute("SELECT * FROM sites ORDER BY id DESC") as c:
@@ -197,7 +207,7 @@ async def get_all_sites(db_path: str) -> List[Dict[str, Any]]:
             return [dict(row) for row in rows]
 
 
-async def get_active_sites(db_path: str) -> List[Dict[str, Any]]:
+async def get_active_sites(db_path: str) -> list[dict[str, Any]]:
     """Отримує активні сайти"""
     async with get_db_connection(db_path) as conn:
         async with conn.execute("SELECT * FROM sites WHERE is_active = 1") as c:
@@ -210,17 +220,25 @@ async def add_site(
     name: str,
     url: str,
     check_interval: int = 60,
-    notify_methods: Optional[List[str]] = None,
+    notify_methods: Optional[list[str]] = None,
     monitor_type: str = "http",
     keyword: Optional[str] = None,
-    tags: Optional[List[str]] = None,
+    tags: Optional[list[str]] = None,
 ) -> int:
     """Додає новий сайт"""
     async with get_db_connection(db_path) as conn:
         async with conn.execute(
             """INSERT INTO sites (name, url, check_interval, notify_methods, monitor_type, keyword, tags, is_active)
                      VALUES (?, ?, ?, ?, ?, ?, ?, 1)""",
-            (name, url, check_interval, json.dumps(notify_methods or []), monitor_type, keyword, json.dumps(tags or [])),
+            (
+                name,
+                url,
+                check_interval,
+                json.dumps(notify_methods or []),
+                monitor_type,
+                keyword,
+                json.dumps(tags or []),
+            ),
         ) as c:
             site_id = c.lastrowid
         await conn.commit()
@@ -243,7 +261,7 @@ async def update_site(db_path: str, site_id: int, **kwargs):
         "response_time",
         "monitor_type",
         "keyword",
-        "tags"
+        "tags",
     }
 
     updates = []
@@ -261,7 +279,9 @@ async def update_site(db_path: str, site_id: int, **kwargs):
     params.append(site_id)
 
     async with get_db_connection(db_path) as conn:
-        await conn.execute(f"UPDATE sites SET {', '.join(updates)} WHERE id = ?", params)
+        await conn.execute(
+            f"UPDATE sites SET {', '.join(updates)} WHERE id = ?", params
+        )  # nosec B608
         await conn.commit()
 
 
@@ -298,17 +318,19 @@ async def add_status_history(
             ),
         )
 
-        await conn.execute("DELETE FROM status_history WHERE checked_at < datetime('now', '-30 days')")
+        await conn.execute(
+            "DELETE FROM status_history WHERE checked_at < datetime('now', '-30 days')"
+        )
         await conn.commit()
 
 
-async def get_site_stats(db_path: str, site_id: int) -> Dict[str, Any]:
+async def get_site_stats(db_path: str, site_id: int) -> dict[str, Any]:
     """Отримує статистику сайту"""
     async with get_db_connection(db_path) as conn:
         async with conn.execute(
             """SELECT * FROM status_history
                      WHERE site_id = ? ORDER BY checked_at DESC LIMIT 1""",
-            (site_id,)
+            (site_id,),
         ) as c:
             last_check = await c.fetchone()
 
@@ -317,7 +339,7 @@ async def get_site_stats(db_path: str, site_id: int) -> Dict[str, Any]:
                         COUNT(*) as total,
                         SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count
                      FROM status_history WHERE site_id = ?""",
-            (site_id,)
+            (site_id,),
         ) as c:
             stats = await c.fetchone()
 
@@ -328,7 +350,7 @@ async def get_site_stats(db_path: str, site_id: int) -> Dict[str, Any]:
     }
 
 
-async def save_notify_settings(db_path: str, settings: Dict[str, Any]):
+async def save_notify_settings(db_path: str, settings: dict[str, Any]):
     """Зберігає налаштування сповіщень"""
     async with get_db_connection(db_path) as conn:
         await conn.execute(
@@ -338,7 +360,7 @@ async def save_notify_settings(db_path: str, settings: Dict[str, Any]):
         await conn.commit()
 
 
-async def load_notify_settings(db_path: str) -> Dict[str, Any]:
+async def load_notify_settings(db_path: str) -> dict[str, Any]:
     """Завантажує налаштування сповіщень"""
     async with get_db_connection(db_path) as conn:
         async with conn.execute("SELECT config FROM notify_config WHERE id = 1") as c:
@@ -349,7 +371,7 @@ async def load_notify_settings(db_path: str) -> Dict[str, Any]:
     return {}
 
 
-async def get_ssl_certificates(db_path: str) -> List[Dict[str, Any]]:
+async def get_ssl_certificates(db_path: str) -> list[dict[str, Any]]:
     """Отримує всі SSL сертифікати"""
     async with get_db_connection(db_path) as conn:
         async with conn.execute("""SELECT c.*, s.name as site_name, s.url as site_url
@@ -361,10 +383,12 @@ async def get_ssl_certificates(db_path: str) -> List[Dict[str, Any]]:
             return [dict(row) for row in rows]
 
 
-async def save_ssl_certificate(db_path: str, site_id: int, cert_data: Dict[str, Any]):
+async def save_ssl_certificate(db_path: str, site_id: int, cert_data: dict[str, Any]):
     """Зберігає або оновлює SSL сертифікат"""
     async with get_db_connection(db_path) as conn:
-        async with conn.execute("""SELECT id FROM ssl_certificates WHERE site_id = ?""", (site_id,)) as c:
+        async with conn.execute(
+            """SELECT id FROM ssl_certificates WHERE site_id = ?""", (site_id,)
+        ) as c:
             existing = await c.fetchone()
 
         if existing:
@@ -408,15 +432,13 @@ async def save_ssl_certificate(db_path: str, site_id: int, cert_data: Dict[str, 
         await conn.commit()
 
 
-async def get_maintenance_windows(db_path: str) -> List[Dict[str, Any]]:
+async def get_maintenance_windows(db_path: str) -> list[dict[str, Any]]:
     """Отримує всі періоди обслуговування"""
     async with get_db_connection(db_path) as conn:
-        async with conn.execute(
-            """SELECT mw.*, s.name as site_name 
-               FROM maintenance_windows mw 
-               LEFT JOIN sites s ON mw.site_id = s.id 
-               ORDER BY mw.id DESC"""
-        ) as c:
+        async with conn.execute("""SELECT mw.*, s.name as site_name
+               FROM maintenance_windows mw
+               LEFT JOIN sites s ON mw.site_id = s.id
+               ORDER BY mw.id DESC""") as c:
             rows = await c.fetchall()
             return [dict(row) for row in rows]
 
@@ -435,10 +457,19 @@ async def add_maintenance_window(
     """Додає новий період обслуговування"""
     async with get_db_connection(db_path) as conn:
         async with conn.execute(
-            """INSERT INTO maintenance_windows 
+            """INSERT INTO maintenance_windows
                (name, site_id, rule_type, start_time, end_time, day_of_week, start_hour_minute, duration_minutes, is_active)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)""",
-            (name, site_id, rule_type, start_time, end_time, day_of_week, start_hour_minute, duration_minutes),
+            (
+                name,
+                site_id,
+                rule_type,
+                start_time,
+                end_time,
+                day_of_week,
+                start_hour_minute,
+                duration_minutes,
+            ),
         ) as c:
             window_id = c.lastrowid
         await conn.commit()
@@ -455,7 +486,10 @@ async def delete_maintenance_window(db_path: str, window_id: int):
 async def toggle_maintenance_window(db_path: str, window_id: int, is_active: bool):
     """Вмикає або вимикає період обслуговування"""
     async with get_db_connection(db_path) as conn:
-        await conn.execute("UPDATE maintenance_windows SET is_active = ? WHERE id = ?", (1 if is_active else 0, window_id))
+        await conn.execute(
+            "UPDATE maintenance_windows SET is_active = ? WHERE id = ?",
+            (1 if is_active else 0, window_id),
+        )
         await conn.commit()
 
 
@@ -473,7 +507,15 @@ async def log_audit_event(
         await conn.execute(
             """INSERT INTO audit_log (user_id, username, action, target_type, target_id, details, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (user_id, username, action, target_type, target_id, details, datetime.now().isoformat()),
+            (
+                user_id,
+                username,
+                action,
+                target_type,
+                target_id,
+                details,
+                datetime.now().isoformat(),
+            ),
         )
         await conn.commit()
 
@@ -481,9 +523,7 @@ async def log_audit_event(
 async def get_audit_log(db_path: str, limit: int = 200) -> list:
     """Get recent audit log entries."""
     async with get_db_connection(db_path) as conn:
-        async with conn.execute(
-            "SELECT * FROM audit_log ORDER BY id DESC LIMIT ?", (limit,)
-        ) as c:
+        async with conn.execute("SELECT * FROM audit_log ORDER BY id DESC LIMIT ?", (limit,)) as c:
             rows = await c.fetchall()
             return [dict(row) for row in rows]
 
@@ -501,7 +541,14 @@ async def log_notification(
         await conn.execute(
             """INSERT INTO notification_history (site_id, site_name, method, status, message_preview, sent_at)
                VALUES (?, ?, ?, ?, ?, ?)""",
-            (site_id, site_name, method, status, (message_preview or "")[:200], datetime.now().isoformat()),
+            (
+                site_id,
+                site_name,
+                method,
+                status,
+                (message_preview or "")[:200],
+                datetime.now().isoformat(),
+            ),
         )
         await conn.commit()
 
@@ -519,6 +566,7 @@ async def get_notification_history(db_path: str, limit: int = 100) -> list:
 async def create_backup(db_path: str, backup_path: str) -> dict:
     """Create a backup of the database."""
     import shutil
+
     os.makedirs(os.path.dirname(backup_path), exist_ok=True)
     shutil.copy2(db_path, backup_path)
     async with get_db_connection(db_path) as conn:
@@ -528,18 +576,26 @@ async def create_backup(db_path: str, backup_path: str) -> dict:
         await conn.execute(
             """INSERT INTO backups (filename, filepath, size_bytes, site_count, created_at)
                VALUES (?, ?, ?, ?, ?)""",
-            (os.path.basename(backup_path), backup_path, os.path.getsize(backup_path), site_count, datetime.now().isoformat()),
+            (
+                os.path.basename(backup_path),
+                backup_path,
+                os.path.getsize(backup_path),
+                site_count,
+                datetime.now().isoformat(),
+            ),
         )
         await conn.commit()
-    return {"filename": os.path.basename(backup_path), "path": backup_path, "site_count": site_count}
+    return {
+        "filename": os.path.basename(backup_path),
+        "path": backup_path,
+        "site_count": site_count,
+    }
 
 
 async def get_backups(db_path: str) -> list:
     """List all backups."""
     async with get_db_connection(db_path) as conn:
-        async with conn.execute(
-            "SELECT * FROM backups ORDER BY id DESC LIMIT 20"
-        ) as c:
+        async with conn.execute("SELECT * FROM backups ORDER BY id DESC LIMIT 20") as c:
             rows = await c.fetchall()
             return [dict(row) for row in rows]
 
@@ -549,6 +605,7 @@ async def check_db_rate_limit(
 ) -> bool:
     """Returns True if within limit, False if rate limited."""
     import time
+
     now = time.time()
     async with get_db_connection() as conn:
         async with conn.execute(
@@ -570,8 +627,6 @@ async def check_db_rate_limit(
                 (endpoint, ip, 1, now + window_seconds),
             )
 
-        await conn.execute(
-            "DELETE FROM rate_limits WHERE reset_at < ?", (now,)
-        )
+        await conn.execute("DELETE FROM rate_limits WHERE reset_at < ?", (now,))
         await conn.commit()
     return True

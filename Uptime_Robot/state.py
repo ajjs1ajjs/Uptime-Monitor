@@ -11,7 +11,7 @@ NOTIFY_SETTINGS = config_manager.DEFAULT_NOTIFY_SETTINGS.copy()
 if "notifications" in CONFIG:
     for k, v in CONFIG["notifications"].items():
         if k in NOTIFY_SETTINGS and isinstance(v, dict):
-             NOTIFY_SETTINGS[k].update(v)
+            NOTIFY_SETTINGS[k].update(v)
 
 DISPLAY_ADDRESS = ""
 SITE_TITLE = "Uptime Monitor"

@@ -17,9 +17,7 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 router = APIRouter()
 
 
-def _rate_limit_dependency(
-    endpoint: str, max_attempts: int, window_seconds: int
-):
+def _rate_limit_dependency(endpoint: str, max_attempts: int, window_seconds: int):
     """Creates a FastAPI Dependency that rate-limits by client IP using DB."""
 
     async def limiter(request: Request):
@@ -34,6 +32,7 @@ def _rate_limit_dependency(
 
     return limiter
 
+
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, error: str = None, user: dict = Depends(get_current_user)):
     if user:
@@ -41,12 +40,13 @@ async def login_page(request: Request, error: str = None, user: dict = Depends(g
 
     error_html = f'<div class="error">{error}</div>' if error else ""
     warning_html = '<div class="warning">WARNING: Change password after first login!</div>'
-    
-    return templates.TemplateResponse(request, "login.html", {
-        "request": request,
-        "error_message": error_html,
-        "warning_message": warning_html
-    })
+
+    return templates.TemplateResponse(
+        request,
+        "login.html",
+        {"request": request, "error_message": error_html, "warning_message": warning_html},
+    )
+
 
 @router.post("/login")
 async def login(request: Request, username: str = Form(...), password: str = Form(...)):
@@ -80,6 +80,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
     )
     return response
 
+
 @router.get("/logout")
 async def logout(request: Request):
     session_id = request.cookies.get("session_id")
@@ -89,6 +90,7 @@ async def logout(request: Request):
     response.delete_cookie("session_id")
     return response
 
+
 @router.get("/change-password", response_class=HTMLResponse)
 async def change_password_page(
     request: Request, error: str = None, user: dict = Depends(get_current_user)
@@ -96,10 +98,10 @@ async def change_password_page(
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     error_html = f'<div class="error">{error}</div>' if error else ""
-    return templates.TemplateResponse(request, "change_password.html", {
-        "request": request, 
-        "error_message": error_html
-    })
+    return templates.TemplateResponse(
+        request, "change_password.html", {"request": request, "error_message": error_html}
+    )
+
 
 @router.post("/change-password")
 async def change_password(
@@ -123,7 +125,9 @@ async def change_password(
         return RedirectResponse(url=f"/change-password?error={error_msg}", status_code=302)
 
     async with get_db_connection() as conn:
-        async with conn.execute("SELECT password_hash FROM users WHERE id = ?", (user["user_id"],)) as c:
+        async with conn.execute(
+            "SELECT password_hash FROM users WHERE id = ?", (user["user_id"],)
+        ) as c:
             user_data = await c.fetchone()
 
     if not user_data or not auth_module.verify_password(
@@ -137,6 +141,7 @@ async def change_password(
         return RedirectResponse(url="/?message=Password updated", status_code=302)
     else:
         return RedirectResponse(url="/change-password?error=Update failed", status_code=302)
+
 
 @router.get("/forgot-password", response_class=HTMLResponse)
 async def forgot_password_page(
@@ -152,12 +157,13 @@ async def forgot_password_page(
 
     error_html = f'<div class="error">{error}</div>' if error else ""
     success_html = f'<div class="success">{success}</div>' if success else ""
-    
-    return templates.TemplateResponse(request, "forgot_password.html", {
-        "request": request,
-        "error_message": error_html,
-        "success_message": success_html
-    })
+
+    return templates.TemplateResponse(
+        request,
+        "forgot_password.html",
+        {"request": request, "error_message": error_html, "success_message": success_html},
+    )
+
 
 @router.post("/forgot-password")
 async def forgot_password_action(
@@ -169,14 +175,14 @@ async def forgot_password_action(
     async with get_db_connection() as conn:
         async with conn.execute("SELECT id FROM users WHERE username = ?", (username,)) as c:
             user = await c.fetchone()
-            
+
         if not user:
             error_html = '<div class="error">User not found</div>'
-            return templates.TemplateResponse(request, "forgot_password.html", {
-                "request": request,
-                "error_message": error_html,
-                "success_message": ""
-            })
+            return templates.TemplateResponse(
+                request,
+                "forgot_password.html",
+                {"request": request, "error_message": error_html, "success_message": ""},
+            )
         temporary_password = secrets.token_urlsafe(12)
         await auth_module.change_password(user["id"], temporary_password, DB_PATH)
         await conn.execute("UPDATE users SET must_change_password = 1 WHERE id = ?", (user["id"],))
@@ -184,12 +190,12 @@ async def forgot_password_action(
 
     success_html = (
         '<div class="success">'
-        f'Temporary password for {html.escape(username)}: '
-        f'<code>{html.escape(temporary_password)}</code>'
+        f"Temporary password for {html.escape(username)}: "
+        f"<code>{html.escape(temporary_password)}</code>"
         "</div>"
     )
-    return templates.TemplateResponse(request, "forgot_password.html", {
-        "request": request,
-        "error_message": "",
-        "success_message": success_html
-    })
+    return templates.TemplateResponse(
+        request,
+        "forgot_password.html",
+        {"request": request, "error_message": "", "success_message": success_html},
+    )

@@ -1,4 +1,5 @@
 from fastapi import Depends, HTTPException, Request
+
 from . import auth_module
 from .state import DB_PATH
 

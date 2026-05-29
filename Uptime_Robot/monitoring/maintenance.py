@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+
 from ..database import get_db_connection
 from ..logger import logger
 
@@ -10,7 +11,7 @@ async def is_under_maintenance(site_id: int) -> bool:
             async with conn.execute(
                 """SELECT * FROM maintenance_windows
                    WHERE is_active = 1 AND (site_id = ? OR site_id IS NULL)""",
-                (site_id,)
+                (site_id,),
             ) as c:
                 rows = await c.fetchall()
     except Exception as e:
@@ -33,7 +34,9 @@ async def is_under_maintenance(site_id: int) -> bool:
             try:
                 start_h, start_m = map(int, row["start_hour_minute"].split(":"))
                 duration = int(row["duration_minutes"])
-                today_start = current_time.replace(hour=start_h, minute=start_m, second=0, microsecond=0)
+                today_start = current_time.replace(
+                    hour=start_h, minute=start_m, second=0, microsecond=0
+                )
                 today_end = today_start + timedelta(minutes=duration)
 
                 if today_start <= current_time <= today_end:
@@ -53,7 +56,9 @@ async def is_under_maintenance(site_id: int) -> bool:
 
                 current_dow = current_time.isoweekday()
                 diff_days = target_dow - current_dow
-                target_start = (current_time + timedelta(days=diff_days)).replace(hour=start_h, minute=start_m, second=0, microsecond=0)
+                target_start = (current_time + timedelta(days=diff_days)).replace(
+                    hour=start_h, minute=start_m, second=0, microsecond=0
+                )
                 target_end = target_start + timedelta(minutes=duration)
 
                 if target_start <= current_time <= target_end:

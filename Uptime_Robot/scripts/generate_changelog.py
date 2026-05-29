@@ -16,7 +16,7 @@ def get_commits_since_tag(tag: str = None) -> list:
     else:
         cmd = "git log --pretty=format:'%s' --no-merges"
 
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)  # nosec B602
 
     if result.returncode != 0:
         return []
@@ -52,9 +52,7 @@ def categorize_commits(commits: list) -> dict:
     return categories
 
 
-def generate_changelog_entry(
-    version: str, commits: list, output_file: str = None
-) -> str:
+def generate_changelog_entry(version: str, commits: list, output_file: str = None) -> str:
     """Generate changelog entry for a version"""
     categories = categorize_commits(commits)
 
@@ -130,9 +128,7 @@ def generate_release_notes(version: str, output_file: str = "release_notes.md"):
     previous_tag = result.stdout.strip()
 
     # Get commits since previous tag
-    commits = (
-        get_commits_since_tag(previous_tag) if previous_tag else get_commits_since_tag()
-    )
+    commits = get_commits_since_tag(previous_tag) if previous_tag else get_commits_since_tag()
 
     if not commits:
         commits = ["Initial release"]
@@ -165,7 +161,7 @@ def generate_release_notes(version: str, output_file: str = "release_notes.md"):
     notes += "## Installation\n\n"
     notes += "### Linux (CURL)\n"
     notes += "```bash\n"
-    notes += f"curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash\n"
+    notes += "curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash\n"
     notes += "```\n\n"
 
     notes += "### Linux (APT)\n"
@@ -213,9 +209,7 @@ def main():
     previous_tag = result.stdout.strip()
 
     # Get commits
-    commits = (
-        get_commits_since_tag(previous_tag) if previous_tag else get_commits_since_tag()
-    )
+    commits = get_commits_since_tag(previous_tag) if previous_tag else get_commits_since_tag()
 
     if "--release-notes" in sys.argv or output_file == "release_notes.md":
         generate_release_notes(f"v{version}", output_file)

@@ -1,6 +1,7 @@
 import hashlib
 import secrets
 from datetime import datetime, timedelta
+
 import bcrypt
 
 from .database import get_db_connection
@@ -39,12 +40,16 @@ async def init_auth_tables(db_path):
         )""")
 
         # Migration: force password change for existing users with old (non-bcrypt) passwords
-        await conn.execute("""UPDATE users SET must_change_password = 1 
-            WHERE (password_hash NOT LIKE '$%') AND (must_change_password IS NULL OR must_change_password = 0)""")
+        await conn.execute(
+            """UPDATE users SET must_change_password = 1
+            WHERE (password_hash NOT LIKE '$%') AND (must_change_password IS NULL OR must_change_password = 0)"""
+        )
 
-        async with conn.execute("SELECT id, must_change_password FROM users WHERE username = 'admin'") as c:
+        async with conn.execute(
+            "SELECT id, must_change_password FROM users WHERE username = 'admin'"
+        ) as c:
             admin_row = await c.fetchone()
-            
+
         default_password = "291263"
         password_hash = hash_password(default_password)
         if not admin_row:
@@ -54,12 +59,12 @@ async def init_auth_tables(db_path):
             )
             logger.info("=" * 50)
             logger.info("DEFAULT ADMIN USER CREATED")
-            logger.info(f"Username: admin")
+            logger.info("Username: admin")
             logger.info(f"Password: {default_password}")
             logger.info("=" * 50)
             print(f"\n{'='*50}")
             print("DEFAULT ADMIN USER CREATED")
-            print(f"Username: admin")
+            print("Username: admin")
             print(f"Password: {default_password}")
             print(f"{'='*50}\n")
         elif admin_row["must_change_password"] == 1:
@@ -67,7 +72,7 @@ async def init_auth_tables(db_path):
             # update it to the default password '291263' and clear the must_change_password flag.
             await conn.execute(
                 "UPDATE users SET password_hash = ?, must_change_password = 0 WHERE username = 'admin'",
-                (password_hash,)
+                (password_hash,),
             )
             logger.info("Updated existing admin user password to 291263")
 
@@ -201,9 +206,7 @@ def is_viewer_or_higher(user: dict) -> bool:
     return user.get("role") in ["admin", "viewer"]
 
 
-async def create_user(
-    db_path: str, username: str, password: str, role: str = "viewer"
-) -> bool:
+async def create_user(db_path: str, username: str, password: str, role: str = "viewer") -> bool:
     """Create a new user with specified role"""
     try:
         async with get_db_connection(db_path) as conn:

@@ -5,7 +5,6 @@ Usage: python -m Uptime_Robot.worker
 
 import asyncio
 import json
-import os
 import signal
 import sys
 

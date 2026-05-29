@@ -5,8 +5,8 @@ import ssl as ssl_module
 import sys
 from datetime import datetime
 
-from .logger import logger
 from .crypto_utils import decrypt_config_sensitive, encrypt_config_sensitive, init_crypto
+from .logger import logger
 
 # Windows-specific imports (only on Windows)
 IS_WINDOWS = sys.platform == "win32"
@@ -55,12 +55,16 @@ DEFAULT_CONFIG = {
         "hsts": True,
         "hsts_max_age": 31536000,
     },
-    "data_dir": "/var/lib/uptime-monitor"
-    if not IS_WINDOWS
-    else os.path.join(os.environ.get("USERPROFILE", ""), "UptimeMonitor", "data"),
-    "log_dir": "/var/log/uptime-monitor"
-    if not IS_WINDOWS
-    else os.path.join(os.environ.get("USERPROFILE", ""), "UptimeMonitor", "logs"),
+    "data_dir": (
+        "/var/lib/uptime-monitor"
+        if not IS_WINDOWS
+        else os.path.join(os.environ.get("USERPROFILE", ""), "UptimeMonitor", "data")
+    ),
+    "log_dir": (
+        "/var/log/uptime-monitor"
+        if not IS_WINDOWS
+        else os.path.join(os.environ.get("USERPROFILE", ""), "UptimeMonitor", "logs")
+    ),
     "check_interval": 60,
     "notifications": {
         "email_enabled": False,
@@ -83,9 +87,11 @@ DEFAULT_CONFIG = {
     "backup": {
         "enabled": True,
         "max_backups": 10,
-        "backup_dir": "/etc/uptime-monitor/config.backups"
-        if not IS_WINDOWS
-        else os.path.join(os.environ.get("USERPROFILE", ""), "UptimeMonitor", "config.backups"),
+        "backup_dir": (
+            "/etc/uptime-monitor/config.backups"
+            if not IS_WINDOWS
+            else os.path.join(os.environ.get("USERPROFILE", ""), "UptimeMonitor", "config.backups")
+        ),
     },
 }
 
@@ -129,7 +135,7 @@ def get_server_ip():
                 s.close()
         return ip
     except Exception:
-        return "0.0.0.0"
+        return "0.0.0.0"  # nosec B104
 
 
 def load_config():
@@ -137,7 +143,7 @@ def load_config():
     init_crypto()
     if os.path.exists(CONFIG_PATH):
         try:
-            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            with open(CONFIG_PATH, encoding="utf-8") as f:
                 config = json.load(f)
 
             for key, value in DEFAULT_CONFIG.items():
@@ -240,15 +246,19 @@ def backup_config(config):
                 os.symlink(backup_file, latest_link)
             else:
                 import shutil
+
                 shutil.copy2(backup_file, latest_link)
         except OSError:
             pass
 
         max_backups = config.get("backup", {}).get("max_backups", 10)
         backups = sorted(
-            f for f in os.listdir(backup_dir)
-            if f.startswith("config.") and f.endswith(".json")
-            and not f.endswith(".latest.json") and not f.endswith(".previous.json")
+            f
+            for f in os.listdir(backup_dir)
+            if f.startswith("config.")
+            and f.endswith(".json")
+            and not f.endswith(".latest.json")
+            and not f.endswith(".previous.json")
         )
         if len(backups) > max_backups:
             for old_backup in backups[:-max_backups]:

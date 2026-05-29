@@ -1,18 +1,18 @@
 """Модуль для відправки сповіщень"""
 
 import asyncio
-import aiohttp
 import smtplib
-import json
-import os
-from email.mime.text import MIMEText
-from typing import List, Dict, Any, Optional, Union
 from datetime import datetime
+from email.mime.text import MIMEText
+from typing import Any, Optional, Union
+
+import aiohttp
+
 from .logger import logger
 from .metrics_store import increment_metric
 
 
-def format_telegram_message(data: Dict[str, Any], alert_type: str = "down") -> str:
+def format_telegram_message(data: dict[str, Any], alert_type: str = "down") -> str:
     """Форматує повідомлення для Telegram"""
     site_name = data.get("site_name", "Unknown")
     url = data.get("url", "")
@@ -90,9 +90,7 @@ def format_telegram_message(data: Dict[str, Any], alert_type: str = "down") -> s
     return str(data)
 
 
-def format_discord_message(
-    data: Dict[str, Any], alert_type: str = "down"
-) -> Dict[str, Any]:
+def format_discord_message(data: dict[str, Any], alert_type: str = "down") -> dict[str, Any]:
     """Форматує повідомлення для Discord (embed)"""
     site_name = data.get("site_name", "Unknown")
     url = data.get("url", "")
@@ -219,9 +217,7 @@ def format_discord_message(
     return {"content": str(data)}
 
 
-def format_teams_message(
-    data: Dict[str, Any], alert_type: str = "down"
-) -> Dict[str, Any]:
+def format_teams_message(data: dict[str, Any], alert_type: str = "down") -> dict[str, Any]:
     """Форматує повідомлення для Microsoft Teams"""
     site_name = data.get("site_name", "Unknown")
     url = data.get("url", "")
@@ -270,7 +266,7 @@ def format_teams_message(
     return {"text": str(data)}
 
 
-def parse_message(message: str) -> Dict[str, Any]:
+def parse_message(message: str) -> dict[str, Any]:
     """Парсить просте повідомлення на частини"""
     data = {
         "site_name": "",
@@ -283,13 +279,9 @@ def parse_message(message: str) -> Dict[str, Any]:
     lines = message.split("\n")
     for line in lines:
         if line.startswith("🔴 "):
-            data["site_name"] = (
-                line.replace("🔴 ", "").replace(" - STILL DOWN", "").strip()
-            )
+            data["site_name"] = line.replace("🔴 ", "").replace(" - STILL DOWN", "").strip()
         elif line.startswith("🟢 "):
-            data["site_name"] = (
-                line.replace("🟢 ", "").replace(" - RECOVERED", "").strip()
-            )
+            data["site_name"] = line.replace("🟢 ", "").replace(" - RECOVERED", "").strip()
         elif line.startswith("🌐 "):
             data["url"] = line.replace("🌐 ", "").strip()
         elif line.startswith("Status: "):
@@ -312,23 +304,19 @@ def parse_message(message: str) -> Dict[str, Any]:
 class NotificationService:
     """Сервіс для відправки сповіщень"""
 
-    def __init__(self, settings: Dict[str, Any]):
+    def __init__(self, settings: dict[str, Any]):
         """Ініціалізація сервісу сповіщень"""
         self.settings = settings
 
-    async def send(self, message: str, methods: List[str]):
+    async def send(self, message: str, methods: list[str]):
         """Відправляє сповіщення через вказані методи"""
         tasks = []
         for method in methods:
-            if method == "telegram" and self.settings.get("telegram", {}).get(
-                "enabled"
-            ):
+            if method == "telegram" and self.settings.get("telegram", {}).get("enabled"):
                 tasks.append(send_telegram(message, self.settings["telegram"]))
             elif method == "teams" and self.settings.get("teams", {}).get("enabled"):
                 tasks.append(send_teams(message, self.settings["teams"]))
-            elif method == "discord" and self.settings.get("discord", {}).get(
-                "enabled"
-            ):
+            elif method == "discord" and self.settings.get("discord", {}).get("enabled"):
                 tasks.append(send_discord(message, self.settings["discord"]))
             elif method == "slack" and self.settings.get("slack", {}).get("enabled"):
                 tasks.append(send_slack(message, self.settings["slack"]))
@@ -342,12 +330,17 @@ class NotificationService:
 
 
 async def send_notification(
-    message: Union[str, Dict], methods: List[str], notify_settings: Dict[str, Any],
-    site_id: Optional[int] = None, site_name: Optional[str] = None,
+    message: Union[str, dict],
+    methods: list[str],
+    notify_settings: dict[str, Any],
+    site_id: Optional[int] = None,
+    site_name: Optional[str] = None,
 ):
     """Відправляє сповіщення через вказані методи"""
     tasks = []
-    site_name_val = site_name or (message.get("site_name", "Unknown") if isinstance(message, dict) else "Unknown")
+    site_name_val = site_name or (
+        message.get("site_name", "Unknown") if isinstance(message, dict) else "Unknown"
+    )
     for method in methods:
         method_config = notify_settings.get(method, {})
 
@@ -423,16 +416,21 @@ async def send_notification(
         try:
             from . import models
             from .state import DB_PATH
+
             for method in methods:
                 await models.log_notification(
-                    DB_PATH, site_id, site_name_val, method,
-                    "sent", str(message)[:100],
+                    DB_PATH,
+                    site_id,
+                    site_name_val,
+                    method,
+                    "sent",
+                    str(message)[:100],
                 )
         except Exception:
             pass
 
 
-async def send_telegram(message: Union[str, Dict], settings: Dict[str, Any]):
+async def send_telegram(message: Union[str, dict], settings: dict[str, Any]):
     """Відправляє повідомлення в Telegram"""
     token = settings.get("token")
     chat_id = settings.get("chat_id")
@@ -457,25 +455,34 @@ async def send_telegram(message: Union[str, Dict], settings: Dict[str, Any]):
 
         if alert_type in ("down", "still_down"):
             payload["reply_markup"] = {
-                "inline_keyboard": [[
-                    {"text": "✅ Acknowledge", "callback_data": f"ack_{message.get('site_name', '')}"},
-                    {"text": "🔇 Silence 1h", "callback_data": f"silence1h_{message.get('site_name', '')}"},
-                    {"text": "🔕 Silence 6h", "callback_data": f"silence6h_{message.get('site_name', '')}"},
-                ]]
+                "inline_keyboard": [
+                    [
+                        {
+                            "text": "✅ Acknowledge",
+                            "callback_data": f"ack_{message.get('site_name', '')}",
+                        },
+                        {
+                            "text": "🔇 Silence 1h",
+                            "callback_data": f"silence1h_{message.get('site_name', '')}",
+                        },
+                        {
+                            "text": "🔕 Silence 6h",
+                            "callback_data": f"silence6h_{message.get('site_name', '')}",
+                        },
+                    ]
+                ]
             }
 
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=payload) as response:
                 if response.status != 200:
                     error_text = await response.text()
-                    logger.error(
-                        f"Telegram API error: {response.status} - {error_text}"
-                    )
+                    logger.error(f"Telegram API error: {response.status} - {error_text}")
     except Exception as e:
         logger.error(f"Telegram error: {e}")
 
 
-async def send_teams(message: Union[str, Dict], settings: Dict[str, Any]):
+async def send_teams(message: Union[str, dict], settings: dict[str, Any]):
     """Відправляє повідомлення в Microsoft Teams"""
     webhook_url = settings.get("webhook_url")
     if not webhook_url:
@@ -500,7 +507,7 @@ async def send_teams(message: Union[str, Dict], settings: Dict[str, Any]):
         logger.error(f"Teams error: {e}")
 
 
-async def send_discord(message: Union[str, Dict], settings: Dict[str, Any]):
+async def send_discord(message: Union[str, dict], settings: dict[str, Any]):
     """Відправляє повідомлення в Discord"""
     webhook_url = settings.get("webhook_url")
     if not webhook_url:
@@ -525,7 +532,7 @@ async def send_discord(message: Union[str, Dict], settings: Dict[str, Any]):
         logger.error(f"Discord error: {e}")
 
 
-async def send_slack(message: Union[str, Dict], settings: Dict[str, Any]):
+async def send_slack(message: Union[str, dict], settings: dict[str, Any]):
     """Відправляє повідомлення в Slack"""
     webhook_url = settings.get("webhook_url")
     if not webhook_url:
@@ -545,7 +552,7 @@ async def send_slack(message: Union[str, Dict], settings: Dict[str, Any]):
         logger.error(f"Slack error: {e}")
 
 
-async def send_email(message: Union[str, Dict], settings: Dict[str, Any]):
+async def send_email(message: Union[str, dict], settings: dict[str, Any]):
     """Відправляє email"""
     if isinstance(message, dict):
         message = f"Uptime Monitor Alert ({message.get('alert_type', 'unknown')}): {message.get('site_name', 'N/A')} - {message.get('error', '')}"
@@ -575,7 +582,7 @@ async def send_email(message: Union[str, Dict], settings: Dict[str, Any]):
         logger.error(f"Email error: {e}")
 
 
-async def send_sms(message: Union[str, Dict], settings: Dict[str, Any]):
+async def send_sms(message: Union[str, dict], settings: dict[str, Any]):
     """Відправляє SMS через Twilio"""
     account_sid = settings.get("account_sid")
     auth_token = settings.get("auth_token")
@@ -601,7 +608,7 @@ async def send_sms(message: Union[str, Dict], settings: Dict[str, Any]):
         logger.error(f"SMS error: {e}")
 
 
-async def send_webhook(message: Union[str, Dict], settings: Dict[str, Any]):
+async def send_webhook(message: Union[str, dict], settings: dict[str, Any]):
     """Відправляє кастомне POST-сповіщення (webhook)"""
     webhook_url = settings.get("webhook_url")
     if not webhook_url:
@@ -614,9 +621,9 @@ async def send_webhook(message: Union[str, Dict], settings: Dict[str, Any]):
             payload = {
                 "alert_type": "info",
                 "message": message,
-                "checked_at": datetime.now().isoformat()
+                "checked_at": datetime.now().isoformat(),
             }
-        
+
         async with aiohttp.ClientSession() as session:
             async with session.post(webhook_url, json=payload) as response:
                 if response.status not in [200, 201, 202, 204]:
@@ -625,7 +632,7 @@ async def send_webhook(message: Union[str, Dict], settings: Dict[str, Any]):
         logger.error(f"Webhook error: {e}")
 
 
-async def send_pushover(message: Union[str, Dict], settings: Dict[str, Any]):
+async def send_pushover(message: Union[str, dict], settings: dict[str, Any]):
     """Відправляє Pushover сповіщення"""
     user_key = settings.get("user_key")
     token = settings.get("token")
@@ -659,7 +666,7 @@ async def send_pushover(message: Union[str, Dict], settings: Dict[str, Any]):
         logger.error(f"Pushover error: {e}")
 
 
-async def send_gotify(message: Union[str, Dict], settings: Dict[str, Any]):
+async def send_gotify(message: Union[str, dict], settings: dict[str, Any]):
     """Відправляє Gotify сповіщення"""
     server_url = settings.get("server_url", "").rstrip("/")
     token = settings.get("token")
@@ -669,7 +676,7 @@ async def send_gotify(message: Union[str, Dict], settings: Dict[str, Any]):
 
     try:
         if isinstance(message, dict):
-            title = message.get('site_name', 'Uptime Monitor')
+            title = message.get("site_name", "Uptime Monitor")
             text = message.get("error") or message.get("alert_type", "unknown")
         else:
             title = "Uptime Monitor"
@@ -687,7 +694,7 @@ async def send_gotify(message: Union[str, Dict], settings: Dict[str, Any]):
         logger.error(f"Gotify error: {e}")
 
 
-async def send_ntfy(message: Union[str, Dict], settings: Dict[str, Any]):
+async def send_ntfy(message: Union[str, dict], settings: dict[str, Any]):
     """Відправляє ntfy.sh сповіщення"""
     topic = settings.get("topic")
     server_url = settings.get("server_url", "https://ntfy.sh").rstrip("/")
@@ -697,7 +704,7 @@ async def send_ntfy(message: Union[str, Dict], settings: Dict[str, Any]):
 
     try:
         if isinstance(message, dict):
-            title = message.get('site_name', 'Uptime Monitor')
+            title = message.get("site_name", "Uptime Monitor")
             text = message.get("error") or message.get("alert_type", "unknown")
         else:
             title = "Uptime Monitor"

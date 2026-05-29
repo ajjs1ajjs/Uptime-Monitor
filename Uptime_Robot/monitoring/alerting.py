@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 from ..config_manager import load_config
 
@@ -15,7 +15,7 @@ SENSITIVE_DEFAULTS = {
 }
 
 
-def get_alert_policy() -> Dict[str, Any]:
+def get_alert_policy() -> dict[str, Any]:
     try:
         config = load_config() or {}
     except Exception:

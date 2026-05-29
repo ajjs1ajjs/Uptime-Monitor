@@ -1,8 +1,6 @@
 import asyncio
-import os
-import socket
 import sys
-import threading
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 
@@ -11,7 +9,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from . import auth_module, config_manager, models, metrics_store, monitoring
+from . import auth_module, config_manager, metrics_store, models, monitoring
 from . import state as app_state
 from .database import close_db, get_db_connection
 from .logger import logger
@@ -19,11 +17,7 @@ from .routers import api, auth, ui
 
 IS_WINDOWS = sys.platform == "win32"
 if IS_WINDOWS:
-    import servicemanager
-    import win32con
-    import win32event
-    import win32service
-    import win32serviceutil
+    pass
 
 # App initialization
 config_manager.init_paths()
@@ -42,10 +36,8 @@ DEFAULT_PORT = CONFIG.get("server", {}).get("port", 8080)
 
 def get_default_host():
     """Повертає 0.0.0.0 для біндінгу на всі інтерфейси"""
-    return "0.0.0.0"
+    return "0.0.0.0"  # nosec B104
 
-
-from contextlib import asynccontextmanager
 
 # --- Initialization ---
 async def initialize_app_async():
@@ -125,6 +117,7 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
+
 # Add security headers middleware
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
@@ -164,7 +157,7 @@ async def https_redirect_middleware(request: Request, call_next):
 @app.get("/health")
 async def health_check():
     """Health check endpoint for Docker and monitoring."""
-    import time
+
     db_ok = False
     try:
         async with get_db_connection() as conn:
@@ -215,7 +208,9 @@ async def prometheus_metrics():
     metrics.append("# TYPE uptime_monitor_notifications_sent_total counter")
     metrics.append("# HELP uptime_monitor_notifications_failed_total Failed notifications")
     metrics.append("# TYPE uptime_monitor_notifications_failed_total counter")
-    metrics.append("# HELP uptime_monitor_monitor_heartbeat_seconds Time since last monitor heartbeat")
+    metrics.append(
+        "# HELP uptime_monitor_monitor_heartbeat_seconds Time since last monitor heartbeat"
+    )
     metrics.append("# TYPE uptime_monitor_monitor_heartbeat_seconds gauge")
     metrics.append("# HELP uptime_monitor_info Static info about this instance")
     metrics.append("# TYPE uptime_monitor_info gauge")
@@ -249,7 +244,9 @@ async def prometheus_metrics():
     metrics.append(f"uptime_monitor_checks_failed_total {store['checks_failed']}")
     metrics.append(f"uptime_monitor_notifications_sent_total {store['notifications_sent']}")
     metrics.append(f"uptime_monitor_notifications_failed_total {store['notifications_failed']}")
-    metrics.append(f"uptime_monitor_monitor_heartbeat_seconds {metrics_store.get_heartbeat_age():.1f}")
+    metrics.append(
+        f"uptime_monitor_monitor_heartbeat_seconds {metrics_store.get_heartbeat_age():.1f}"
+    )
     metrics.append(f'uptime_monitor_info{{version="2.1.0",python="{sys.version}"}} 1')
 
     return Response(

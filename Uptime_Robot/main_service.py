@@ -9,7 +9,6 @@ import uvicorn
 from . import main as app_main
 from . import state as app_state
 
-
 IS_WINDOWS = sys.platform == "win32"
 if IS_WINDOWS:
     import servicemanager
@@ -26,6 +25,7 @@ else:
 app = app_main.app
 DB_PATH = app_main.DB_PATH
 DEFAULT_PORT = app_main.DEFAULT_PORT
+
 
 def get_server_host():
     return app_main.get_default_host()
@@ -61,23 +61,23 @@ if IS_WINDOWS:
             # Use fixed path for error logging to survive environment issues
             app_dir = os.path.dirname(os.path.abspath(__file__))
             error_log_path = os.path.join(app_dir, "service_error.log")
-            
+
             self.ReportServiceStatus(win32service.SERVICE_START_PENDING, waitHint=30000)
-            
+
             try:
                 # Initialize app (Sync wrapper handles loop)
                 app_main.initialize_app()
-                
+
                 # Get the event loop created by initialize_app
                 loop = asyncio.get_event_loop()
-                
+
                 # Start monitoring in the background
                 asyncio.ensure_future(
                     app_main.monitoring.monitor_loop(
                         app_state.NOTIFY_SETTINGS, app_state.CHECK_INTERVAL
                     )
                 )
-                
+
                 # Configure and start uvicorn
                 ssl_context = app_main.config_manager.setup_ssl(app_main.CONFIG)
                 config = uvicorn.Config(
@@ -91,19 +91,22 @@ if IS_WINDOWS:
                     access_log=False,
                 )
                 self.server = uvicorn.Server(config)
-                
+
                 self.ReportServiceStatus(win32service.SERVICE_RUNNING)
                 loop.run_until_complete(self.server.serve())
-                
+
             except Exception:
                 err = traceback.format_exc()
                 try:
                     with open(error_log_path, "a", encoding="utf-8") as f:
                         f.write(f"[{datetime.now().isoformat()}] Service runtime error\n")
                         f.write(err + "\n")
-                except Exception: pass
-                try: servicemanager.LogErrorMsg(err)
-                except Exception: pass
+                except Exception:
+                    pass
+                try:
+                    servicemanager.LogErrorMsg(err)
+                except Exception:
+                    pass
             finally:
                 self.ReportServiceStatus(win32service.SERVICE_STOPPED)
 

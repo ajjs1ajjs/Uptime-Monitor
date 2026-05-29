@@ -1,6 +1,7 @@
 import asyncio
 import json
-from typing import Any, Dict, Set
+from typing import Any
+
 from fastapi import WebSocket
 
 
@@ -8,7 +9,7 @@ class ConnectionManager:
     """Manages WebSocket connections for real-time dashboard updates."""
 
     def __init__(self):
-        self._connections: Set[WebSocket] = set()
+        self._connections: set[WebSocket] = set()
         self._lock = asyncio.Lock()
 
     async def connect(self, ws: WebSocket):
@@ -20,7 +21,7 @@ class ConnectionManager:
         async with self._lock:
             self._connections.discard(ws)
 
-    async def broadcast(self, message: Dict[str, Any]):
+    async def broadcast(self, message: dict[str, Any]):
         """Send a message to all connected clients."""
         dead: list[WebSocket] = []
         text = json.dumps(message, ensure_ascii=False, default=str)

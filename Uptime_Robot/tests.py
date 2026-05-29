@@ -1,12 +1,11 @@
 """Тести для Uptime Monitor"""
 
-import pytest
 import asyncio
-import sqlite3
-import os
-import sys
 import json
+import os
 import shutil
+import sqlite3
+import sys
 import tempfile
 from datetime import datetime, timedelta
 from typing import Optional
@@ -14,14 +13,16 @@ from typing import Optional
 # Додаємо шлях до модулів
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from auth_module import (
-    hash_password,
-    verify_password,
-    hash_password as old_hash_password,
+from auth_module import hash_password, verify_password  # noqa: E402
+from database import get_db_connection  # noqa: E402
+from models import (
+    add_maintenance_window,
+    add_site,  # noqa: E402
+    delete_site,
+    get_all_sites,
+    init_database,
 )
-from database import get_db_path, get_db_connection
-from models import init_database, add_site, get_all_sites, delete_site, add_maintenance_window
-from notifications import NotificationService
+from notifications import NotificationService  # noqa: E402
 
 
 async def _asgi_json_request(
@@ -73,11 +74,7 @@ async def _asgi_json_request(
             (b"content-type", b"application/json"),
             (b"content-length", str(len(body)).encode("ascii")),
         ]
-        + (
-            [(b"cookie", f"session_id={session_id}".encode("ascii"))]
-            if session_id
-            else []
-        ),
+        + ([(b"cookie", f"session_id={session_id}".encode("ascii"))] if session_id else []),
         "client": ("127.0.0.1", 12345),
         "server": ("testserver", 80),
     }
@@ -109,7 +106,7 @@ class TestAuth:
         # Старий SHA256 хеш для "admin"
         import hashlib
 
-        old_hash = hashlib.sha256("admin".encode()).hexdigest()
+        old_hash = hashlib.sha256(b"admin").hexdigest()
 
         # Старий метод не повинен працювати з новим verify_password
         assert verify_password("admin", old_hash) is False
@@ -155,9 +152,9 @@ class TestDatabase:
             os.remove(self.test_db)
         asyncio.run(init_database(self.test_db))
 
-        site_id = asyncio.run(add_site(
-            self.test_db, name="Test Site", url="https://example.com", check_interval=60
-        ))
+        site_id = asyncio.run(
+            add_site(self.test_db, name="Test Site", url="https://example.com", check_interval=60)
+        )
 
         assert site_id > 0
 
@@ -173,9 +170,9 @@ class TestDatabase:
             os.remove(self.test_db)
         asyncio.run(init_database(self.test_db))
 
-        site_id = asyncio.run(add_site(
-            self.test_db, name="Test Site Delete", url="https://example-delete.com"
-        ))
+        site_id = asyncio.run(
+            add_site(self.test_db, name="Test Site Delete", url="https://example-delete.com")
+        )
 
         sites = asyncio.run(get_all_sites(self.test_db))
         assert len(sites) == 1
@@ -274,28 +271,20 @@ class TestApiSmoke:
         conn.close()
 
     def test_post_sites_smoke_with_monitor_type_migration(self):
-        import main
-        import state
-        import dependencies
-        import config_manager
-        import monitoring
-        import auth_module
-        import routers.api
-        import routers.auth
         from unittest.mock import patch
+
+        import auth_module
+        import main
+        import monitoring
 
         original_check_site_status = monitoring.check_site_status
         original_check_site_certificate = monitoring.check_site_certificate
         certificate_check_calls = []
 
-        async def fake_check_site_status(
-            site_id, url, notify_methods, notify_settings=None
-        ):
+        async def fake_check_site_status(site_id, url, notify_methods, notify_settings=None):
             return None
 
-        async def fake_check_site_certificate(
-            site_id, url, notify_methods, notify_settings=None
-        ):
+        async def fake_check_site_certificate(site_id, url, notify_methods, notify_settings=None):
             certificate_check_calls.append(url)
             return None
 
@@ -323,11 +312,15 @@ class TestApiSmoke:
                 "monitor_type": "ssl",
                 "notify_methods": ["telegram"],
             }
-            status_code, response = await _asgi_json_request(main.app, "POST", "/api/sites", payload, session_id)
+            status_code, response = await _asgi_json_request(
+                main.app, "POST", "/api/sites", payload, session_id
+            )
 
             await asyncio.sleep(0.1)
             if status_code != 200:
-                raise AssertionError(f"Smoke test failed. Status: {status_code}, Response: {response}")
+                raise AssertionError(
+                    f"Smoke test failed. Status: {status_code}, Response: {response}"
+                )
             assert response.get("message") == "Site added"
             assert isinstance(response.get("id"), int)
 
@@ -371,6 +364,7 @@ class TestApiSmoke:
             monitoring.check_site_status = original_check_site_status
             monitoring.check_site_certificate = original_check_site_certificate
 
+
 class TestMonitorTypes:
     """Тести нових типів моніторингу (Ping, Port, HTTP Keyword)"""
 
@@ -383,51 +377,55 @@ class TestMonitorTypes:
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     async def test_ping_check(self):
-        import monitoring
         from unittest.mock import AsyncMock, patch
+
+        import monitoring
 
         # Mock the subprocess execution for ping
         mock_proc = AsyncMock()
         mock_proc.returncode = 0
         mock_proc.communicate.return_value = (b"ping response", b"")
-        
+
         # Test success case
-        with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec, \
-             patch("database.get_db_path", return_value=self.test_db):
-            
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc),
+            patch("database.get_db_path", return_value=self.test_db),
+        ):
+
             site_id = await add_site(
                 self.test_db, name="Ping Test", url="127.0.0.1", monitor_type="ping"
             )
-            status, code, rt, err = await monitoring.check_site_status(
-                site_id, "127.0.0.1", [], {}
-            )
+            status, code, rt, err = await monitoring.check_site_status(site_id, "127.0.0.1", [], {})
             assert status == "up"
             assert code == 0
             assert err is None
-            
+
         # Test failure case
         mock_proc.returncode = 1
-        with patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec, \
-             patch("database.get_db_path", return_value=self.test_db):
-            
-            status, code, rt, err = await monitoring.check_site_status(
-                site_id, "127.0.0.1", [], {}
-            )
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc),
+            patch("database.get_db_path", return_value=self.test_db),
+        ):
+
+            status, code, rt, err = await monitoring.check_site_status(site_id, "127.0.0.1", [], {})
             assert status == "down"
             assert err == "Ping failed"
 
     async def test_port_check(self):
-        import monitoring
         from unittest.mock import AsyncMock, MagicMock, patch
+
+        import monitoring
 
         # Test success case
         mock_writer = AsyncMock()
         mock_writer.close = MagicMock()
         mock_writer.wait_closed = AsyncMock()
         mock_reader = AsyncMock()
-        with patch("asyncio.open_connection", return_value=(mock_reader, mock_writer)) as mock_conn, \
-             patch("database.get_db_path", return_value=self.test_db):
-            
+        with (
+            patch("asyncio.open_connection", return_value=(mock_reader, mock_writer)),
+            patch("database.get_db_path", return_value=self.test_db),
+        ):
+
             site_id = await add_site(
                 self.test_db, name="Port Test", url="127.0.0.1:80", monitor_type="port"
             )
@@ -437,11 +435,15 @@ class TestMonitorTypes:
             assert status == "up"
             assert code == 80
             assert err is None
-            
+
         # Test failure case (connection refused)
-        with patch("asyncio.open_connection", side_effect=ConnectionRefusedError("Connection refused")) as mock_conn, \
-             patch("database.get_db_path", return_value=self.test_db):
-            
+        with (
+            patch(
+                "asyncio.open_connection", side_effect=ConnectionRefusedError("Connection refused")
+            ),
+            patch("database.get_db_path", return_value=self.test_db),
+        ):
+
             status, code, rt, err = await monitoring.check_site_status(
                 site_id, "127.0.0.1:80", [], {}
             )
@@ -449,29 +451,36 @@ class TestMonitorTypes:
             assert "Connection refused" in err
 
     async def test_keyword_check(self):
-        import monitoring
         from unittest.mock import AsyncMock, MagicMock, patch
+
+        import monitoring
 
         # Mock aiohttp client session
         mock_response = AsyncMock()
         mock_response.status = 200
-        
+
         # Scenario 1: Keyword is present
         mock_response.text.return_value = "<html><body>Welcome to My Site</body></html>"
-        
+
         mock_context = AsyncMock()
         mock_context.__aenter__.return_value = mock_response
-        
+
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
         mock_session.get = MagicMock(return_value=mock_context)
-        
-        with patch("aiohttp.ClientSession", return_value=mock_session), \
-             patch("database.get_db_path", return_value=self.test_db):
-            
+
+        with (
+            patch("aiohttp.ClientSession", return_value=mock_session),
+            patch("database.get_db_path", return_value=self.test_db),
+        ):
+
             site_id = await add_site(
-                self.test_db, name="HTTP Keyword", url="http://example.com", monitor_type="http", keyword="Welcome"
+                self.test_db,
+                name="HTTP Keyword",
+                url="http://example.com",
+                monitor_type="http",
+                keyword="Welcome",
             )
             status, code, rt, err = await monitoring.check_site_status(
                 site_id, "http://example.com", [], {}
@@ -482,9 +491,11 @@ class TestMonitorTypes:
 
         # Scenario 2: Keyword is missing
         mock_response.text.return_value = "<html><body>Error page</body></html>"
-        with patch("aiohttp.ClientSession", return_value=mock_session), \
-             patch("database.get_db_path", return_value=self.test_db):
-            
+        with (
+            patch("aiohttp.ClientSession", return_value=mock_session),
+            patch("database.get_db_path", return_value=self.test_db),
+        ):
+
             status, code, rt, err = await monitoring.check_site_status(
                 site_id, "http://example.com", [], {}
             )
@@ -504,26 +515,27 @@ class TestAdvancedFeatures:
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     async def test_maintenance_window_skips_checks(self):
+        from unittest.mock import patch
+
         import monitoring
-        from unittest.mock import AsyncMock, patch
-        
+
         site_id = await add_site(
             self.test_db, name="Maint Site", url="http://example.com", monitor_type="http"
         )
-        
+
         now = datetime.now()
         start_time = (now - timedelta(hours=1)).isoformat() + "Z"
         end_time = (now + timedelta(hours=1)).isoformat() + "Z"
-        
+
         await add_maintenance_window(
             self.test_db,
             name="Maint Window",
             site_id=site_id,
             rule_type="one_off",
             start_time=start_time,
-            end_time=end_time
+            end_time=end_time,
         )
-        
+
         with patch("database.get_db_path", return_value=self.test_db):
             status, code, rt, err = await monitoring.check_site_status(
                 site_id, "http://example.com", [], {}
@@ -538,70 +550,70 @@ class TestAdvancedFeatures:
         async with get_db_connection(self.test_db) as conn:
             await conn.execute(
                 "INSERT INTO status_history (site_id, status, response_time, checked_at) VALUES (?, 'up', 100, datetime('now'))",
-                (site_id,)
+                (site_id,),
             )
             await conn.execute(
                 "INSERT INTO status_history (site_id, status, response_time, checked_at) VALUES (?, 'up', 120, datetime('now'))",
-                (site_id,)
+                (site_id,),
             )
             await conn.execute(
                 "INSERT INTO status_history (site_id, status, response_time, checked_at) VALUES (?, 'down', 0, datetime('now'))",
-                (site_id,)
+                (site_id,),
             )
             await conn.commit()
 
         async with get_db_connection(self.test_db) as conn:
             async with conn.execute(
-                """SELECT 
+                """SELECT
                     COUNT(*) as total,
                     SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count,
                     AVG(response_time) as avg_rt
-                  FROM status_history 
+                  FROM status_history
                   WHERE site_id = ? AND checked_at >= datetime('now', '-7 days')""",
-                (site_id,)
+                (site_id,),
             ) as c:
                 stats = await c.fetchone()
             async with conn.execute(
-                """SELECT COUNT(*) FROM status_history 
+                """SELECT COUNT(*) FROM status_history
                    WHERE site_id = ? AND status IN ('down', 'slow') AND checked_at >= datetime('now', '-7 days')""",
-                (site_id,)
+                (site_id,),
             ) as c:
                 incidents = (await c.fetchone())[0]
-        
+
         total = stats["total"] or 0
         up_count = stats["up_count"] or 0
         uptime = (up_count / total * 100) if total > 0 else 100.0
-        avg_rt = stats["avg_rt"] or 0
-        
+        stats["avg_rt"] or 0
+
         assert total == 3
         assert up_count == 2
         assert abs(uptime - 66.67) < 0.1
         assert incidents == 1
 
     async def test_webhook_alert_dispatch(self):
-        import notifications
         from unittest.mock import AsyncMock, MagicMock, patch
-        
+
+        import notifications
+
         mock_response = AsyncMock()
         mock_response.status = 200
-        
+
         mock_context = AsyncMock()
         mock_context.__aenter__.return_value = mock_response
-        
+
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
         mock_session.post = MagicMock(return_value=mock_context)
-        
+
         with patch("aiohttp.ClientSession", return_value=mock_session):
             settings = {"webhook_url": "http://my-webhook.internal/endpoint"}
             message = {"alert_type": "down", "site_name": "Test Site", "url": "http://test"}
-            
+
             await notifications.send_webhook(message, settings)
-            
+
             mock_session.post.assert_called_once_with(
-                "http://my-webhook.internal/endpoint",
-                json=message
+                "http://my-webhook.internal/endpoint", json=message
             )
 
 

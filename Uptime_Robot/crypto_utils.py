@@ -13,8 +13,13 @@ from .logger import logger
 MASTER_KEY_FILE = "master.key"
 _FERNET_INSTANCE = None
 _SENSITIVE_KEYS = {
-    "email_password", "password", "token", "auth_token",
-    "api_key", "secret", "private_key",
+    "email_password",
+    "password",
+    "token",
+    "auth_token",
+    "api_key",
+    "secret",
+    "private_key",
 }
 
 
@@ -75,7 +80,7 @@ def load_master_key() -> Optional[str]:
     for path in search_paths:
         try:
             if os.path.exists(path) and os.path.getsize(path) > 0:
-                with open(path, "r") as f:
+                with open(path) as f:
                     return f.read().strip()
         except OSError:
             continue
@@ -138,9 +143,7 @@ def encrypt_config_sensitive(config: dict) -> dict:
     config = config.copy()
     notifications = config.get("notifications", {})
     if notifications.get("email_password"):
-        notifications["email_password"] = (
-            "__ENC__" + encrypt_value(notifications["email_password"])
-        )
+        notifications["email_password"] = "__ENC__" + encrypt_value(notifications["email_password"])
     config["notifications"] = notifications
 
     notify_settings_keys = ["telegram", "discord", "teams", "slack", "sms"]
