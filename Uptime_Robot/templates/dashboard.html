@@ -122,12 +122,7 @@
                 </select>
             </div>
             <div id="dashboardMonitors"
-                class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
-                hx-get="/api/htmx/monitors"
-                hx-trigger="every 60s, load, keyup changed delay:300ms from:#monitorSearch, change from:#monitorSort"
-                hx-target="this"
-                hx-swap="innerHTML"
-                hx-include="#monitorSearch, #monitorSort">
+                class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 <div class="col-span-full text-center py-10 text-slate-500">Завантаження моніторів...</div>
             </div>
         </div>
