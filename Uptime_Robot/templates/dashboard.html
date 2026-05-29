@@ -98,13 +98,18 @@
             <h3 class="text-lg font-semibold mb-4">🎯 Швидкі дії</h3>
             <div class="flex flex-wrap gap-3">
                 <button onclick="checkAllMonitors()" class="px-5 py-2.5 rounded-xl gradient-accent text-black font-semibold text-sm hover:shadow-lg hover:shadow-cyan-500/30 transition">🔄 Перевірити всі</button>
-                <button onclick="loadDashboard()" class="px-5 py-2.5 rounded-xl bg-accent/10 text-accent hover:bg-accent/20 transition text-sm font-medi        <div class="glass rounded-2xl p-6 card-hover transition">
+                <button onclick="loadDashboard()" class="px-5 py-2.5 rounded-xl bg-accent/10 text-accent hover:bg-accent/20 transition text-sm font-medium">📊 Оновити</button>
+                <button onclick="switchTab('incidents')" class="px-5 py-2.5 rounded-xl bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-sm font-medium">⚠️ Інциденти</button>
+            </div>
+        </div>
+
+        <div class="glass rounded-2xl p-6 card-hover transition">
             <h3 class="text-lg font-semibold mb-4" data-i18n="all_monitors">📊 Всі монітори</h3>
             <div class="flex flex-wrap gap-2 mb-4" id="monitorFilters">
                 <button class="monitor-type-btn px-4 py-2 rounded-lg bg-accent/10 text-accent font-medium text-xs" data-filter="all" onclick="setFilter('all')">Всі</button>
             </div>
             <div class="flex flex-col sm:flex-row gap-3 mb-4">
-                <input type="text" id="monitorSearch" name="search" placeholder="Search by name or URL..." data-i18n="search_placeholder"
+                <input type="text" id="monitorSearch" name="search" placeholder="Search by name or URL..." data-i18n="search_placeholder" 
                        class="flex-1 px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:border-accent transition"
                        onkeyup="renderMonitors()">
                 <select id="tagFilter" onchange="renderMonitors()"
@@ -118,11 +123,6 @@
                     <option value="name" data-i18n="sort_name">By Name</option>
                     <option value="uptime" data-i18n="sort_uptime">By Uptime</option>
                     <option value="response_time" data-i18n="sort_response">By Response Time</option>
-                </select>
-            </div>          <option value="status">By Status</option>
-                    <option value="name">By Name</option>
-                    <option value="uptime">By Uptime</option>
-                    <option value="response_time">By Response Time</option>
                 </select>
             </div>
             <div id="dashboardMonitors"
