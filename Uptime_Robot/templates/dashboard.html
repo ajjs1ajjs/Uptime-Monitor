@@ -112,7 +112,7 @@
                 <input type="text" id="monitorSearch" name="search" placeholder="Search by name or URL..." data-i18n="search_placeholder" 
                        class="flex-1 px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:border-accent transition"
                        onkeyup="renderMonitors()">
-                <select id="tagFilter" onchange="renderMonitors()"
+                <select id="tagFilter" name="tag" onchange="renderMonitors()"
                          class="w-full sm:w-40 px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:border-accent transition">
                     <option value="" data-i18n="all_tags">All tags</option>
                 </select>
@@ -591,6 +591,8 @@ async function loadSites() {
         // Update tag filter select options
         const tagFilter = document.getElementById('tagFilter');
         if (tagFilter) {
+            const lang = localStorage.getItem('lang') || 'uk';
+            const dict = i18n[lang] || i18n.uk;
             const currentTag = tagFilter.value;
             const allTags = new Set();
             sitesData.forEach(s => {
@@ -598,7 +600,8 @@ async function loadSites() {
                     s.tags.forEach(t => allTags.add(t));
                 }
             });
-            tagFilter.innerHTML = '<option value="">All tags</option>';
+            const allTagsText = dict.all_tags || 'All tags';
+            tagFilter.innerHTML = `<option value="" data-i18n="all_tags">${allTagsText}</option>`;
             const sortedTags = Array.from(allTags).sort();
             sortedTags.forEach(t => {
                 const opt = document.createElement('option');
@@ -615,10 +618,14 @@ function updateStats() {
     const up = sitesData.filter(s => s.status === 'up').length;
     const down = sitesData.filter(s => s.status === 'down').length;
     const total = sitesData.length;
-    document.getElementById('totalSites').textContent = total;
-    document.getElementById('upSites').textContent = up;
-    document.getElementById('downSites').textContent = down;
-    document.getElementById('lastUpdate').textContent = 'Updated: ' + new Date().toLocaleTimeString();
+    const totalEl = document.getElementById('totalSites');
+    if (totalEl) totalEl.textContent = total;
+    const upEl = document.getElementById('upSites');
+    if (upEl) upEl.textContent = up;
+    const downEl = document.getElementById('downSites');
+    if (downEl) downEl.textContent = down;
+    const lastUpdateEl = document.getElementById('lastUpdate');
+    if (lastUpdateEl) lastUpdateEl.textContent = 'Updated: ' + new Date().toLocaleTimeString();
 }
 
 function createGaugeChart(canvasId, value, color) {

@@ -2,7 +2,7 @@
     <div class="flex justify-between items-start mb-4">
         <div class="min-w-0 flex-1">
             <div class="text-base font-semibold truncate" title="{{ name }}">{{ name }}</div>
-            <div class="text-xs text-slate-400 truncate mt-0.5" title="{{ url }}">{{ url }}</div>
+            <a href="{{ url }}" target="_blank" class="text-xs text-slate-400 hover:text-accent hover:underline truncate mt-0.5 block" title="{{ url }}">{{ url }}</a>
             {% if keyword %}
             <div class="text-[11px] text-indigo-400 mt-1 flex items-center gap-1">
                 Key: <span class="text-slate-300 font-mono">{{ keyword }}</span>
@@ -21,24 +21,24 @@
     <div class="grid grid-cols-4 gap-2 py-3 border-y border-slate-700/30 text-center text-xs">
         <div>
             <div class="text-sm font-bold" style="color:{{ scolor }}">{{ stext }}</div>
-            <div class="text-slate-500 mt-0.5">Status</div>
+            <div class="text-slate-500 mt-0.5" data-i18n="card_status">Status</div>
         </div>
         <div>
             <div class="text-sm font-bold text-slate-200">{{ rt }}ms</div>
-            <div class="text-slate-500 mt-0.5">Time</div>
+            <div class="text-slate-500 mt-0.5" data-i18n="card_time">Time</div>
         </div>
         <div>
             <div class="text-sm font-bold text-slate-200">{{ "%.1f"|format(uptime) }}%</div>
-            <div class="text-slate-500 mt-0.5">Uptime</div>
+            <div class="text-slate-500 mt-0.5" data-i18n="card_uptime">Uptime</div>
         </div>
         <div>
             <div class="text-sm font-bold text-slate-200">{{ sc }}</div>
-            <div class="text-slate-500 mt-0.5">HTTP</div>
+            <div class="text-slate-500 mt-0.5" data-i18n="card_http">HTTP</div>
         </div>
     </div>
     <div class="flex gap-2 mt-4">
-        <button onclick="checkSite({{ sid }})" class="flex-1 py-2.5 rounded-lg gradient-accent text-black text-xs font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">Check</button>
-        <button onclick="openEditModal({{ sid }},'{{ escaped_name }}','{{ escaped_url }}','{{ escaped_methods }}',{{ check_interval }},'{{ mtype }}','{{ escaped_keyword }}','{{ escaped_tags }}')" class="flex-1 py-2.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium">Edit</button>
-        <button onclick="deleteSite({{ sid }})" class="flex-1 py-2.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-xs font-medium">Delete</button>
+        <button onclick="checkSite({{ sid }})" class="flex-1 py-2.5 rounded-lg gradient-accent text-black text-xs font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition" data-i18n="card_check">Check</button>
+        <button onclick="openEditModal({{ sid }},'{{ escaped_name }}','{{ escaped_url }}','{{ escaped_methods }}',{{ check_interval }},'{{ mtype }}','{{ escaped_keyword }}','{{ escaped_tags }}')" class="flex-1 py-2.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium" data-i18n="card_edit">Edit</button>
+        <button onclick="deleteSite({{ sid }})" class="flex-1 py-2.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-xs font-medium" data-i18n="card_delete">Delete</button>
     </div>
 </div>

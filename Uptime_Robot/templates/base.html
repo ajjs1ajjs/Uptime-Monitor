@@ -19,6 +19,11 @@
                 evt.detail.shouldSwap = false;
             }
         });
+        document.addEventListener('htmx:afterSwap', function(evt) {
+            if (typeof applyLanguage === 'function') {
+                applyLanguage();
+            }
+        });
     </script>
     <script>
         tailwind.config = {
