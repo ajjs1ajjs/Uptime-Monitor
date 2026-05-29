@@ -27,10 +27,10 @@
                 extend: {
                     colors: {
                         accent: { DEFAULT: '#00d9ff', hover: '#00a8cc' },
-                        'bg-primary': '#0f172a',
-                        'bg-secondary': '#1e293b',
-                        'bg-card': '#1e293b',
-                        'border-dark': '#334155',
+                        'bg-primary': 'var(--bg-primary)',
+                        'bg-secondary': 'var(--bg-secondary)',
+                        'bg-card': 'var(--bg-card)',
+                        'border-dark': 'var(--border-color)',
                     }
                 }
             }
@@ -85,7 +85,7 @@
     </style>
     {% block head %}{% endblock %}
 </head>
-<body class="bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f172a] text-white">
+<body>
     {% block content %}{% endblock %}
     <script>
         if ('serviceWorker' in navigator) {
@@ -95,6 +95,293 @@
         }
     </script>
     <script>
+        const i18n = {
+            uk: {
+                "dashboard_title": "Uptime Monitor - Панель керування",
+                "tab_dashboard": "📊 Дашборд",
+                "tab_ssl": "🔒 SSL",
+                "tab_incidents": "⚠️ Інциденти",
+                "tab_settings": "⚙️ Налаштування",
+                "tab_maintenance": "🛠️ Обслуговування",
+                "tab_notifications": "🔔 Сповіщення",
+                "status_page": "📄 Статус",
+                "users_page": "👥 Користувачі",
+                "logout": "🚪 Вийти",
+                "total_monitors": "Всього моніторів",
+                "online": "Активні",
+                "offline": "Неактивні",
+                "incidents_count": "Інциденти",
+                "uptime_24h": "📊 Аптайм (24год)",
+                "avg_response": "⚡ Сер. відповідь",
+                "ssl_status": "🔒 Статус SSL",
+                "response_time_24h": "📈 Час відповіді (24год)",
+                "ssl_expiration": "🔒 Термін SSL",
+                "timeline_24h": "📊 Часова шкала (24год)",
+                "all_monitors": "Всі монітори",
+                "all_tags": "Всі теги",
+                "sort_status": "Сортувати за статусом",
+                "sort_name": "Сортувати за назвою",
+                "sort_uptime": "Сортувати за аптаймом",
+                "sort_response": "Сортувати за часом відповіді",
+                "search_placeholder": "Пошук моніторів...",
+                "add_monitor_btn": "➕ Додати монітор",
+                "add_monitor_title": "Додати новий монітор",
+                "monitor_name_lbl": "Назва монітора",
+                "monitor_url_lbl": "URL або Хост / IP",
+                "check_interval_lbl": "Інтервал перевірки (секунди)",
+                "monitor_type_lbl": "Тип моніторингу",
+                "keyword_lbl": "Ключове слово для пошуку (опціонально, тільки для HTTP. Підтримується префікс regex:)",
+                "tags_lbl": "Теги (через кому, напр. prod, api, critical)",
+                "notifications_lbl": "Сповіщення",
+                "cancel_btn": "Скасувати",
+                "save_btn": "Зберегти",
+                "add_btn": "Додати",
+                "edit_monitor_title": "Редагувати монітор",
+                // SSL tab
+                "ssl_certificates_title": "🔒 Терміни дії SSL сертифікатів",
+                "ssl_hostname": "Хост",
+                "ssl_issuer": "Видавець",
+                "ssl_expires": "Дійсний до",
+                "ssl_days": "Днів залишилось",
+                "ssl_status_col": "Статус",
+                // Incidents tab
+                "incidents_title": "⚠️ Останні інциденти (30 днів)",
+                "inc_time": "Час",
+                "inc_monitor": "Монітор",
+                "inc_status": "Статус",
+                "inc_code": "Код",
+                "inc_error": "Помилка",
+                // Settings tab
+                "settings_title": "⚙️ Загальні налаштування сайту",
+                "settings_site_title": "Заголовок сайту",
+                "settings_logo_url": "URL Логотипу (опціонально)",
+                "settings_footer_text": "Текст у футері (копірайт)",
+                "settings_primary_color": "Основний колір бренду",
+                "settings_accent_color": "Акцентний колір бренду",
+                "settings_save_btn": "Зберегти налаштування",
+                // Maintenance tab
+                "maint_title": "🛠️ Періоди обслуговування (Maintenance Windows)",
+                "maint_add_btn": "➕ Додати період",
+                "maint_name_col": "Назва",
+                "maint_target_col": "Об'єкт",
+                "maint_schedule_col": "Розклад / Час",
+                "maint_active_col": "Активний",
+                "maint_actions_col": "Дії",
+                "maint_modal_title": "Додати період обслуговування",
+                "maint_rule_lbl": "Тип правила",
+                "maint_rule_one_off": "Одноразово",
+                "maint_rule_weekly": "Щотижня",
+                "maint_start_lbl": "Час початку",
+                "maint_end_lbl": "Час закінчення",
+                "maint_day_lbl": "День тижня",
+                "maint_start_hm_lbl": "Час початку (ГГ:ХХ)",
+                "maint_duration_lbl": "Тривалість (хвилин)",
+                "maint_monitors_lbl": "Монітор (залиште порожнім для всіх)",
+                "maint_all_monitors": "Всі монітори",
+                // Notifications tab
+                "notify_title": "🔔 Налаштування сповіщень",
+                "notify_history_title": "📝 Історія відправлених сповіщень",
+                "notify_history_time": "Час",
+                "notify_history_monitor": "Монітор",
+                "notify_history_channel": "Канал",
+                "notify_history_status": "Статус",
+                "notify_history_preview": "Текст повідомлення",
+                // Buttons on cards
+                "card_check": "🔄 Перевірити",
+                "card_edit": "✏️ Редагувати",
+                "card_delete": "🗑️ Видалити",
+                "card_status": "Статус",
+                "card_time": "Час",
+                "card_uptime": "Аптайм",
+                "card_http": "HTTP",
+                // Users page
+                "users_title": "👥 Керування користувачами",
+                "users_add_btn": "➕ Додати користувача",
+                "users_username": "Ім'я користувача",
+                "users_role": "Роль",
+                "users_actions": "Дії",
+                "users_modal_title": "Додати користувача",
+                "users_password": "Пароль",
+                "users_role_lbl": "Роль користувача",
+                "users_role_admin": "Адміністратор (Повний доступ)",
+                "users_role_editor": "Редактор (Створення/Редагування)",
+                "users_role_viewer": "Глядач (Тільки перегляд)",
+                "users_api_keys": "🔑 Ваші API Ключі",
+                "users_api_desc": "API Ключ передається в заголовку X-API-Key для доступу до API без сесії.",
+                "users_api_create_btn": "➕ Створити новий API Ключ",
+                "users_api_key_col": "API Ключ",
+                "users_api_status_col": "Статус",
+                "users_api_created_col": "Створено",
+                "users_api_revoke_col": "Відкликати",
+                "users_api_active": "Активний",
+                "users_api_revoked": "Відкликаний",
+                "login_btn": "Увійти"
+            },
+            en: {
+                "dashboard_title": "Uptime Monitor - Dashboard",
+                "tab_dashboard": "📊 Dashboard",
+                "tab_ssl": "🔒 SSL",
+                "tab_incidents": "⚠️ Incidents",
+                "tab_settings": "⚙️ Settings",
+                "tab_maintenance": "🛠️ Maintenance",
+                "tab_notifications": "🔔 Notifications",
+                "status_page": "📄 Status",
+                "users_page": "👥 Users",
+                "logout": "🚪 Logout",
+                "total_monitors": "Total Monitors",
+                "online": "Online",
+                "offline": "Offline",
+                "incidents_count": "Incidents",
+                "uptime_24h": "📊 Uptime (24h)",
+                "avg_response": "⚡ Avg Response",
+                "ssl_status": "🔒 SSL Status",
+                "response_time_24h": "📈 Response Time (24h)",
+                "ssl_expiration": "🔒 SSL Expiration",
+                "timeline_24h": "📊 Timeline (24h)",
+                "all_monitors": "All Monitors",
+                "all_tags": "All Tags",
+                "sort_status": "Sort by Status",
+                "sort_name": "Sort by Name",
+                "sort_uptime": "Sort by Uptime",
+                "sort_response": "Sort by Response Time",
+                "search_placeholder": "Search monitors...",
+                "add_monitor_btn": "➕ Add Monitor",
+                "add_monitor_title": "Add New Monitor",
+                "monitor_name_lbl": "Monitor Name",
+                "monitor_url_lbl": "URL or Host / IP",
+                "check_interval_lbl": "Check Interval (seconds)",
+                "monitor_type_lbl": "Monitoring Type",
+                "keyword_lbl": "Keyword to match (optional, HTTP only. Regex prefix regex: supported)",
+                "tags_lbl": "Tags (comma-separated, e.g. prod, api, critical)",
+                "notifications_lbl": "Notifications",
+                "cancel_btn": "Cancel",
+                "save_btn": "Save",
+                "add_btn": "Add",
+                "edit_monitor_title": "Edit Monitor",
+                // SSL tab
+                "ssl_certificates_title": "🔒 SSL Certificate Expirations",
+                "ssl_hostname": "Hostname",
+                "ssl_issuer": "Issuer",
+                "ssl_expires": "Expires at",
+                "ssl_days": "Days left",
+                "ssl_status_col": "Status",
+                // Incidents tab
+                "incidents_title": "⚠️ Recent Incidents (30 days)",
+                "inc_time": "Time",
+                "inc_monitor": "Monitor",
+                "inc_status": "Status",
+                "inc_code": "Code",
+                "inc_error": "Error",
+                // Settings tab
+                "settings_title": "⚙️ General Site Settings",
+                "settings_site_title": "Site Title",
+                "settings_logo_url": "Logo URL (optional)",
+                "settings_footer_text": "Footer text (copyright)",
+                "settings_primary_color": "Brand primary color",
+                "settings_accent_color": "Brand accent color",
+                "settings_save_btn": "Save settings",
+                // Maintenance tab
+                "maint_title": "🛠️ Maintenance Windows",
+                "maint_add_btn": "➕ Add Window",
+                "maint_name_col": "Name",
+                "maint_target_col": "Target",
+                "maint_schedule_col": "Schedule / Time",
+                "maint_active_col": "Active",
+                "maint_actions_col": "Actions",
+                "maint_modal_title": "Add Maintenance Window",
+                "maint_rule_lbl": "Rule Type",
+                "maint_rule_one_off": "One-off",
+                "maint_rule_weekly": "Weekly",
+                "maint_start_lbl": "Start Time",
+                "maint_end_lbl": "End Time",
+                "maint_day_lbl": "Day of Week",
+                "maint_start_hm_lbl": "Start Time (HH:MM)",
+                "maint_duration_lbl": "Duration (minutes)",
+                "maint_monitors_lbl": "Monitor (leave empty for all)",
+                "maint_all_monitors": "All Monitors",
+                // Notifications tab
+                "notify_title": "🔔 Notification Settings",
+                "notify_history_title": "📝 Notification Logs",
+                "notify_history_time": "Time",
+                "notify_history_monitor": "Monitor",
+                "notify_history_channel": "Channel",
+                "notify_history_status": "Status",
+                "notify_history_preview": "Message Preview",
+                // Buttons on cards
+                "card_check": "🔄 Check",
+                "card_edit": "✏️ Edit",
+                "card_delete": "🗑️ Delete",
+                "card_status": "Status",
+                "card_time": "Time",
+                "card_uptime": "Uptime",
+                "card_http": "HTTP",
+                // Users page
+                "users_title": "👥 User Management",
+                "users_add_btn": "➕ Add User",
+                "users_username": "Username",
+                "users_role": "Role",
+                "users_actions": "Actions",
+                "users_modal_title": "Add User",
+                "users_password": "Password",
+                "users_role_lbl": "User Role",
+                "users_role_admin": "Admin (Full Access)",
+                "users_role_editor": "Editor (Create/Edit)",
+                "users_role_viewer": "Viewer (Read Only)",
+                "users_api_keys": "🔑 Your API Keys",
+                "users_api_desc": "API Key is passed in X-API-Key header to access API without a session.",
+                "users_api_create_btn": "➕ Create API Key",
+                "users_api_key_col": "API Key",
+                "users_api_status_col": "Status",
+                "users_api_created_col": "Created",
+                "users_api_revoke_col": "Revoke",
+                "users_api_active": "Active",
+                "users_api_revoked": "Revoked",
+                "login_btn": "Login"
+            }
+        };
+
+        function applyLanguage() {
+            const lang = localStorage.getItem('lang') || 'uk';
+            const dict = i18n[lang] || i18n.uk;
+            
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (dict[key]) {
+                    if (el.tagName === 'INPUT' && (el.type === 'text' || el.type === 'password' || el.type === 'url' || el.type === 'search')) {
+                        el.placeholder = dict[key];
+                    } else {
+                        el.textContent = dict[key];
+                    }
+                }
+            });
+            
+            const titleEl = document.querySelector('title');
+            if (titleEl && dict['dashboard_title'] && window.location.pathname === '/') {
+                titleEl.textContent = dict['dashboard_title'];
+            }
+            
+            const langBtn = document.getElementById('langBtn');
+            if (langBtn) {
+                langBtn.textContent = lang === 'uk' ? '🇺🇦 UA' : '🇬🇧 EN';
+            }
+        }
+
+        function toggleLang() {
+            const current = localStorage.getItem('lang') || 'uk';
+            const next = current === 'uk' ? 'en' : 'uk';
+            localStorage.setItem('lang', next);
+            applyLanguage();
+            if (typeof renderMonitors === 'function') {
+                renderMonitors();
+            }
+            if (typeof renderSSLCertificates === 'function') {
+                renderSSLCertificates();
+            }
+            if (typeof renderUsers === 'function' && typeof lastUsersList !== 'undefined') {
+                renderUsers(lastUsersList);
+            }
+        }
+
         (function() {
             const theme = localStorage.getItem('theme');
             const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -109,6 +396,7 @@
             }
             const themeBtn = document.getElementById('themeBtn');
             if (themeBtn) themeBtn.textContent = isDark ? '🌙' : '☀️';
+            applyLanguage();
         })();
 
         function toggleTheme() {

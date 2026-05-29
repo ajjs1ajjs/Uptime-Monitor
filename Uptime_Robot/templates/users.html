@@ -4,18 +4,19 @@
 <header class="glass px-4 md:px-8 py-4 flex items-center justify-between">
     <div class="flex items-center gap-3">
         <div class="w-10 h-10 gradient-accent rounded-xl flex items-center justify-center text-xl shadow-lg shadow-cyan-500/20">⚡</div>
-        <span class="text-lg font-bold">Керування користувачами</span>
+        <span class="text-lg font-bold" data-i18n="users_title">Керування користувачами</span>
     </div>
     <div class="flex items-center gap-3">
-        <a href="/" class="text-slate-400 hover:text-white transition text-sm">📊 Дашборд</a>
-        <a href="/logout" class="text-red-400 hover:text-red-300 transition text-sm">🚪 Вийти</a>
+        <button onclick="toggleLang()" id="langBtn" class="px-3 py-2 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-400 hover:border-accent hover:text-white transition text-sm">🇺🇦 UA</button>
+        <a href="/" class="text-slate-400 hover:text-white transition text-sm" data-i18n="tab_dashboard">📊 Дашборд</a>
+        <a href="/logout" class="text-red-400 hover:text-red-300 transition text-sm" data-i18n="logout">🚪 Вийти</a>
     </div>
 </header>
 
 <div class="max-w-5xl mx-auto px-4 md:px-8 py-8">
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-        <h1 class="text-2xl font-bold">Користувачі</h1>
-        <button onclick="showCreateModal()" class="px-5 py-2.5 rounded-xl gradient-accent text-black font-semibold text-sm hover:shadow-lg hover:shadow-cyan-500/30 transition">+ Додати користувача</button>
+        <h1 class="text-2xl font-bold" data-i18n="users_title">Користувачі</h1>
+        <button onclick="showCreateModal()" class="px-5 py-2.5 rounded-xl gradient-accent text-black font-semibold text-sm hover:shadow-lg hover:shadow-cyan-500/30 transition" data-i18n="users_add_btn">+ Додати користувача</button>
     </div>
 
     <div class="glass rounded-2xl overflow-hidden">
@@ -24,11 +25,11 @@
                 <thead>
                     <tr class="border-b border-slate-700/50">
                         <th class="text-left p-4 text-slate-400 text-xs uppercase tracking-wider font-medium">ID</th>
-                        <th class="text-left p-4 text-slate-400 text-xs uppercase tracking-wider font-medium">Username</th>
-                        <th class="text-left p-4 text-slate-400 text-xs uppercase tracking-wider font-medium">Role</th>
+                        <th class="text-left p-4 text-slate-400 text-xs uppercase tracking-wider font-medium" data-i18n="users_username">Username</th>
+                        <th class="text-left p-4 text-slate-400 text-xs uppercase tracking-wider font-medium" data-i18n="users_role">Role</th>
                         <th class="text-left p-4 text-slate-400 text-xs uppercase tracking-wider font-medium hidden md:table-cell">Created</th>
                         <th class="text-left p-4 text-slate-400 text-xs uppercase tracking-wider font-medium hidden md:table-cell">Last Login</th>
-                        <th class="text-left p-4 text-slate-400 text-xs uppercase tracking-wider font-medium">Actions</th>
+                        <th class="text-left p-4 text-slate-400 text-xs uppercase tracking-wider font-medium" data-i18n="users_actions">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="usersTableBody">
@@ -42,27 +43,27 @@
 <!-- Create Modal -->
 <div id="createModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
     <div class="glass rounded-2xl p-6 md:p-8 max-w-md w-full animate-fade-in">
-        <h3 class="text-xl font-bold mb-6">Додати користувача</h3>
+        <h3 class="text-xl font-bold mb-6" data-i18n="users_modal_title">Додати користувача</h3>
         <div class="space-y-4">
             <div>
-                <label class="text-slate-400 text-sm mb-1.5 block">Ім'я користувача</label>
-                <input type="text" id="newUsername" placeholder="Введіть ім'я" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent outline-none transition">
+                <label class="text-slate-400 text-sm mb-1.5 block" data-i18n="users_username">Ім'я користувача</label>
+                <input type="text" id="newUsername" placeholder="Введіть ім'я" data-i18n="users_username" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent outline-none transition">
             </div>
             <div>
-                <label class="text-slate-400 text-sm mb-1.5 block">Пароль</label>
-                <input type="password" id="newPassword" placeholder="Мін. 12 символів" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent outline-none transition">
+                <label class="text-slate-400 text-sm mb-1.5 block" data-i18n="users_password">Пароль</label>
+                <input type="password" id="newPassword" placeholder="Мін. 12 символів" data-i18n="users_password" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent outline-none transition">
             </div>
             <div>
-                <label class="text-slate-400 text-sm mb-1.5 block">Роль</label>
+                <label class="text-slate-400 text-sm mb-1.5 block" data-i18n="users_role_lbl">Роль</label>
                 <select id="newRole" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent outline-none transition">
-                    <option value="viewer">Перегляд (тільки читання)</option>
-                    <option value="admin">Адміністратор</option>
+                    <option value="viewer" data-i18n="users_role_viewer">Перегляд (тільки читання)</option>
+                    <option value="admin" data-i18n="users_role_admin">Адміністратор</option>
                 </select>
             </div>
         </div>
         <div class="flex gap-3 mt-8">
-            <button onclick="closeModal('createModal')" class="flex-1 py-3.5 rounded-xl bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition font-medium">Скасувати</button>
-            <button onclick="createUser()" class="flex-1 py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">Створити</button>
+            <button onclick="closeModal('createModal')" class="flex-1 py-3.5 rounded-xl bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition font-medium" data-i18n="cancel_btn">Скасувати</button>
+            <button onclick="createUser()" class="flex-1 py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition" data-i18n="add_btn">Створити</button>
         </div>
     </div>
 </div>
@@ -95,6 +96,7 @@
 {% block scripts %}
 <script>
 let currentUser = null;
+let lastUsersList = [];
 loadUsers();
 loadCurrentUser();
 
@@ -102,11 +104,15 @@ async function loadCurrentUser() {
     try { const r = await fetch('/api/user'); if (r.ok) { currentUser = await r.json(); if (!currentUser.is_admin) window.location.href='/'; } else { window.location.href='/login'; } } catch(e) { console.error(e); }
 }
 async function loadUsers() {
-    try { const r = await fetch('/api/users'); if (!r.ok) { document.getElementById('usersTableBody').innerHTML = '<tr><td colspan="6" class="text-center p-8 text-red-400">Error loading users</td></tr>'; return; } const users = await r.json(); renderUsers(users); } catch(e) { document.getElementById('usersTableBody').innerHTML = '<tr><td colspan="6" class="text-center p-8 text-red-400">Error loading users</td></tr>'; }
+    try { const r = await fetch('/api/users'); if (!r.ok) { document.getElementById('usersTableBody').innerHTML = '<tr><td colspan="6" class="text-center p-8 text-red-400">Error loading users</td></tr>'; return; } const users = await r.json(); lastUsersList = users; renderUsers(users); } catch(e) { document.getElementById('usersTableBody').innerHTML = '<tr><td colspan="6" class="text-center p-8 text-red-400">Error loading users</td></tr>'; }
 }
 function renderUsers(users) {
     const tbody = document.getElementById('usersTableBody');
     if (users.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="text-center p-8 text-slate-500">No users</td></tr>'; return; }
+    
+    const lang = localStorage.getItem('lang') || 'uk';
+    const dict = i18n[lang] || i18n.uk;
+
     tbody.innerHTML = users.map(u => `<tr class="border-b border-slate-700/30 hover:bg-white/[0.02]">
         <td class="p-4 text-sm">${u.id}</td>
         <td class="p-4 text-sm font-medium">${u.username}</td>
@@ -114,8 +120,8 @@ function renderUsers(users) {
         <td class="p-4 text-sm text-slate-400 hidden md:table-cell">${formatDate(u.created_at)}</td>
         <td class="p-4 text-sm text-slate-400 hidden md:table-cell">${u.last_login ? formatDate(u.last_login) : 'Never'}</td>
         <td class="p-4"><div class="flex gap-2">
-            <button onclick="showEditModal('${u.username}','${u.role}')" class="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium">Edit</button>
-            ${u.username !== currentUser?.username ? `<button onclick="deleteUser('${u.username}')" class="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-xs font-medium">Delete</button>` : ''}
+            <button onclick="showEditModal('${u.username}','${u.role}')" class="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium">${dict.card_edit || 'Edit'}</button>
+            ${u.username !== currentUser?.username ? `<button onclick="deleteUser('${u.username}')" class="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-xs font-medium">${dict.card_delete || 'Delete'}</button>` : ''}
         </div></td>
     </tr>`).join('');
 }

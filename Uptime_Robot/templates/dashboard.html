@@ -18,21 +18,22 @@
     </div>
     <div class="flex items-center gap-2 md:gap-4">
         <span id="lastUpdate" class="text-slate-400 text-xs md:text-sm hidden md:block"></span>
+        <button onclick="toggleLang()" id="langBtn" class="px-3 py-2 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-400 hover:border-accent hover:text-white transition text-sm">🇺🇦 UA</button>
         <button onclick="toggleTheme()" id="themeBtn" class="px-3 py-2 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-400 hover:border-accent hover:text-white transition text-sm">🌙</button>
-        <a href="/status" target="_blank" class="px-3 py-2 rounded-xl bg-accent/10 text-accent hover:bg-accent/20 transition text-sm font-medium hidden md:block">📄 Статус</a>
-        <a href="/users" class="px-3 py-2 rounded-xl bg-accent/10 text-accent hover:bg-accent/20 transition text-sm font-medium">👥 Користувачі</a>
-        <a href="/logout" class="px-3 py-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-sm font-medium">🚪 Вийти</a>
+        <a href="/status" target="_blank" data-i18n="status_page" class="px-3 py-2 rounded-xl bg-accent/10 text-accent hover:bg-accent/20 transition text-sm font-medium hidden md:block">📄 Статус</a>
+        <a href="/users" data-i18n="users_page" class="px-3 py-2 rounded-xl bg-accent/10 text-accent hover:bg-accent/20 transition text-sm font-medium">👥 Користувачі</a>
+        <a href="/logout" data-i18n="logout" class="px-3 py-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-sm font-medium">🚪 Вийти</a>
     </div>
 </header>
 
 <div class="px-4 md:px-8 mt-6">
     <div class="flex gap-2 p-1 bg-slate-900/60 rounded-xl border border-slate-700/30 w-fit overflow-x-auto">
-        <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap active" onclick="switchTab('dashboard')">📊 Дашборд</button>
-        <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('ssl')">🔒 SSL</button>
-        <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('incidents')">⚠️ Інциденти</button>
-        <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('settings')">⚙️ Налаштування</button>
-        <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('maintenance')">🛠️ Обслуговування</button>
-        <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('notifications')">🔔 Сповіщення</button>
+        <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap active" onclick="switchTab('dashboard')" data-i18n="tab_dashboard">📊 Дашборд</button>
+        <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('ssl')" data-i18n="tab_ssl">🔒 SSL</button>
+        <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('incidents')" data-i18n="tab_incidents">⚠️ Інциденти</button>
+        <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('settings')" data-i18n="tab_settings">⚙️ Налаштування</button>
+        <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('maintenance')" data-i18n="tab_maintenance">🛠️ Обслуговування</button>
+        <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('notifications')" data-i18n="tab_notifications">🔔 Сповіщення</button>
     </div>
 </div>
 
@@ -97,28 +98,28 @@
             <h3 class="text-lg font-semibold mb-4">🎯 Швидкі дії</h3>
             <div class="flex flex-wrap gap-3">
                 <button onclick="checkAllMonitors()" class="px-5 py-2.5 rounded-xl gradient-accent text-black font-semibold text-sm hover:shadow-lg hover:shadow-cyan-500/30 transition">🔄 Перевірити всі</button>
-                <button onclick="loadDashboard()" class="px-5 py-2.5 rounded-xl bg-accent/10 text-accent hover:bg-accent/20 transition text-sm font-medium">📊 Оновити</button>
-                <button onclick="switchTab('incidents')" class="px-5 py-2.5 rounded-xl bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-sm font-medium">⚠️ Інциденти</button>
-            </div>
-        </div>
-
-        <div class="glass rounded-2xl p-6 card-hover transition">
-            <h3 class="text-lg font-semibold mb-4">📊 Всі монітори</h3>
+                <button onclick="loadDashboard()" class="px-5 py-2.5 rounded-xl bg-accent/10 text-accent hover:bg-accent/20 transition text-sm font-medi        <div class="glass rounded-2xl p-6 card-hover transition">
+            <h3 class="text-lg font-semibold mb-4" data-i18n="all_monitors">📊 Всі монітори</h3>
             <div class="flex flex-wrap gap-2 mb-4" id="monitorFilters">
                 <button class="monitor-type-btn px-4 py-2 rounded-lg bg-accent/10 text-accent font-medium text-xs" data-filter="all" onclick="setFilter('all')">Всі</button>
             </div>
             <div class="flex flex-col sm:flex-row gap-3 mb-4">
-                <input type="text" id="monitorSearch" name="search" placeholder="Search by name or URL..." 
+                <input type="text" id="monitorSearch" name="search" placeholder="Search by name or URL..." data-i18n="search_placeholder"
                        class="flex-1 px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:border-accent transition"
                        onkeyup="renderMonitors()">
                 <select id="tagFilter" onchange="renderMonitors()"
-                        class="w-full sm:w-40 px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:border-accent transition">
-                    <option value="">All tags</option>
+                         class="w-full sm:w-40 px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:border-accent transition">
+                    <option value="" data-i18n="all_tags">All tags</option>
                 </select>
                 <select id="monitorSort" name="sort" 
                         class="w-full sm:w-48 px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:border-accent transition"
                         onchange="renderMonitors()">
-                    <option value="status">By Status</option>
+                    <option value="status" data-i18n="sort_status">By Status</option>
+                    <option value="name" data-i18n="sort_name">By Name</option>
+                    <option value="uptime" data-i18n="sort_uptime">By Uptime</option>
+                    <option value="response_time" data-i18n="sort_response">By Response Time</option>
+                </select>
+            </div>          <option value="status">By Status</option>
                     <option value="name">By Name</option>
                     <option value="uptime">By Uptime</option>
                     <option value="response_time">By Response Time</option>
@@ -271,10 +272,10 @@
 <div id="tab-settings" class="tab-content mt-6 px-4 md:px-8 hidden">
     <div class="max-w-4xl mx-auto space-y-6">
         <div class="glass rounded-2xl p-6">
-            <h3 class="text-lg font-semibold mb-4">➕ Додати монітор</h3>
+            <h3 class="text-lg font-semibold mb-4" data-i18n="add_monitor_title">➕ Додати монітор</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <input type="text" id="siteName" placeholder="Назва" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
-                <input type="url" id="siteUrl" placeholder="URL" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                <input type="text" id="siteName" placeholder="Назва" data-i18n="monitor_name_lbl" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                <input type="url" id="siteUrl" placeholder="URL" data-i18n="monitor_url_lbl" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                 <select id="monitorType" onchange="toggleKeywordField('monitorType', 'keywordFieldContainer')" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
@@ -286,15 +287,19 @@
                 </select>
                 <div class="flex items-center gap-3">
                     <input type="number" id="siteCheckInterval" value="60" min="10" max="3600" step="10" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
-                    <span class="text-slate-400 text-xs whitespace-nowrap">інтервал (сек)</span>
+                    <span class="text-slate-400 text-xs whitespace-nowrap" data-i18n="check_interval_lbl">інтервал (сек)</span>
                 </div>
             </div>
             <div class="mt-4" id="keywordFieldContainer">
-                <label class="text-slate-400 text-sm mb-1.5 block">Ключове слово для пошуку (опціонально, тільки для HTTP. Підтримується префікс regex:)</label>
-                <input type="text" id="siteKeyword" placeholder="напр. Welcome, Success, або regex:^Welcome to .*$" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                <label class="text-slate-400 text-sm mb-1.5 block" data-i18n="keyword_lbl">Ключове слово для пошуку (опціонально, тільки для HTTP. Підтримується префікс regex:)</label>
+                <input type="text" id="siteKeyword" placeholder="напр. Welcome, Success, або regex:^Welcome to .*$" data-i18n="keyword_lbl" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
             </div>
             <div class="mt-4">
-                <label class="text-slate-400 text-sm mb-2 block">Способи сповіщень</label>
+                <label class="text-slate-400 text-sm mb-1.5 block" data-i18n="tags_lbl">Теги (через кому, напр. prod, api, critical)</label>
+                <input type="text" id="siteTags" placeholder="prod, internal, web" data-i18n="tags_lbl" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+            </div>
+            <div class="mt-4">
+                <label class="text-slate-400 text-sm mb-2 block" data-i18n="notifications_lbl">Способи сповіщень</label>
                 <div class="flex flex-wrap gap-3" id="siteNotifyOptions">
                     <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
                         <input type="checkbox" value="telegram" class="accent-accent w-4 h-4"> 📱 Telegram
@@ -313,7 +318,7 @@
                     </label>
                 </div>
             </div>
-            <button onclick="addSite()" class="mt-6 w-full py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">➕ Додати монітор</button>
+            <button onclick="addSite()" class="mt-6 w-full py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition" data-i18n="add_monitor_btn">➕ Додати монітор</button>
         </div>
 
         <div class="glass rounded-2xl p-6">
@@ -403,6 +408,10 @@
             <div id="editKeywordFieldContainer">
                 <label class="text-slate-400 text-sm mb-1.5 block">Ключове слово для пошуку (опціонально, тільки для HTTP. Підтримується префікс regex:)</label>
                 <input type="text" id="editSiteKeyword" placeholder="напр. Welcome, Success, або regex:^Welcome to .*$" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+            </div>
+            <div>
+                <label class="text-slate-400 text-sm mb-1.5 block">Теги (через кому, напр. prod, api, critical)</label>
+                <input type="text" id="editSiteTags" placeholder="prod, internal, web" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
             </div>
             <div>
                 <label class="text-slate-400 text-sm mb-2 block">Сповіщення</label>
@@ -578,6 +587,27 @@ async function loadSites() {
                 }
             });
         }
+        
+        // Update tag filter select options
+        const tagFilter = document.getElementById('tagFilter');
+        if (tagFilter) {
+            const currentTag = tagFilter.value;
+            const allTags = new Set();
+            sitesData.forEach(s => {
+                if (Array.isArray(s.tags)) {
+                    s.tags.forEach(t => allTags.add(t));
+                }
+            });
+            tagFilter.innerHTML = '<option value="">All tags</option>';
+            const sortedTags = Array.from(allTags).sort();
+            sortedTags.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t;
+                opt.textContent = t;
+                if (t === currentTag) opt.selected = true;
+                tagFilter.appendChild(opt);
+            });
+        }
     } catch(e) { console.error(e); }
 }
 
@@ -634,14 +664,7 @@ function updateGauges() {
     }
 }
 
-// Theme toggle
-let isDarkTheme = localStorage.getItem('theme') !== 'light';
-function toggleTheme() {
-    isDarkTheme = !isDarkTheme;
-    localStorage.setItem('theme', isDarkTheme ? 'dark' : 'light');
-    document.documentElement.classList.toggle('dark', isDarkTheme);
-    document.getElementById('themeBtn').textContent = isDarkTheme ? '🌙' : '☀️';
-}
+
 
 async function loadUptimeChart() {
     const container = document.getElementById('uptimeChartContainer');
@@ -735,6 +758,11 @@ function renderMonitors() {
     
     let filtered = currentFilter === 'all' ? sitesData : sitesData.filter(s => s.monitor_type === currentFilter);
     
+    const tagFilterVal = document.getElementById('tagFilter')?.value || '';
+    if (tagFilterVal) {
+        filtered = filtered.filter(s => Array.isArray(s.tags) && s.tags.includes(tagFilterVal));
+    }
+    
     if (searchQuery) {
         filtered = filtered.filter(s => 
             (s.name || '').toLowerCase().includes(searchQuery) || 
@@ -761,6 +789,10 @@ function renderMonitors() {
     }
     
     if (filtered.length === 0) { grid.innerHTML = '<div class="col-span-full text-center py-10 text-slate-500">No monitors found.</div>'; return; }
+    
+    const lang = localStorage.getItem('lang') || 'uk';
+    const dict = i18n[lang] || i18n.uk;
+
     let html = '';
     filtered.forEach(site => {
         let statusClass = 'down';
@@ -787,6 +819,15 @@ function renderMonitors() {
         const safeKeyword = encodeURIComponent(site.keyword || '');
         const keywordHtml = site.keyword ? `<div class="text-[11px] text-indigo-400 mt-1 flex items-center gap-1">🔑 Ключ: <span class="text-slate-300 font-mono">${site.keyword}</span></div>` : '';
         
+        const tags = Array.isArray(site.tags) ? site.tags : [];
+        let tagsHtml = '';
+        if (tags.length > 0) {
+            tagsHtml = `<div class="flex gap-1 mt-1 flex-wrap">` +
+                tags.slice(0, 3).map(tag => `<span class="px-2 py-0.5 bg-slate-700/50 rounded-full text-[10px] text-slate-400">${tag}</span>`).join('') +
+                `</div>`;
+        }
+        const safeTags = encodeURIComponent(JSON.stringify(tags));
+
         let borderClass = 'border-red-500';
         if (statusClass === 'up') borderClass = 'border-emerald-500';
         else if (statusClass === 'paused') borderClass = 'border-amber-500';
@@ -798,19 +839,20 @@ function renderMonitors() {
                     <div class="text-base font-semibold truncate" title="${safeName}">${site.name}</div>
                     <div class="text-xs text-slate-400 truncate mt-0.5" title="${safeUrl}">${site.url}</div>
                     ${keywordHtml}
+                    ${tagsHtml}
                 </div>
                 <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-accent/10 text-accent">${site.monitor_type}</span>
             </div>
             <div class="grid grid-cols-4 gap-2 py-3 border-y border-slate-700/30 text-center text-xs">
-                <div><div class="text-sm font-bold status-badge ${statusClass}" style="color:${statusColor}">${statusText}</div><div class="text-slate-500 mt-0.5">Status</div></div>
-                <div><div class="text-sm font-bold text-slate-200 response-time">${site.response_time || '—'}ms</div><div class="text-slate-500 mt-0.5">Time</div></div>
-                <div><div class="text-sm font-bold text-slate-200">${(site.uptime || 100).toFixed(1)}%</div><div class="text-slate-500 mt-0.5">Uptime</div></div>
-                <div><div class="text-sm font-bold text-slate-200">${site.status_code || '—'}</div><div class="text-slate-500 mt-0.5">HTTP</div></div>
+                <div><div class="text-sm font-bold status-badge ${statusClass}" style="color:${statusColor}">${statusText}</div><div class="text-slate-500 mt-0.5">${dict.card_status || 'Status'}</div></div>
+                <div><div class="text-sm font-bold text-slate-200 response-time">${site.response_time || '—'}ms</div><div class="text-slate-500 mt-0.5">${dict.card_time || 'Time'}</div></div>
+                <div><div class="text-sm font-bold text-slate-200">${(site.uptime || 100).toFixed(1)}%</div><div class="text-slate-500 mt-0.5">${dict.card_uptime || 'Uptime'}</div></div>
+                <div><div class="text-sm font-bold text-slate-200">${site.status_code || '—'}</div><div class="text-slate-500 mt-0.5">${dict.card_http || 'HTTP'}</div></div>
             </div>
             <div class="flex gap-2 mt-4">
-                <button onclick="checkSite(${site.id})" class="flex-1 py-2.5 rounded-lg gradient-accent text-black text-xs font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">🔄 Check</button>
-                <button onclick="openEditModal(${site.id},'${safeName}','${encodeURIComponent(safeUrl)}','${encodeURIComponent(JSON.stringify(methods))}',${site.check_interval||60},'${monitorType}','${safeKeyword}')" class="flex-1 py-2.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium">✏️ Edit</button>
-                <button onclick="deleteSite(${site.id})" class="flex-1 py-2.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-xs font-medium">🗑️ Delete</button>
+                <button onclick="checkSite(${site.id})" class="flex-1 py-2.5 rounded-lg gradient-accent text-black text-xs font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">${dict.card_check || '🔄 Check'}</button>
+                <button onclick="openEditModal(${site.id},'${safeName}','${encodeURIComponent(safeUrl)}','${encodeURIComponent(JSON.stringify(methods))}',${site.check_interval||60},'${monitorType}','${safeKeyword}','${safeTags}')" class="flex-1 py-2.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium">${dict.card_edit || '✏️ Edit'}</button>
+                <button onclick="deleteSite(${site.id})" class="flex-1 py-2.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-xs font-medium">${dict.card_delete || '🗑️ Delete'}</button>
             </div>
         </div>`;
     });
@@ -864,16 +906,19 @@ async function addSite() {
     const url = document.getElementById('siteUrl').value;
     const monitor_type = document.getElementById('monitorType').value;
     const keyword = document.getElementById('siteKeyword').value;
+    const tagsVal = document.getElementById('siteTags').value;
+    const tags = tagsVal ? tagsVal.split(',').map(t => t.trim()).filter(Boolean) : [];
     const check_interval = parseInt(document.getElementById('siteCheckInterval').value) || 60;
     const container = document.getElementById('siteNotifyOptions');
     const notify_methods = container ? Array.from(container.querySelectorAll('input:checked')).map(o => o.value) : [];
     if (!name || !url) return alert('Заповніть назву та URL');
     try {
-        const resp = await fetch('/api/sites', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, url, monitor_type, check_interval, notify_methods, keyword})});
+        const resp = await fetch('/api/sites', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, url, monitor_type, check_interval, notify_methods, keyword, tags})});
         if (resp.ok) {
             document.getElementById('siteName').value = '';
             document.getElementById('siteUrl').value = '';
             document.getElementById('siteKeyword').value = '';
+            document.getElementById('siteTags').value = '';
             loadSites();
             alert('Монітор додано!');
         }
@@ -1144,7 +1189,7 @@ async function saveStatusSettings() {
     } catch(e) { console.error(e); }
 }
 
-function openEditModal(id, name, url, notifyMethods, checkInterval, monitorType, keyword) {
+function openEditModal(id, name, url, notifyMethods, checkInterval, monitorType, keyword, tagsEncoded) {
     document.getElementById('editSiteId').value = id;
     document.getElementById('editSiteName').value = name;
     document.getElementById('editSiteUrl').value = decodeURIComponent(url);
@@ -1152,6 +1197,10 @@ function openEditModal(id, name, url, notifyMethods, checkInterval, monitorType,
     document.getElementById('editSiteType').value = monitorType || 'http';
     document.getElementById('editSiteKeyword').value = keyword ? decodeURIComponent(keyword) : '';
     toggleKeywordField('editSiteType', 'editKeywordFieldContainer');
+    
+    const tags = tagsEncoded ? JSON.parse(decodeURIComponent(tagsEncoded)) : [];
+    document.getElementById('editSiteTags').value = Array.isArray(tags) ? tags.join(', ') : '';
+
     const methods = typeof notifyMethods === 'string' ? JSON.parse(decodeURIComponent(notifyMethods)) : notifyMethods || [];
     const container = document.getElementById('editSiteNotify');
     if (container) container.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = methods.includes(cb.value));
@@ -1166,6 +1215,10 @@ async function saveEdit() {
     const monitorType = document.getElementById('editSiteType').value;
     const keyword = document.getElementById('editSiteKeyword').value.trim();
     const checkInterval = parseInt(document.getElementById('editSiteInterval').value) || 60;
+    
+    const tagsVal = document.getElementById('editSiteTags').value;
+    const tags = tagsVal ? tagsVal.split(',').map(t => t.trim()).filter(Boolean) : [];
+
     const container = document.getElementById('editSiteNotify');
     const notify_methods = container ? Array.from(container.querySelectorAll('input:checked')).map(o => o.value) : [];
     if (!name || !url) return alert('Fill all fields!');
@@ -1179,7 +1232,8 @@ async function saveEdit() {
                 monitor_type: monitorType,
                 check_interval: checkInterval,
                 notify_methods,
-                keyword
+                keyword,
+                tags
             })
         });
         closeEditModal();
