@@ -51,19 +51,25 @@
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div class="gauge-card glass rounded-xl p-5 text-center">
+        <div class="gauge-card glass rounded-xl p-5 text-center flex flex-col justify-between">
             <h3 class="text-slate-400 text-sm uppercase tracking-wider mb-3">📊 Аптайм (24год)</h3>
-            <canvas id="uptimeGauge" width="150" height="75" class="mx-auto gauge-chart"></canvas>
+            <div class="h-[100px] flex items-center justify-center relative">
+                <canvas id="uptimeGauge" class="mx-auto gauge-chart"></canvas>
+            </div>
             <div class="text-2xl font-bold text-emerald-400 mt-2" id="uptimeValue">100%</div>
         </div>
-        <div class="gauge-card glass rounded-xl p-5 text-center">
+        <div class="gauge-card glass rounded-xl p-5 text-center flex flex-col justify-between">
             <h3 class="text-slate-400 text-sm uppercase tracking-wider mb-3">⚡ Сер. відповідь</h3>
-            <canvas id="responseGauge" width="150" height="75" class="mx-auto gauge-chart"></canvas>
+            <div class="h-[100px] flex items-center justify-center relative">
+                <canvas id="responseGauge" class="mx-auto gauge-chart"></canvas>
+            </div>
             <div class="text-2xl font-bold text-accent mt-2" id="responseValue">0ms</div>
         </div>
-        <div class="gauge-card glass rounded-xl p-5 text-center">
+        <div class="gauge-card glass rounded-xl p-5 text-center flex flex-col justify-between">
             <h3 class="text-slate-400 text-sm uppercase tracking-wider mb-3">🔒 Статус SSL</h3>
-            <canvas id="sslGauge" width="150" height="75" class="mx-auto gauge-chart"></canvas>
+            <div class="h-[100px] flex items-center justify-center relative">
+                <canvas id="sslGauge" class="mx-auto gauge-chart"></canvas>
+            </div>
             <div class="text-2xl font-bold text-emerald-400 mt-2" id="sslValue">OK</div>
         </div>
     </div>
