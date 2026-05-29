@@ -3,7 +3,7 @@
 {% block head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-    .gauge-chart canvas { max-height: 100px; }
+    canvas.gauge-chart { max-height: 100px; }
     .timeline-bar { min-width: 4px; border-radius: 2px; cursor: pointer; transition: opacity 0.2s; }
     .timeline-bar:hover { opacity: 0.8; }
     .now-marker { position: absolute; top: 0; bottom: 0; width: 2px; background: #00d9ff; z-index: 10; box-shadow: 0 0 8px #00d9ff; pointer-events: none; }
@@ -107,6 +107,12 @@
             <h3 class="text-lg font-semibold mb-4" data-i18n="all_monitors">📊 Всі монітори</h3>
             <div class="flex flex-wrap gap-2 mb-4" id="monitorFilters">
                 <button class="monitor-type-btn px-4 py-2 rounded-lg bg-accent/10 text-accent font-medium text-xs" data-filter="all" onclick="setFilter('all')">Всі</button>
+            </div>
+            <div class="flex items-center gap-2 mb-4 text-xs text-slate-400">
+                <span class="whitespace-nowrap">📁 Папки:</span>
+                <div class="flex flex-wrap gap-2" id="tagFilters">
+                    <button class="tag-filter-btn px-3 py-1.5 rounded-lg bg-accent/20 border border-accent text-accent font-medium text-xs" data-tag="all" onclick="setTagFilter('all')">Всі</button>
+                </div>
             </div>
             <div class="flex flex-col sm:flex-row gap-3 mb-4">
                 <input type="text" id="monitorSearch" name="search" placeholder="Search by name or URL..." data-i18n="search_placeholder" 
@@ -286,6 +292,14 @@
                 <input type="text" id="siteKeyword" placeholder="напр. Welcome, Success, або regex:^Welcome to .*$" data-i18n="keyword_lbl" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
             </div>
             <div class="mt-4">
+                <label class="text-slate-400 text-sm mb-1.5 block">📁 Папки / Теги (виберіть зі списку або введіть назву)</label>
+                <div id="siteTagsWidget" class="w-full min-h-[48px] px-4 py-2 rounded-xl bg-[#0f172a] border border-slate-700/50 flex flex-wrap gap-2 items-center focus-within:border-accent focus-within:ring-1 focus-within:ring-accent transition cursor-text" onclick="document.getElementById('siteTagsInput').focus()">
+                    <input type="text" id="siteTagsInput" placeholder="Додати папку..." class="bg-transparent border-none text-white text-sm outline-none flex-grow min-w-[120px] focus:ring-0 p-0 placeholder-slate-500">
+                </div>
+                <div class="text-[10px] text-slate-500 mt-1">Натисніть Enter або кому, щоб створити нову папку</div>
+                <div class="flex flex-wrap gap-1.5 mt-2" id="existingTagsContainer"></div>
+            </div>
+            <div class="mt-4">
                 <label class="text-slate-400 text-sm mb-2 block" data-i18n="notifications_lbl">Способи сповіщень</label>
                 <div class="flex flex-wrap gap-3" id="siteNotifyOptions">
                     <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
@@ -397,7 +411,12 @@
                 <input type="text" id="editSiteKeyword" placeholder="напр. Welcome, Success, або regex:^Welcome to .*$" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
             </div>
             <div>
-                <label class="text-slate-400 text-sm mb-1.5 block">Теги (через кому, напр. prod, api, critical)</label>
+                <label class="text-slate-400 text-sm mb-1.5 block">📁 Папки / Теги (виберіть зі списку або введіть назву)</label>
+                <div id="editSiteTagsWidget" class="w-full min-h-[48px] px-4 py-2 rounded-xl bg-[#0f172a] border border-slate-700/50 flex flex-wrap gap-2 items-center focus-within:border-accent focus-within:ring-1 focus-within:ring-accent transition cursor-text" onclick="document.getElementById('editSiteTagsInput').focus()">
+                    <input type="text" id="editSiteTagsInput" placeholder="Додати папку..." class="bg-transparent border-none text-white text-sm outline-none flex-grow min-w-[120px] focus:ring-0 p-0 placeholder-slate-500">
+                </div>
+                <div class="text-[10px] text-slate-500 mt-1">Натисніть Enter або кому, щоб створити нову папку</div>
+                <div class="flex flex-wrap gap-1.5 mt-2" id="editExistingTagsContainer"></div>
             </div>
             <div>
                 <label class="text-slate-400 text-sm mb-2 block">Сповіщення</label>
@@ -533,6 +552,170 @@ let gaugeCharts = {};
 let responseTimeData = [];
 let incidentsData = [];
 let incidentsRefreshInterval = null;
+let currentTagFilter = 'all';
+
+function setTagFilter(tag) {
+    currentTagFilter = tag;
+    document.querySelectorAll('#tagFilters button').forEach(b => {
+        const active = b.dataset.tag === tag;
+        b.className = active 
+            ? 'tag-filter-btn px-3 py-1.5 rounded-lg bg-accent/20 border border-accent text-accent font-medium text-xs transition'
+            : 'tag-filter-btn px-3 py-1.5 rounded-lg bg-slate-800/50 border border-slate-700/50 text-slate-400 hover:border-accent hover:text-white transition text-xs font-medium';
+    });
+    renderMonitors();
+}
+
+function updateTagFilters() {
+    const container = document.getElementById('tagFilters');
+    if (!container) return;
+    
+    const allTags = new Set();
+    sitesData.forEach(s => {
+        const tags = Array.isArray(s.tags) ? s.tags : [];
+        tags.forEach(t => allTags.add(t));
+    });
+    
+    const existing = container.querySelectorAll('button[data-tag]');
+    existing.forEach(b => {
+        if (b.dataset.tag !== 'all') b.remove();
+    });
+    
+    const sortedTags = Array.from(allTags).sort();
+    sortedTags.forEach(t => {
+        const btn = document.createElement('button');
+        btn.dataset.tag = t;
+        btn.textContent = t;
+        btn.onclick = () => setTagFilter(t);
+        if (t === currentTagFilter) {
+            btn.className = 'tag-filter-btn px-3 py-1.5 rounded-lg bg-accent/20 border border-accent text-accent font-medium text-xs transition';
+        } else {
+            btn.className = 'tag-filter-btn px-3 py-1.5 rounded-lg bg-slate-800/50 border border-slate-700/50 text-slate-400 hover:border-accent hover:text-white transition text-xs font-medium';
+        }
+        container.appendChild(btn);
+    });
+    
+    if (currentTagFilter !== 'all' && !allTags.has(currentTagFilter)) {
+        setTagFilter('all');
+    }
+}
+
+let selectedAddTags = [];
+let selectedEditTags = [];
+
+function toggleTagSelection(type, tag) {
+    const list = type === 'add' ? selectedAddTags : selectedEditTags;
+    const idx = list.indexOf(tag);
+    if (idx === -1) {
+        list.push(tag);
+    } else {
+        list.splice(idx, 1);
+    }
+    renderTagsWidget(type);
+    updateExistingTagsSuggest(type === 'add' ? 'existingTagsContainer' : 'editExistingTagsContainer', type === 'add' ? 'siteTagsInput' : 'editSiteTagsInput', type);
+}
+
+function renderTagsWidget(type) {
+    const widgetId = type === 'add' ? 'siteTagsWidget' : 'editSiteTagsWidget';
+    const inputId = type === 'add' ? 'siteTagsInput' : 'editSiteTagsInput';
+    const widget = document.getElementById(widgetId);
+    const input = document.getElementById(inputId);
+    if (!widget || !input) return;
+    
+    widget.querySelectorAll('.tag-chip').forEach(c => c.remove());
+    
+    const list = type === 'add' ? selectedAddTags : selectedEditTags;
+    list.forEach(t => {
+        const chip = document.createElement('span');
+        chip.className = 'tag-chip inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-accent/15 border border-accent/30 text-accent text-xs font-semibold';
+        chip.innerHTML = `📁 ${t} <button class="hover:text-white transition font-bold focus:outline-none ml-1 text-sm leading-none" onclick="event.stopPropagation(); removeTagChip('${type}', '${t}')">&times;</button>`;
+        widget.insertBefore(chip, input);
+    });
+    
+    if (list.length > 0) {
+        input.placeholder = '';
+    } else {
+        input.placeholder = 'Додати папку...';
+    }
+}
+
+function removeTagChip(type, tag) {
+    const list = type === 'add' ? selectedAddTags : selectedEditTags;
+    const idx = list.indexOf(tag);
+    if (idx !== -1) {
+        list.splice(idx, 1);
+        renderTagsWidget(type);
+        updateExistingTagsSuggest(type === 'add' ? 'existingTagsContainer' : 'editExistingTagsContainer', type === 'add' ? 'siteTagsInput' : 'editSiteTagsInput', type);
+    }
+}
+
+function setupTagsEventListeners() {
+    ['add', 'edit'].forEach(type => {
+        const inputId = type === 'add' ? 'siteTagsInput' : 'editSiteTagsInput';
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ',') {
+                e.preventDefault();
+                const val = input.value.trim().replace(/,/g, '');
+                if (val) {
+                    const list = type === 'add' ? selectedAddTags : selectedEditTags;
+                    if (!list.includes(val)) {
+                        list.push(val);
+                    }
+                    input.value = '';
+                    renderTagsWidget(type);
+                    updateExistingTagsSuggest(type === 'add' ? 'existingTagsContainer' : 'editExistingTagsContainer', inputId, type);
+                }
+            } else if (e.key === 'Backspace' && !input.value) {
+                const list = type === 'add' ? selectedAddTags : selectedEditTags;
+                if (list.length > 0) {
+                    list.pop();
+                    renderTagsWidget(type);
+                    updateExistingTagsSuggest(type === 'add' ? 'existingTagsContainer' : 'editExistingTagsContainer', inputId, type);
+                }
+            }
+        });
+    });
+}
+
+function updateExistingTagsSuggest(containerId, inputId, type = 'add') {
+    const container = document.getElementById(containerId);
+    const input = document.getElementById(inputId);
+    if (!container || !input) return;
+    
+    const allTags = new Set();
+    sitesData.forEach(s => {
+        const tags = Array.isArray(s.tags) ? s.tags : [];
+        tags.forEach(t => allTags.add(t));
+    });
+    
+    container.innerHTML = '';
+    if (allTags.size > 0) {
+        const label = document.createElement('span');
+        label.className = 'text-xs text-slate-500 self-center mr-1';
+        label.textContent = 'Вибрати існуючу:';
+        container.appendChild(label);
+        
+        const currentList = type === 'add' ? selectedAddTags : selectedEditTags;
+        allTags.forEach(t => {
+            const span = document.createElement('span');
+            const isSelected = currentList.includes(t);
+            if (isSelected) {
+                span.className = 'px-2 py-1 bg-accent/20 border border-accent rounded-lg text-xs text-accent font-semibold cursor-pointer transition flex items-center gap-1';
+                span.textContent = `✓ ${t}`;
+            } else {
+                span.className = 'px-2 py-1 bg-slate-800/70 border border-slate-700/50 rounded-lg text-xs text-slate-300 cursor-pointer hover:border-accent hover:text-white transition';
+                span.textContent = t;
+            }
+            span.onclick = (e) => {
+                e.stopPropagation();
+                toggleTagSelection(type, t);
+            };
+            container.appendChild(span);
+        });
+    }
+}
 
 function setFilter(type) {
     currentFilter = type;
@@ -552,6 +735,9 @@ async function loadSites() {
         updateStats();
         updateGauges();
         loadUptimeChart();
+        updateTagFilters();
+        updateExistingTagsSuggest('existingTagsContainer', 'siteTagsInput', 'add');
+        updateExistingTagsSuggest('editExistingTagsContainer', 'editSiteTagsInput', 'edit');
 
         // Update filters
         const filters = document.querySelector('#monitorFilters');
@@ -727,6 +913,13 @@ function renderMonitors() {
     
     let filtered = currentFilter === 'all' ? sitesData : sitesData.filter(s => s.monitor_type === currentFilter);
     
+    if (currentTagFilter !== 'all') {
+        filtered = filtered.filter(s => {
+            const tags = Array.isArray(s.tags) ? s.tags : [];
+            return tags.includes(currentTagFilter);
+        });
+    }
+    
     if (searchQuery) {
         filtered = filtered.filter(s => 
             (s.name || '').toLowerCase().includes(searchQuery) || 
@@ -783,6 +976,15 @@ function renderMonitors() {
         const safeKeyword = encodeURIComponent(site.keyword || '');
         const keywordHtml = site.keyword ? `<div class="text-[11px] text-indigo-400 mt-1 flex items-center gap-1">🔑 Ключ: <span class="text-slate-300 font-mono">${site.keyword}</span></div>` : '';
 
+        const tags = Array.isArray(site.tags) ? site.tags : [];
+        let tagsHtml = '';
+        if (tags.length > 0) {
+            tagsHtml = `<div class="flex gap-1 mt-1 flex-wrap">` +
+                tags.slice(0, 3).map(tag => `<span class="px-2 py-0.5 bg-slate-700/50 rounded-full text-[10px] text-slate-400">📁 ${tag}</span>`).join('') +
+                `</div>`;
+        }
+        const safeTags = encodeURIComponent(JSON.stringify(tags));
+
         let borderClass = 'border-red-500';
         if (statusClass === 'up') borderClass = 'border-emerald-500';
         else if (statusClass === 'paused') borderClass = 'border-amber-500';
@@ -794,6 +996,7 @@ function renderMonitors() {
                     <div class="text-base font-semibold truncate" title="${safeName}">${site.name}</div>
                     <a href="${site.url}" target="_blank" class="text-xs text-slate-400 hover:text-accent hover:underline truncate mt-0.5 block" title="${safeUrl}">${site.url}</a>
                     ${keywordHtml}
+                    ${tagsHtml}
                                     </div>
                 <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-accent/10 text-accent">${site.monitor_type}</span>
             </div>
@@ -805,7 +1008,7 @@ function renderMonitors() {
             </div>
             <div class="flex gap-2 mt-4">
                 <button onclick="checkSite(${site.id})" class="flex-1 py-2.5 rounded-lg gradient-accent text-black text-xs font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">${dict.card_check || '🔄 Check'}</button>
-                <button onclick="openEditModal(${site.id},'${safeName}','${encodeURIComponent(safeUrl)}','${encodeURIComponent(JSON.stringify(methods))}',${site.check_interval||60},'${monitorType}','${safeKeyword}')" class="flex-1 py-2.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium">${dict.card_edit || '✏️ Edit'}</button>
+                <button onclick="openEditModal(${site.id},'${safeName}','${encodeURIComponent(safeUrl)}','${encodeURIComponent(JSON.stringify(methods))}',${site.check_interval||60},'${monitorType}','${safeKeyword}','${safeTags}')" class="flex-1 py-2.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium">${dict.card_edit || '✏️ Edit'}</button>
                 <button onclick="deleteSite(${site.id})" class="flex-1 py-2.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-xs font-medium">${dict.card_delete || '🗑️ Delete'}</button>
             </div>
         </div>`;
@@ -860,16 +1063,19 @@ async function addSite() {
     const url = document.getElementById('siteUrl').value;
     const monitor_type = document.getElementById('monitorType').value;
     const keyword = document.getElementById('siteKeyword').value;
+    const tags = selectedAddTags;
     const check_interval = parseInt(document.getElementById('siteCheckInterval').value) || 60;
     const container = document.getElementById('siteNotifyOptions');
     const notify_methods = container ? Array.from(container.querySelectorAll('input:checked')).map(o => o.value) : [];
     if (!name || !url) return alert('Заповніть назву та URL');
     try {
-        const resp = await fetch('/api/sites', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, url, monitor_type, check_interval, notify_methods, keyword})});
+        const resp = await fetch('/api/sites', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, url, monitor_type, check_interval, notify_methods, keyword, tags})});
         if (resp.ok) {
             document.getElementById('siteName').value = '';
             document.getElementById('siteUrl').value = '';
             document.getElementById('siteKeyword').value = '';
+            selectedAddTags = [];
+            renderTagsWidget('add');
             loadSites();
             alert('Монітор додано!');
         }
@@ -1140,7 +1346,7 @@ async function saveStatusSettings() {
     } catch(e) { console.error(e); }
 }
 
-function openEditModal(id, name, url, notifyMethods, checkInterval, monitorType, keyword) {
+function openEditModal(id, name, url, notifyMethods, checkInterval, monitorType, keyword, tagsEncoded) {
     document.getElementById('editSiteId').value = id;
     document.getElementById('editSiteName').value = name;
     document.getElementById('editSiteUrl').value = decodeURIComponent(url);
@@ -1148,6 +1354,11 @@ function openEditModal(id, name, url, notifyMethods, checkInterval, monitorType,
     document.getElementById('editSiteType').value = monitorType || 'http';
     document.getElementById('editSiteKeyword').value = keyword ? decodeURIComponent(keyword) : '';
     toggleKeywordField('editSiteType', 'editKeywordFieldContainer');
+
+    selectedEditTags = tagsEncoded ? JSON.parse(decodeURIComponent(tagsEncoded)) : [];
+    if (!Array.isArray(selectedEditTags)) selectedEditTags = [];
+    renderTagsWidget('edit');
+    updateExistingTagsSuggest('editExistingTagsContainer', 'editSiteTagsInput', 'edit');
 
     const methods = typeof notifyMethods === 'string' ? JSON.parse(decodeURIComponent(notifyMethods)) : notifyMethods || [];
     const container = document.getElementById('editSiteNotify');
@@ -1163,6 +1374,8 @@ async function saveEdit() {
     const monitorType = document.getElementById('editSiteType').value;
     const keyword = document.getElementById('editSiteKeyword').value.trim();
     const checkInterval = parseInt(document.getElementById('editSiteInterval').value) || 60;
+    
+    const tags = selectedEditTags;
 
     const container = document.getElementById('editSiteNotify');
     const notify_methods = container ? Array.from(container.querySelectorAll('input:checked')).map(o => o.value) : [];
@@ -1177,7 +1390,8 @@ async function saveEdit() {
                 monitor_type: monitorType,
                 check_interval: checkInterval,
                 notify_methods,
-                keyword
+                keyword,
+                tags
             })
         });
         closeEditModal();
@@ -1420,6 +1634,9 @@ loadResponseTimeChart();
 loadSSLTimelineChart();
 toggleKeywordField('monitorType', 'keywordFieldContainer');
 // Manual load once (HTMX handles auto-refresh)
+setupTagsEventListeners();
+renderTagsWidget('add');
+renderTagsWidget('edit');
 loadSites();
 </script>
 {% endblock %}
