@@ -248,7 +248,7 @@ async def check_site_status(
     except Exception as e:
         logger.error(f"Failed checking maintenance status for site {site_id}: {e}")
 
-    delays = [15, 30]  # Delays in seconds between retries
+    delays = [30, 30]  # Delays in seconds between retries
     max_attempts = len(delays) + 1
 
     for attempt in range(max_attempts):
