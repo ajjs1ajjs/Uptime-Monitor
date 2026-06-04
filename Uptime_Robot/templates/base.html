@@ -10,7 +10,27 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Uptime Monitor">
+    <script>
+        (function() {
+            const originalWarn = console.warn;
+            console.warn = function(...args) {
+                if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) {
+                    return;
+                }
+                originalWarn.apply(console, args);
+            };
+            window.__restoreWarn = function() {
+                console.warn = originalWarn;
+                delete window.__restoreWarn;
+            };
+        })();
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        if (window.__restoreWarn) {
+            window.__restoreWarn();
+        }
+    </script>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script>
         document.addEventListener('htmx:beforeSwap', function(evt) {
