@@ -17,7 +17,13 @@ if getattr(sys, "frozen", False):
 else:
     APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
-CONFIG_PATH = os.environ.get("CONFIG_PATH", "/etc/uptime-monitor/config.json")
+CONFIG_PATH = os.environ.get("CONFIG_PATH")
+if not CONFIG_PATH:
+    local_path = os.path.join(APP_DIR, "config.json")
+    if os.path.exists(local_path):
+        CONFIG_PATH = local_path
+    else:
+        CONFIG_PATH = "/etc/uptime-monitor/config.json"
 DB_PATH = ""
 
 

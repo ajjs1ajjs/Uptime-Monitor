@@ -195,6 +195,95 @@ async def init_database(db_path: str):
             is_active BOOLEAN DEFAULT 1,
             FOREIGN KEY(site_id) REFERENCES sites(id)
         )""")
+        # Автозаповнення бази даних за замовчуванням (seeding)
+        async with conn.execute("SELECT COUNT(*) FROM sites") as c:
+            row = await c.fetchone()
+            count = row[0] if row else 0
+
+        import sys
+        import urllib.parse
+        import re
+
+        is_testing = "pytest" in sys.modules or "unittest" in sys.modules or os.environ.get("TESTING")
+        force_seed = os.environ.get("FORCE_DB_SEED") == "True"
+
+        if count == 0 and (not is_testing or force_seed):
+            default_sites = []
+            try:
+                app_dir = os.path.dirname(os.path.abspath(__file__))
+                default_sites_path = os.path.join(app_dir, "default_sites.json")
+                if os.path.exists(default_sites_path):
+                    with open(default_sites_path, encoding="utf-8") as f:
+                        loaded = json.load(f)
+                        if isinstance(loaded, list):
+                            default_sites.extend(loaded)
+            except Exception as e:
+                from .logger import logger
+                logger.error(f"Failed to load default_sites.json: {e}")
+
+            for env_name in ["UPTIME_MONITOR_URL", "UPTIME_MONITOR_URLS"]:
+                env_val = os.environ.get(env_name)
+                if env_val:
+                    env_val = env_val.strip()
+                    if env_val.startswith("["):
+                        try:
+                            loaded = json.loads(env_val)
+                            if isinstance(loaded, list):
+                                for item in loaded:
+                                    if isinstance(item, dict) and "url" in item:
+                                        default_sites.append(item)
+                                    elif isinstance(item, str):
+                                        default_sites.append({
+                                            "name": urllib.parse.urlparse(item).netloc or item,
+                                            "url": item
+                                        })
+                        except Exception as e:
+                            from .logger import logger
+                            logger.error(f"Failed to parse env {env_name} as JSON: {e}")
+                    else:
+                        urls = re.split(r'[,\n;]+', env_val)
+                        for u in urls:
+                            u = u.strip()
+                            if u:
+                                name = urllib.parse.urlparse(u).netloc or u
+                                default_sites.append({"name": name, "url": u})
+
+            # Видалення дублікатів по URL
+            seen_urls = set()
+            unique_sites = []
+            for ds in default_sites:
+                url = ds.get("url")
+                if url and url not in seen_urls:
+                    seen_urls.add(url)
+                    unique_sites.append(ds)
+
+            for ds in unique_sites:
+                name = ds.get("name") or urllib.parse.urlparse(ds.get("url", "")).netloc or "Default Site"
+                url = ds.get("url")
+                check_interval = ds.get("check_interval", 60)
+                notify_methods = ds.get("notify_methods", [])
+                monitor_type = ds.get("monitor_type", "http")
+                keyword = ds.get("keyword", None)
+                tags = ds.get("tags", [])
+                
+                try:
+                    await conn.execute(
+                        """INSERT OR IGNORE INTO sites 
+                           (name, url, check_interval, notify_methods, monitor_type, keyword, tags, is_active)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, 1)""",
+                        (
+                            name,
+                            url,
+                            check_interval,
+                            json.dumps(notify_methods),
+                            monitor_type,
+                            keyword,
+                            json.dumps(tags),
+                        ),
+                    )
+                except Exception as e:
+                    from .logger import logger
+                    logger.error(f"Failed to seed site {url}: {e}")
 
         await conn.commit()
 

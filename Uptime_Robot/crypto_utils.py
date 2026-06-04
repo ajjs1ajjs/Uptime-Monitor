@@ -76,6 +76,11 @@ def load_master_key() -> Optional[str]:
     if Fernet is None:
         return None
 
+    # First try loading from environment variable
+    env_key = os.environ.get("UPTIME_MONITOR_MASTER_KEY")
+    if env_key:
+        return env_key.strip()
+
     search_paths = [_get_master_key_path()] + _get_alternative_key_paths()
     for path in search_paths:
         try:
