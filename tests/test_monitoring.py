@@ -1,5 +1,5 @@
 """Tests for monitoring module pure functions"""
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -146,8 +146,6 @@ class TestCheckHttpRegex:
         mock_context = AsyncMock()
         mock_context.__aenter__.return_value = mock_response
 
-        mock_session = MagicMock() if "MagicMock" in globals() else patch("unittest.mock.MagicMock")
-        from unittest.mock import MagicMock
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
@@ -171,7 +169,6 @@ class TestCheckHttpRegex:
         mock_context = AsyncMock()
         mock_context.__aenter__.return_value = mock_response
 
-        from unittest.mock import MagicMock
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
@@ -195,7 +192,6 @@ class TestCheckHttpRegex:
         mock_context = AsyncMock()
         mock_context.__aenter__.return_value = mock_response
 
-        from unittest.mock import MagicMock
         mock_session = MagicMock()
         mock_session.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session.__aexit__ = AsyncMock()
@@ -207,4 +203,69 @@ class TestCheckHttpRegex:
             assert status == "down"
             assert code == 200
             assert "Invalid regex pattern" in err
+
+
+class TestDailyMaintenanceMidnight:
+    @pytest.mark.asyncio
+    async def test_daily_maintenance_midnight_crossing(self):
+        from Uptime_Robot.monitoring.maintenance import is_under_maintenance
+        from datetime import datetime, timedelta
+        
+        # Test window: start 23:00, duration 120 mins (23:00 - 01:00)
+        # Evaluated at 00:30 (next day) -> should return True
+        mock_row = {
+            "rule_type": "daily",
+            "start_hour_minute": "23:00",
+            "duration_minutes": 120,
+            "site_id": 1,
+            "is_active": 1
+        }
+        
+        eval_time = datetime(2026, 6, 4, 0, 30, 0)
+        
+        class MockDateTime:
+            @classmethod
+            def now(cls):
+                return eval_time
+            @classmethod
+            def fromisoformat(cls, s):
+                return datetime.fromisoformat(s)
+
+        mock_conn = MagicMock()
+        mock_cursor = AsyncMock()
+        mock_cursor.fetchall.return_value = [mock_row]
+        mock_conn.execute.return_value.__aenter__.return_value = mock_cursor
+        
+        with patch("Uptime_Robot.monitoring.maintenance.datetime", MockDateTime), \
+             patch("Uptime_Robot.monitoring.maintenance.get_db_connection") as mock_get_db:
+            
+            mock_context = AsyncMock()
+            mock_context.__aenter__.return_value = mock_conn
+            mock_get_db.return_value = mock_context
+            
+            result = await is_under_maintenance(1)
+            assert result is True
+
+
+class TestSSLCheckerAsync:
+    @pytest.mark.asyncio
+    async def test_check_ssl_certificate_nonblocking(self):
+        from Uptime_Robot.ssl_checker import check_ssl_certificate
+        
+        # Patch the underlying sync checker
+        mock_info = {
+            "hostname": "example.com",
+            "subject": "CN=example.com",
+            "issuer": "Let's Encrypt",
+            "start_date": "2026-06-01T00:00:00",
+            "expire_date": "2026-09-01T00:00:00",
+            "days_until_expire": 90,
+            "is_valid": True,
+            "checked_at": "2026-06-04T00:00:00"
+        }
+        
+        with patch("Uptime_Robot.ssl_checker._check_ssl_certificate_sync", return_value=mock_info) as mock_sync:
+            res = await check_ssl_certificate("https://example.com")
+            assert res == mock_info
+            mock_sync.assert_called_once_with("https://example.com")
 

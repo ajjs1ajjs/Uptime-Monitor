@@ -144,25 +144,33 @@ async def get_sites(user: dict = Depends(require_viewer_or_higher)):
         async with conn.execute("SELECT * FROM sites ORDER BY id") as c:
             sites_raw = await c.fetchall()
             sites = [dict(s) for s in sites_raw]
+
+        # Bulk fetch latest statuses
+        async with conn.execute(
+            "SELECT site_id, status FROM (SELECT site_id, status, ROW_NUMBER() OVER (PARTITION BY site_id ORDER BY checked_at DESC) as rn FROM status_history) WHERE rn = 1"
+        ) as c:
+            last_status_raw = await c.fetchall()
+            last_status_map = {row["site_id"]: row["status"] for row in last_status_raw}
+
+        # Bulk fetch uptime statistics
+        async with conn.execute(
+            "SELECT site_id, COUNT(*) as total, SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count FROM status_history GROUP BY site_id"
+        ) as c:
+            stats_raw = await c.fetchall()
+            stats_map = {row["site_id"]: (row["total"], row["up_count"]) for row in stats_raw}
+
         result = []
         for site in sites:
-            async with conn.execute(
-                "SELECT * FROM status_history WHERE site_id = ? ORDER BY checked_at DESC LIMIT 1",
-                (site["id"],),
-            ) as c:
-                last_status = await c.fetchone()
-            async with conn.execute(
-                "SELECT COUNT(*) as total, SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count FROM status_history WHERE site_id = ?",
-                (site["id"],),
-            ) as c:
-                stats = await c.fetchone()
+            sid = site["id"]
+            last_status = last_status_map.get(sid, "unknown")
+            total, up_count = stats_map.get(sid, (0, 0))
             uptime = (
-                (stats["up_count"] / stats["total"] * 100) if stats and stats["total"] > 0 else 0
+                (up_count / total * 100) if total > 0 else 0
             )
             result.append(
                 {
-                    **dict(site),
-                    "status": last_status["status"] if last_status else "unknown",
+                    **site,
+                    "status": last_status,
                     "uptime": round(uptime, 2),
                     "notify_methods": (
                         json.loads(site["notify_methods"]) if site["notify_methods"] else []

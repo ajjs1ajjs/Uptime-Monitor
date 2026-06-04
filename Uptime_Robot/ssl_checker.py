@@ -1,3 +1,4 @@
+import asyncio
 import socket
 import ssl
 from datetime import datetime, timezone
@@ -6,8 +7,8 @@ from urllib.parse import urlparse
 from .logger import logger
 
 
-async def check_ssl_certificate(url: str):
-    """Перевіряє SSL сертифікат сайту"""
+def _check_ssl_certificate_sync(url: str):
+    """Перевіряє SSL сертифікат сайту (синхронно)"""
     try:
         # Парсимо URL
         parsed = urlparse(url)
@@ -75,6 +76,11 @@ async def check_ssl_certificate(url: str):
     except Exception as e:
         logger.error(f"SSL check error for {url}: {e}")
         return None
+
+
+async def check_ssl_certificate(url: str):
+    """Перевіряє SSL сертифікат сайту (асинхронно через пул потоків)"""
+    return await asyncio.to_thread(_check_ssl_certificate_sync, url)
 
 
 def should_notify_certificate(days_until_expire: int, last_notified_days: int = None):

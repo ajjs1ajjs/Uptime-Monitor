@@ -41,11 +41,12 @@ async def is_under_maintenance(site_id: int) -> bool:
 
                 if today_start <= current_time <= today_end:
                     return True
-                if today_end < today_start:
-                    yesterday_start = today_start - timedelta(days=1)
-                    yesterday_end = yesterday_start + timedelta(minutes=duration)
-                    if yesterday_start <= current_time <= yesterday_end:
-                        return True
+
+                # Check if yesterday's window spans into today (midnight crossing)
+                yesterday_start = today_start - timedelta(days=1)
+                yesterday_end = yesterday_start + timedelta(minutes=duration)
+                if yesterday_start <= current_time <= yesterday_end:
+                    return True
             except Exception:
                 pass
         elif rule_type == "weekly":

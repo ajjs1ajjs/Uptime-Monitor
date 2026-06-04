@@ -140,21 +140,27 @@ async def htmx_monitors(
             sites_raw = await c.fetchall()
             sites = [dict(s) for s in sites_raw]
 
+        # Bulk fetch latest statuses
+        async with conn.execute(
+            "SELECT site_id, status FROM (SELECT site_id, status, ROW_NUMBER() OVER (PARTITION BY site_id ORDER BY checked_at DESC) as rn FROM status_history) WHERE rn = 1"
+        ) as c:
+            last_status_raw = await c.fetchall()
+            last_status_map = {row["site_id"]: row["status"] for row in last_status_raw}
+
+        # Bulk fetch uptime statistics
+        async with conn.execute(
+            "SELECT site_id, COUNT(*) as total, SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count FROM status_history GROUP BY site_id"
+        ) as c:
+            stats_raw = await c.fetchall()
+            stats_map = {row["site_id"]: (row["total"], row["up_count"]) for row in stats_raw}
+
         for site in sites:
             sid = site["id"]
-            async with conn.execute(
-                "SELECT status FROM status_history WHERE site_id = ? ORDER BY checked_at DESC LIMIT 1",
-                (sid,),
-            ) as c:
-                last = await c.fetchone()
-            site["status"] = last["status"] if last else "unknown"
-            async with conn.execute(
-                "SELECT COUNT(*) as total, SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count FROM status_history WHERE site_id = ?",
-                (sid,),
-            ) as c:
-                st = await c.fetchone()
+            last = last_status_map.get(sid, "unknown")
+            total, up_count = stats_map.get(sid, (0, 0))
+            site["status"] = last
             site["uptime"] = (
-                round((st["up_count"] / st["total"] * 100), 1) if st and st["total"] > 0 else 100.0
+                round((up_count / total * 100), 1) if total > 0 else 100.0
             )
             site["notify_methods"] = json.loads(site.get("notify_methods") or "[]")
             site["tags"] = (

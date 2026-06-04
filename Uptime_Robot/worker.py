@@ -40,6 +40,12 @@ async def initialize_worker():
                     logger.error(f"Failed to parse notification settings: {e}")
 
 
+async def main_async():
+    await initialize_worker()
+    logger.info("Starting monitoring loop...")
+    await monitoring.monitor_loop(NOTIFY_SETTINGS, CHECK_INTERVAL)
+
+
 def run_worker():
     logger.info("Starting Uptime Monitor Background Worker...")
     logger.info(f"Database: {DB_PATH}")
@@ -49,11 +55,8 @@ def run_worker():
     signal.signal(signal.SIGINT, _handle_signal)
     signal.signal(signal.SIGTERM, _handle_signal)
 
-    asyncio.run(initialize_worker())
-    logger.info("Starting monitoring loop...")
-
     try:
-        asyncio.run(monitoring.monitor_loop(NOTIFY_SETTINGS, CHECK_INTERVAL))
+        asyncio.run(main_async())
     except KeyboardInterrupt:
         logger.info("Worker stopped by user")
         sys.exit(0)
