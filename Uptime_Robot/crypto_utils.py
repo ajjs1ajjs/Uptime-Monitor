@@ -146,7 +146,7 @@ def encrypt_config_sensitive(config: dict) -> dict:
         notifications["email_password"] = "__ENC__" + encrypt_value(notifications["email_password"])
     config["notifications"] = notifications
 
-    notify_settings_keys = ["telegram", "discord", "teams", "slack", "sms"]
+    notify_settings_keys = ["telegram", "discord", "teams", "slack", "sms", "webhook"]
     for service_key in notify_settings_keys:
         service = config.get(service_key, {})
         if isinstance(service, dict):
@@ -170,7 +170,7 @@ def decrypt_config_sensitive(config: dict) -> dict:
         notifications["email_password"] = decrypt_value(pwd[7:])
     config["notifications"] = notifications
 
-    notify_settings_keys = ["telegram", "discord", "teams", "slack", "sms"]
+    notify_settings_keys = ["telegram", "discord", "teams", "slack", "sms", "webhook"]
     for service_key in notify_settings_keys:
         service = config.get(service_key, {})
         if isinstance(service, dict):

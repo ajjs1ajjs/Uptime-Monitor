@@ -116,6 +116,10 @@ DEFAULT_NOTIFY_SETTINGS = {
         "password": "",
         "to_email": "",
     },
+    "webhook": {
+        "enabled": False,
+        "channels": [],
+    },
 }
 
 
