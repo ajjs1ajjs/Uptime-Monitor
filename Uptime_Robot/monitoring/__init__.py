@@ -248,31 +248,45 @@ async def check_site_status(
     except Exception as e:
         logger.error(f"Failed checking maintenance status for site {site_id}: {e}")
 
-    try:
-        policy = get_alert_policy()
-        if under_maint:
-            status = "maintenance"
-            status_code = None
-            response_time = None
-            error_message = "Maintenance Window Active"
-        elif monitor_type == "ping":
-            status, status_code, response_time, error_message = await _check_ping(url, start_time)
-        elif monitor_type == "dns":
-            status, status_code, response_time, error_message = await _check_dns(url, start_time)
-        elif monitor_type in ("port", "tcp"):
-            status, status_code, response_time, error_message = await _check_port(
-                url, start_time, policy["request_timeout_seconds"]
-            )
-        else:
-            status, status_code, response_time, error_message = await _check_http(
-                url, start_time, policy, keyword
-            )
-    except aiohttp.ClientConnectorError:
-        error_message = "Connection failed"
-    except asyncio.TimeoutError:
-        error_message = "Timeout"
-    except Exception as e:
-        error_message = str(e)[:100]
+    delays = [15, 30]  # Delays in seconds between retries
+    max_attempts = len(delays) + 1
+
+    for attempt in range(max_attempts):
+        start_time = datetime.now()
+        try:
+            policy = get_alert_policy()
+            if under_maint:
+                status = "maintenance"
+                status_code = None
+                response_time = None
+                error_message = "Maintenance Window Active"
+            elif monitor_type == "ping":
+                status, status_code, response_time, error_message = await _check_ping(url, start_time)
+            elif monitor_type == "dns":
+                status, status_code, response_time, error_message = await _check_dns(url, start_time)
+            elif monitor_type in ("port", "tcp"):
+                status, status_code, response_time, error_message = await _check_port(
+                    url, start_time, policy["request_timeout_seconds"]
+                )
+            else:
+                status, status_code, response_time, error_message = await _check_http(
+                    url, start_time, policy, keyword
+                )
+        except aiohttp.ClientConnectorError:
+            status, status_code, response_time, error_message = "down", None, None, "Connection failed"
+        except asyncio.TimeoutError:
+            status, status_code, response_time, error_message = "down", None, None, "Timeout"
+        except Exception as e:
+            status, status_code, response_time, error_message = "down", None, None, str(e)[:100]
+
+        if status != "down" or attempt == max_attempts - 1:
+            break
+
+        delay = delays[attempt]
+        logger.info(
+            f"Site {url} (ID: {site_id}) check failed (attempt {attempt+1}/{max_attempts}): {error_message}. Retrying in {delay}s..."
+        )
+        await asyncio.sleep(delay)
 
     if status == "down" and not under_maint:
         increment_metric("checks_failed")
