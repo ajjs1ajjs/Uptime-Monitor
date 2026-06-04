@@ -257,11 +257,14 @@ async def init_database(db_path: str):
                     seen_urls.add(url)
                     unique_sites.append(ds)
 
+            has_tg = bool(os.environ.get("TELEGRAM_BOT_TOKEN") or os.environ.get("TELEGRAM_TOKEN"))
             for ds in unique_sites:
                 name = ds.get("name") or urllib.parse.urlparse(ds.get("url", "")).netloc or "Default Site"
                 url = ds.get("url")
                 check_interval = ds.get("check_interval", 60)
                 notify_methods = ds.get("notify_methods", [])
+                if has_tg and "telegram" not in notify_methods:
+                    notify_methods = notify_methods + ["telegram"]
                 monitor_type = ds.get("monitor_type", "http")
                 keyword = ds.get("keyword", None)
                 tags = ds.get("tags", [])
@@ -284,6 +287,47 @@ async def init_database(db_path: str):
                 except Exception as e:
                     from .logger import logger
                     logger.error(f"Failed to seed site {url}: {e}")
+
+        # Автозаповнення налаштувань сповіщень за замовчуванням (seeding notify settings)
+        async with conn.execute("SELECT COUNT(*) FROM notify_config") as c:
+            row = await c.fetchone()
+            notify_count = row[0] if row else 0
+
+        if notify_count == 0 and (not is_testing or force_seed):
+            tg_token = os.environ.get("TELEGRAM_BOT_TOKEN") or os.environ.get("TELEGRAM_TOKEN")
+            tg_chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+            
+            if tg_token and tg_chat_id:
+                notify_settings = {
+                    "telegram": {
+                        "enabled": True,
+                        "channels": [{"id": "default", "name": "Основний", "token": tg_token, "chat_id": tg_chat_id}],
+                    },
+                    "discord": {
+                        "enabled": False,
+                        "channels": [{"id": "default", "name": "Основний", "webhook_url": ""}],
+                    },
+                    "teams": {
+                        "enabled": False,
+                        "channels": [{"id": "default", "name": "Основний", "webhook_url": ""}],
+                    },
+                    "email": {
+                        "enabled": False,
+                        "smtp_server": "",
+                        "smtp_port": 587,
+                        "username": "",
+                        "password": "",
+                        "to_email": "",
+                    },
+                    "webhook": {
+                        "enabled": False,
+                        "channels": [],
+                    },
+                }
+                await conn.execute(
+                    "INSERT OR REPLACE INTO notify_config (id, config) VALUES (1, ?)",
+                    (json.dumps(notify_settings),),
+                )
 
         await conn.commit()
 

@@ -91,3 +91,28 @@ async def test_seeding_from_env_variable_json_array(temp_db, monkeypatch):
     assert site is not None
     assert site["name"] == "Custom JSON Site"
     assert site["check_interval"] == 120
+
+@pytest.mark.asyncio
+async def test_seeding_telegram_notifications(temp_db, monkeypatch):
+    import json
+    monkeypatch.setenv("FORCE_DB_SEED", "True")
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "12345:fake_token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "-1001234567")
+    
+    await init_database(temp_db)
+    
+    async with get_db_connection(temp_db) as conn:
+        async with conn.execute("SELECT config FROM notify_config WHERE id = 1") as c:
+            row = await c.fetchone()
+            assert row is not None
+            config = json.loads(row["config"])
+            assert config["telegram"]["enabled"] is True
+            assert config["telegram"]["channels"][0]["token"] == "12345:fake_token"
+            assert config["telegram"]["channels"][0]["chat_id"] == "-1001234567"
+            
+        # Also check that seeded sites have "telegram" in notify_methods
+        async with conn.execute("SELECT notify_methods FROM sites LIMIT 1") as c:
+            row = await c.fetchone()
+            assert row is not None
+            notify_methods = json.loads(row["notify_methods"])
+            assert "telegram" in notify_methods
