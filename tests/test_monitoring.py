@@ -269,3 +269,35 @@ class TestSSLCheckerAsync:
             assert res == mock_info
             mock_sync.assert_called_once_with("https://example.com")
 
+
+class TestCheckAllCertificatesRobustness:
+    @pytest.mark.asyncio
+    async def test_check_all_certificates_ignores_individual_errors(self):
+        from Uptime_Robot.monitoring import check_all_certificates
+        
+        mock_conn = MagicMock()
+        mock_cursor = AsyncMock()
+        mock_cursor.fetchall.return_value = [
+            {"id": 1, "url": "https://first.com", "notify_methods": "[]"},
+            {"id": 2, "url": "https://second.com", "notify_methods": "[]"}
+        ]
+        mock_conn.execute.return_value.__aenter__.return_value = mock_cursor
+        
+        calls = []
+        async def fake_check_site_certificate(site_id, url, methods, settings):
+            calls.append(url)
+            if url == "https://first.com":
+                raise Exception("DB Error or Network error on first site")
+        
+        with patch("Uptime_Robot.monitoring.get_db_connection") as mock_get_db, \
+             patch("Uptime_Robot.monitoring.check_site_certificate", fake_check_site_certificate):
+            
+            mock_context = AsyncMock()
+            mock_context.__aenter__.return_value = mock_conn
+            mock_get_db.return_value = mock_context
+            
+            await check_all_certificates({})
+            
+            assert "https://first.com" in calls
+            assert "https://second.com" in calls
+

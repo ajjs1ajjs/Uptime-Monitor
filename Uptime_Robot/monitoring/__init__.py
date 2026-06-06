@@ -489,7 +489,10 @@ async def check_all_certificates(notify_settings: dict[str, Any]):
 
     for site in sites:
         notify_methods = json.loads(site["notify_methods"]) if site["notify_methods"] else []
-        await check_site_certificate(site["id"], site["url"], notify_methods, notify_settings)
+        try:
+            await check_site_certificate(site["id"], site["url"], notify_methods, notify_settings)
+        except Exception as e:
+            logger.error(f"Error checking SSL certificate for site {site['url']}: {e}")
         await asyncio.sleep(1)
 
 
@@ -501,10 +504,20 @@ async def monitor_loop(notify_settings: dict[str, Any], default_check_interval: 
     notify_settings_reload_interval = 30
 
     last_check_time = {}
+    active_tasks: dict[int, asyncio.Task] = {}
 
     while True:
         try:
             current_time = datetime.now()
+
+            # Reap completed tasks
+            for site_id in list(active_tasks.keys()):
+                if active_tasks[site_id].done():
+                    try:
+                        active_tasks[site_id].result()
+                    except Exception as e:
+                        logger.error(f"Background check task for site {site_id} failed: {e}")
+                    del active_tasks[site_id]
 
             if (
                 current_time - last_notify_settings_reload
@@ -536,10 +549,14 @@ async def monitor_loop(notify_settings: dict[str, Any], default_check_interval: 
                     last_check is None
                     or (current_time - last_check).total_seconds() >= site_interval
                 ):
-                    await check_site_status(
-                        site["id"], site["url"], notify_methods, notify_settings
-                    )
-                    last_check_time[site["id"]] = current_time
+                    if site["id"] not in active_tasks:
+                        task = asyncio.create_task(
+                            check_site_status(
+                                site["id"], site["url"], notify_methods, notify_settings
+                            )
+                        )
+                        active_tasks[site["id"]] = task
+                        last_check_time[site["id"]] = current_time
 
             if (datetime.now() - last_cert_check).total_seconds() >= ssl_check_interval:
                 logger.info("Checking SSL certificates in background...")
