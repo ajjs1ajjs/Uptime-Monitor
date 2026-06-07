@@ -163,6 +163,11 @@ sudo chown uptime-monitor:uptime-monitor /var/lib/uptime-monitor/sites.db /etc/u
 sudo systemctl start uptime-monitor uptime-monitor-worker
 sleep 3
 sudo systemctl status uptime-monitor --no-pager | head -10
+
+# 4. Перевірка
+sudo systemctl is-active uptime-monitor uptime-monitor-worker
+curl -s http://localhost:8080/health
+sudo journalctl -u uptime-monitor -n 10 --no-pager | grep -ci "error\|traceback\|exception" || echo "0 errors"
 ```
 
 > **⚠️ Важливо:** `install.sh` оновлює також Pip-залежності та systemd-сервіси. Після нього завжди перевіряйте `sites.db` та `config.json`.
