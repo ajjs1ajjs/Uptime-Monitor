@@ -20,6 +20,7 @@ def format_telegram_message(data: dict[str, Any], alert_type: str = "down") -> s
     error = data.get("error", "None")
     response_time = data.get("response_time", 0)
     checked_at = data.get("checked_at", "")
+    rt_str = f"{round(response_time, 2)}ms" if response_time else "N/A"
 
     if alert_type == "down":
         return f"""🔴 <b>⚠️ САЙТ НЕ ПРАЦЮЄ!</b>
@@ -52,7 +53,7 @@ def format_telegram_message(data: dict[str, Any], alert_type: str = "down") -> s
 <b>🌐 Сайт:</b> {site_name}
 <b>📎 URL:</b> <code>{url}</code>
 <b>📊 Статус:</b> <code>{status_code}</code>
-<b>⏱️ Час відповіді:</b> <code>{f"{round(response_time, 2)}ms" if response_time else "N/A"}</code>
+<b>⏱️ Час відповіді:</b> <code>{rt_str}</code>
 <b>🕐 Час:</b> {checked_at}
 
 ━━━━━━━━━━━━━━━━━━
@@ -98,6 +99,7 @@ def format_discord_message(data: dict[str, Any], alert_type: str = "down") -> di
     error = data.get("error", "None")
     response_time = data.get("response_time", 0)
     checked_at = data.get("checked_at", "")
+    rt_str = f"{round(response_time, 2)}ms" if response_time else "N/A"
 
     if alert_type == "down":
         return {
@@ -168,7 +170,7 @@ def format_discord_message(data: dict[str, Any], alert_type: str = "down") -> di
                         },
                         {
                             "name": "⏱️ Час відповіді",
-                            "value": f"`{f"{round(response_time, 2)}ms" if response_time else "N/A"}`",
+                            "value": f"`{rt_str}`",
                             "inline": True,
                         },
                         {"name": "🕐 Час", "value": checked_at, "inline": True},
