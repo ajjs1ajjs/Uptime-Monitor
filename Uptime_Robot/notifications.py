@@ -52,7 +52,7 @@ def format_telegram_message(data: dict[str, Any], alert_type: str = "down") -> s
 <b>🌐 Сайт:</b> {site_name}
 <b>📎 URL:</b> <code>{url}</code>
 <b>📊 Статус:</b> <code>{status_code}</code>
-<b>⏱️ Час відповіді:</b> <code>{round(response_time, 2) if response_time else 0}ms</code>
+<b>⏱️ Час відповіді:</b> <code>{f"{round(response_time, 2)}ms" if response_time else "N/A"}</code>
 <b>🕐 Час:</b> {checked_at}
 
 ━━━━━━━━━━━━━━━━━━
@@ -168,7 +168,7 @@ def format_discord_message(data: dict[str, Any], alert_type: str = "down") -> di
                         },
                         {
                             "name": "⏱️ Час відповіді",
-                            "value": f"`{round(response_time, 2) if response_time else 0}ms`",
+                            "value": f"`{f"{round(response_time, 2)}ms" if response_time else "N/A"}`",
                             "inline": True,
                         },
                         {"name": "🕐 Час", "value": checked_at, "inline": True},

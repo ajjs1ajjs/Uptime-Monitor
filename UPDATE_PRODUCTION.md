@@ -140,6 +140,35 @@ sudo systemctl start ${SERVICE}-worker
 sleep 3
 ```
 
+---
+
+### 🌀 Швидке оновлення через curl (install.sh) — для серверів без Git/ZIP
+
+Якщо на сервері немає `.git` (встановлення через `curl | bash`) і `deploy_update.sh` відсутній:
+
+```bash
+# 1. Бекап
+sudo cp /var/lib/uptime-monitor/sites.db /tmp/sites.db.backup
+sudo cp /etc/uptime-monitor/config.json /tmp/config.json.backup
+echo "Backup done"
+
+# 2. Встановлення через curl (перезапише програму, config.json і БД — НЕ ТОРКНЕТЬСЯ)
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
+
+# 3. Відновлення БД та конфігу з бекапу
+sudo systemctl stop uptime-monitor uptime-monitor-worker
+sudo cp /tmp/sites.db.backup /var/lib/uptime-monitor/sites.db
+sudo cp /tmp/config.json.backup /etc/uptime-monitor/config.json
+sudo chown uptime-monitor:uptime-monitor /var/lib/uptime-monitor/sites.db /etc/uptime-monitor/config.json
+sudo systemctl start uptime-monitor uptime-monitor-worker
+sleep 3
+sudo systemctl status uptime-monitor --no-pager | head -10
+```
+
+> **⚠️ Важливо:** `install.sh` оновлює також Pip-залежності та systemd-сервіси. Після нього завжди перевіряйте `sites.db` та `config.json`.
+
+---
+
 ### Крок 5: Перевірка
 
 ```bash
