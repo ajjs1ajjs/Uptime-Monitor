@@ -4,9 +4,9 @@ from ..config_manager import load_config
 
 SENSITIVE_DEFAULTS = {
     "request_timeout_seconds": 60,
-    "down_failures_threshold": 1,
-    "up_success_threshold": 1,
-    "still_down_repeat_seconds": 300,
+    "down_failures_threshold": 3,
+    "up_success_threshold": 2,
+    "still_down_repeat_seconds": 600,
     "treat_4xx_as_down": True,
     "ssl_notification_days": 14,
     "ssl_notification_cooldown_seconds": 21600,
