@@ -682,3 +682,69 @@ class TestMoreEdgeCases:
         await log_notification(test_db, sample_site, "S", "telegram", "sent", None)
         h = await get_notification_history(test_db)
         assert h[0]["message_preview"] == ""
+
+    @pytest.mark.asyncio
+    async def test_maintenance_window_skips_checks(self, test_db):
+        from unittest.mock import patch
+        from Uptime_Robot import config_manager
+        from Uptime_Robot.database import close_db, get_db_connection
+        await close_db()
+        orig_db = config_manager.DB_PATH
+        config_manager.DB_PATH = test_db
+        try:
+            from Uptime_Robot.models import add_site, add_maintenance_window
+            site_id = await add_site(test_db, "Maint Site", "http://example.com", monitor_type="http")
+            from datetime import datetime, timedelta
+            now = datetime.now()
+            await add_maintenance_window(
+                test_db, name="Maint Window", site_id=site_id, rule_type="one_off",
+                start_time=(now - timedelta(hours=1)).isoformat(),
+                end_time=(now + timedelta(hours=1)).isoformat(),
+            )
+            from Uptime_Robot.monitoring.maintenance import is_under_maintenance
+            under = await is_under_maintenance(site_id)
+            assert under is True
+        finally:
+            await close_db()
+            config_manager.DB_PATH = orig_db
+
+    @pytest.mark.asyncio
+    async def test_sla_report_calculations(self, test_db):
+        from Uptime_Robot.models import add_site
+        site_id = await add_site(test_db, "SLA Site", "http://example.com", monitor_type="http")
+        from Uptime_Robot.database import get_db_connection
+        async with get_db_connection(test_db) as conn:
+            for _ in range(2):
+                await conn.execute(
+                    "INSERT INTO status_history (site_id, status, response_time, checked_at) VALUES (?, 'up', 100, datetime('now'))", (site_id,))
+            await conn.execute(
+                "INSERT INTO status_history (site_id, status, response_time, checked_at) VALUES (?, 'down', 0, datetime('now'))", (site_id,))
+            await conn.commit()
+        async with get_db_connection(test_db) as conn:
+            async with conn.execute(
+                "SELECT COUNT(*) as total, SUM(CASE WHEN status='up' THEN 1 ELSE 0 END) as up_count FROM status_history WHERE site_id=?", (site_id,)) as c:
+                stats = await c.fetchone()
+        total = stats["total"] or 0
+        up_count = stats["up_count"] or 0
+        uptime = (up_count / total * 100) if total > 0 else 100.0
+        assert total == 3
+        assert up_count == 2
+        assert abs(uptime - 66.67) < 0.1
+
+    @pytest.mark.asyncio
+    async def test_webhook_alert_dispatch(self):
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from Uptime_Robot.notifications import send_webhook
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_context = AsyncMock()
+        mock_context.__aenter__.return_value = mock_response
+        mock_session = MagicMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock()
+        mock_session.post = MagicMock(return_value=mock_context)
+        with patch("aiohttp.ClientSession", return_value=mock_session):
+            settings = {"webhook_url": "http://my-webhook.internal/endpoint"}
+            message = {"alert_type": "down", "site_name": "Test Site", "url": "http://test"}
+            await send_webhook(message, settings)
+            mock_session.post.assert_called_once_with("http://my-webhook.internal/endpoint", json=message)

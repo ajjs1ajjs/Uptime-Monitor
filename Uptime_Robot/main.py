@@ -49,6 +49,13 @@ async def initialize_app_async():
 
     import json
 
+    # Init CSRF table
+    try:
+        from .csrf import init_csrf_table
+        await init_csrf_table()
+    except Exception as e:
+        logger.error(f"CSRF init failed: {e}")
+
     # Load settings from DB
     try:
         async with get_db_connection() as conn:

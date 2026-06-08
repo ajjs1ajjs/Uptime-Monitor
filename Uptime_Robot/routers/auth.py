@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from .. import auth_module, models
+from ..csrf import generate_csrf_token, validate_csrf_token
 from ..database import get_db_connection
 from ..dependencies import get_current_user, require_admin
 from ..state import DB_PATH
@@ -98,8 +99,12 @@ async def change_password_page(
     if not user:
         return RedirectResponse(url="/login", status_code=302)
     error_html = f'<div class="error">{error}</div>' if error else ""
+    session_id = request.cookies.get("session_id", "")
+    csrf_token = await generate_csrf_token(session_id) if session_id else ""
     return templates.TemplateResponse(
-        request, "change_password.html", {"request": request, "error_message": error_html}
+        request,
+        "change_password.html",
+        {"request": request, "error_message": error_html, "csrf_token": csrf_token},
     )
 
 
@@ -109,11 +114,16 @@ async def change_password(
     current_password: str = Form(...),
     new_password: str = Form(...),
     confirm_password: str = Form(...),
+    csrf_token: str = Form(default=""),
     user: dict = Depends(get_current_user),
     _rate_ok: bool = Depends(_rate_limit_dependency("change_password", 3, 900)),
 ):
     if not user:
         return RedirectResponse(url="/login", status_code=302)
+
+    session_id = request.cookies.get("session_id", "")
+    if not await validate_csrf_token(session_id, csrf_token):
+        return RedirectResponse(url="/change-password?error=Session expired, try again", status_code=302)
 
     if new_password != confirm_password:
         return RedirectResponse(

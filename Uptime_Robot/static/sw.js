@@ -9,6 +9,12 @@ self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
             return cache.addAll(STATIC_URLS);
+        }).then(() => {
+            // Create offline response
+            return caches.open(CACHE_NAME).then((cache) => {
+                const offlineHtml = '<!DOCTYPE html><html lang="uk"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Офлайн</title><script src="https://cdn.tailwindcss.com"></script></head><body class="bg-gray-900 text-white flex items-center justify-center h-screen"><div class="text-center"><div class="text-6xl mb-4">📡</div><h1 class="text-2xl font-bold">Немає з\'єднання</h1><p class="text-gray-400 mt-2">You are offline</p><button onclick="location.reload()" class="mt-6 px-6 py-3 bg-cyan-500 rounded-lg hover:bg-cyan-600 transition">Спробувати знову</button></div></body></html>';
+                return cache.put('/offline', new Response(offlineHtml, { headers: {'Content-Type': 'text/html; charset=utf-8'} }));
+            });
         })
     );
     self.skipWaiting();
@@ -47,6 +53,10 @@ self.addEventListener('fetch', (event) => {
                 caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
             }
             return response;
-        }).catch(() => caches.match(event.request))
+        }).catch(() => {
+            return caches.match(event.request).then((cached) => {
+                return cached || caches.match('/offline');
+            });
+        })
     );
 });
