@@ -1,0 +1,45 @@
+:root {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-card: #1e293b;
+    --text-primary: #ffffff;
+    --text-secondary: #94a3b8;
+    --border-color: rgba(148,163,184,0.1);
+    --glass-bg: rgba(30,41,59,0.6);
+    --card-grad: linear-gradient(180deg, rgba(30,41,59,0.7), rgba(15,23,42,0.9));
+    --body-grad: linear-gradient(to bottom right, #0f172a, #1e293b, #0f172a);
+    --input-bg: #0f172a;
+    --input-border: rgba(51,65,85,0.5);
+}
+.light {
+    --bg-primary: #f8fafc;
+    --bg-secondary: #ffffff;
+    --bg-card: #ffffff;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --border-color: rgba(0,0,0,0.08);
+    --glass-bg: rgba(255,255,255,0.85);
+    --card-grad: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(248,250,252,0.95));
+    --body-grad: linear-gradient(to bottom right, #f1f5f9, #f8fafc, #f1f5f9);
+    --input-bg: #ffffff;
+    --input-border: rgba(0,0,0,0.1);
+}
+body { min-height: 100vh; background: var(--body-grad); color: var(--text-primary); }
+.status-up { color: #10b981; }
+.status-down { color: #ef4444; }
+.status-warning { color: #f59e0b; }
+.bg-status-up { background: rgba(16,185,129,0.15); }
+.bg-status-down { background: rgba(239,68,68,0.15); }
+.bg-status-warning { background: rgba(245,158,11,0.15); }
+.glass { background: var(--glass-bg); backdrop-filter: blur(12px); border: 1px solid var(--border-color); }
+.card-hover:hover { border-color: rgba(0,217,255,0.3); box-shadow: 0 0 30px rgba(0,217,255,0.1); transform: translateY(-2px); }
+.animate-fade-in { animation: fadeIn 0.4s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+.gradient-accent { background: linear-gradient(135deg, #00d9ff, #06b6d4); }
+.gradient-card { background: var(--card-grad); }
+.scrollbar-thin::-webkit-scrollbar { width: 6px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+input, select { background: var(--input-bg) !important; border-color: var(--input-border) !important; color: var(--text-primary) !important; }
+table { color: var(--text-primary); }
+.text-slate-400 { color: var(--text-secondary) !important; }
