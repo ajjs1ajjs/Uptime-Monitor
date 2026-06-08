@@ -23,6 +23,12 @@ def setup_logger(name: str = "uptime_monitor", log_file: str = None) -> logging.
     )
 
     # Файл з ротацією (10 МБ, 5 резервних копій)
+    log_dir = os.path.dirname(log_file)
+    if log_dir and not os.path.exists(log_dir):
+        try:
+            os.makedirs(log_dir, exist_ok=True)
+        except OSError:
+            pass
     file_handler = RotatingFileHandler(
         log_file, maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"  # 10 MB
     )

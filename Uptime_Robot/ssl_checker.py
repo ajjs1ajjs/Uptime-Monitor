@@ -44,10 +44,8 @@ def _check_ssl_certificate_sync(url: str):
                         else None
                     )
 
-                    # Розраховуємо дні до закінчення
-                    days_until_expire = (
-                        expire_date - datetime.now(timezone.utc).replace(tzinfo=None)
-                    ).days
+                    expire_date_utc = expire_date.replace(tzinfo=timezone.utc)
+                    days_until_expire = (expire_date_utc - datetime.now(timezone.utc)).days
 
                     # Отримуємо issuer
                     issuer = cert.get("issuer", [])
@@ -81,20 +79,6 @@ def _check_ssl_certificate_sync(url: str):
 async def check_ssl_certificate(url: str):
     """Перевіряє SSL сертифікат сайту (асинхронно через пул потоків)"""
     return await asyncio.to_thread(_check_ssl_certificate_sync, url)
-
-
-def should_notify_certificate(days_until_expire: int, last_notified_days: int = None):
-    """
-    Визначає чи треба сповіщати про сертифікат
-    Сповіщати за 14 днів, потім кожен день
-    """
-    if days_until_expire > 14:
-        return False
-
-    if days_until_expire <= 0:
-        return True
-
-    return True
 
 
 def format_certificate_alert(cert_info: dict, site_name: str, site_url: str):

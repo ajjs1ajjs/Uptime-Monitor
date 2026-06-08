@@ -140,7 +140,11 @@ def decrypt_value(ciphertext: str) -> str:
         return ciphertext
     try:
         return f.decrypt(ciphertext.encode()).decode()
-    except (InvalidToken, Exception):
+    except InvalidToken:
+        logger.warning("Decryption failed: invalid token")
+        return ciphertext
+    except Exception as e:
+        logger.error(f"Decryption error: {e}")
         return ciphertext
 
 
@@ -150,20 +154,6 @@ def encrypt_config_sensitive(config: dict) -> dict:
     if notifications.get("email_password"):
         notifications["email_password"] = "__ENC__" + encrypt_value(notifications["email_password"])
     config["notifications"] = notifications
-
-    notify_settings_keys = ["telegram", "discord", "teams", "slack", "sms", "webhook"]
-    for service_key in notify_settings_keys:
-        service = config.get(service_key, {})
-        if isinstance(service, dict):
-            for k, v in service.items():
-                if is_sensitive_key(k) and v and not str(v).startswith("__ENC__"):
-                    service[k] = "__ENC__" + encrypt_value(str(v))
-        channels = service.get("channels", []) if isinstance(service, dict) else []
-        for channel in channels:
-            for k, v in channel.items():
-                if is_sensitive_key(k) and v and not str(v).startswith("__ENC__"):
-                    channel[k] = "__ENC__" + encrypt_value(str(v))
-
     return config
 
 

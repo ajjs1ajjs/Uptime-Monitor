@@ -104,7 +104,10 @@ list_backups() {
     
     for type in on-change daily weekly monthly yearly; do
         if [ -d "$backup_dir/$type" ]; then
-            local backups=($(find "$backup_dir/$type" -name "backup-*.tar.gz" -type f | sort -r))
+            local backups=()
+            while IFS= read -r -d '' f; do
+                backups+=("$f")
+            done < <(find "$backup_dir/$type" -name "backup-*.tar.gz" -type f -print0 | sort -r -z)
             
             if [ ${#backups[@]} -gt 0 ]; then
                 found=1

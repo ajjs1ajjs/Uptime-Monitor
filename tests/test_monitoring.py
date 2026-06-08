@@ -104,8 +104,17 @@ class TestNormalizeAndValidateURL:
     def test_ip_address_accepted(self):
         from Uptime_Robot.routers.api import _normalize_and_validate_url
 
-        url = _normalize_and_validate_url("192.168.1.1:8080", "http")
-        assert "192.168.1.1" in url
+        url = _normalize_and_validate_url("8.8.8.8:8080", "http")
+        assert "8.8.8.8" in url
+
+    def test_private_ip_rejected(self):
+        from Uptime_Robot.routers.api import _normalize_and_validate_url
+        from fastapi import HTTPException
+        import pytest
+
+        with pytest.raises(HTTPException) as exc:
+            _normalize_and_validate_url("192.168.1.1", "http")
+        assert exc.value.status_code == 400
 
 
 class TestCheckDNS:

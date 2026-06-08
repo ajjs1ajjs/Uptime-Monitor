@@ -389,6 +389,15 @@ async def public_status_page(request: Request):
 @router.websocket("/ws")
 async def dashboard_websocket(ws: WebSocket):
     """WebSocket endpoint for real-time dashboard updates."""
+    token = ws.query_params.get("token")
+    if not token:
+        await ws.close(code=4001, reason="Authentication required")
+        return
+    from Uptime_Robot.dependencies import validate_session_dependency
+    session = await validate_session_dependency(token)
+    if not session:
+        await ws.close(code=4001, reason="Invalid session")
+        return
     await manager.connect(ws)
     try:
         while True:

@@ -128,6 +128,7 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' https://cdn.tailwindcss.com https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; img-src 'self' data:; font-src 'self' data:; connect-src 'self' ws:;"
     return response
 
 
@@ -154,6 +155,24 @@ async def add_cache_control(request: Request, call_next):
 @app.middleware("http")
 async def https_redirect_middleware(request: Request, call_next):
     return await config_manager.https_redirect_middleware(request, call_next, CONFIG)
+
+
+# Error handlers for 404 and 500
+HTML_404 = """<!DOCTYPE html><html lang="uk"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>404 — Сторінку не знайдено</title><script src="https://cdn.tailwindcss.com"></script></head><body class="bg-gray-900 text-white flex items-center justify-center h-screen"><div class="text-center"><h1 class="text-9xl font-bold text-cyan-400">404</h1><p class="text-2xl mt-4">Сторінку не знайдено</p><p class="text-gray-400 mt-2">Page not found</p><a href="/" class="inline-block mt-6 px-6 py-3 bg-cyan-500 rounded-lg hover:bg-cyan-600 transition">На головну</a></div></body></html>"""
+
+HTML_500 = """<!DOCTYPE html><html lang="uk"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>500 — Помилка сервера</title><script src="https://cdn.tailwindcss.com"></script></head><body class="bg-gray-900 text-white flex items-center justify-center h-screen"><div class="text-center"><h1 class="text-9xl font-bold text-red-400">500</h1><p class="text-2xl mt-4">Внутрішня помилка сервера</p><p class="text-gray-400 mt-2">Internal server error</p><a href="/" class="inline-block mt-6 px-6 py-3 bg-cyan-500 rounded-lg hover:bg-cyan-600 transition">На головну</a></div></body></html>"""
+
+
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc):
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(HTML_404, status_code=404)
+
+
+@app.exception_handler(500)
+async def server_error_handler(request: Request, exc):
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(HTML_500, status_code=500)
 
 
 @app.get("/health")

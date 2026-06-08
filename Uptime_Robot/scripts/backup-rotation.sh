@@ -100,12 +100,10 @@ rotate_on_change() {
     local to_delete=$((count - max))
     log "On-change backups: $count found, max $max, deleting $to_delete"
     
-    # Get oldest backups
-    find "$dir/on-change" -name "backup-*.tar.gz" -type f -printf '%T@ %p\n' | \
-        sort -n | \
-        head -n "$to_delete" | \
-        while read -r line; do
-            local file=$(echo "$line" | cut -d' ' -f2-)
+    find "$dir/on-change" -name "backup-*.tar.gz" -type f -print0 | \
+        sort -z | \
+        head -z -n "$to_delete" | \
+        while IFS= read -r -d '' file; do
             if [ "$dry_run" = "true" ]; then
                 log "  ${YELLOW}[DRY-RUN] Would delete: $(basename "$file")${NC}"
             else

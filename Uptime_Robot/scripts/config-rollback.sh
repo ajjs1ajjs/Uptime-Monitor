@@ -60,15 +60,15 @@ list_backups() {
     fi
     
     local count=0
-    for backup in $(ls -t "$BACKUP_DIR"/config.*.json 2>/dev/null); do
-        if [ -f "$backup" ] && [[ ! "$backup" =~ \.latest\.json$ ]] && [[ ! "$backup" =~ \.previous\.json$ ]]; then
+    while IFS= read -r -d '' backup; do
+        if [[ ! "$backup" =~ \.latest\.json$ ]] && [[ ! "$backup" =~ \.previous\.json$ ]]; then
             count=$((count + 1))
             local filename=$(basename "$backup")
             local date_str=$(echo "$filename" | grep -oP '\d{8}-\d{6}')
             local formatted_date=$(echo "$date_str" | sed 's/\(....\)\(..\)\(..\)-\(..\)\(..\)\(..\)/\1-\2-\3 \4:\5:\6/')
             echo -e "${GREEN}$count.${NC} $filename (${formatted_date})"
         fi
-    done
+    done < <(find "$BACKUP_DIR" -maxdepth 1 -name "config.*.json" -type f -print0 | sort -r -z)
     
     if [ $count -eq 0 ]; then
         echo -e "${YELLOW}No backups found.${NC}"

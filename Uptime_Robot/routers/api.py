@@ -80,9 +80,11 @@ def _normalize_and_validate_url(raw_url: str, monitor_type: str) -> str:
         if not host:
             return False
         if host == "localhost":
-            return True
+            return False
         try:
-            ipaddress.ip_address(host)
+            addr = ipaddress.ip_address(host)
+            if addr.is_private or addr.is_loopback or addr.is_link_local:
+                return False
             return True
         except ValueError:
             pass

@@ -1,3 +1,4 @@
+import time
 from typing import Any
 
 from ..config_manager import load_config
@@ -14,8 +15,17 @@ SENSITIVE_DEFAULTS = {
     "verify_ssl": True,
 }
 
+_cache: dict[str, Any] | None = None
+_cache_time: float = 0
+_CACHE_TTL: int = 30
+
 
 def get_alert_policy() -> dict[str, Any]:
+    global _cache, _cache_time
+    now = time.time()
+    if _cache is not None and (now - _cache_time) < _CACHE_TTL:
+        return _cache
+
     try:
         config = load_config() or {}
     except Exception:
@@ -25,6 +35,8 @@ def get_alert_policy() -> dict[str, Any]:
 
     result = SENSITIVE_DEFAULTS.copy()
     result.update({k: v for k, v in policy.items() if v is not None})
+    _cache = result
+    _cache_time = now
 
     try:
         result["request_timeout_seconds"] = max(1, int(result.get("request_timeout_seconds", 60)))
