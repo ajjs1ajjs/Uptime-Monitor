@@ -125,6 +125,7 @@ def encrypt_value(plaintext: str) -> str:
         return plaintext
     f = get_fernet()
     if f is None:
+        logger.warning("encrypt_value: Fernet unavailable, storing plaintext! Generate master key first.")
         return plaintext
     try:
         return f.encrypt(plaintext.encode()).decode()

@@ -8,328 +8,201 @@ from typing import Any, Optional
 from .database import get_db_connection
 
 
-async def init_database(db_path: str):
-    """Ініціалізує базу даних"""
-    async with get_db_connection(db_path) as conn:
-        # Таблиця аудиту
-        await conn.execute("""CREATE TABLE IF NOT EXISTS audit_log (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            username TEXT,
-            action TEXT NOT NULL,
-            target_type TEXT,
-            target_id TEXT,
-            details TEXT,
-            created_at TEXT
-        )""")
+async def _create_tables(conn):
+    """Створює всі таблиці бази даних."""
+    await conn.execute("""CREATE TABLE IF NOT EXISTS audit_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, username TEXT,
+        action TEXT NOT NULL, target_type TEXT, target_id TEXT, details TEXT, created_at TEXT
+    )""")
+    await conn.execute("""CREATE TABLE IF NOT EXISTS sites (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, url TEXT NOT NULL UNIQUE,
+        check_interval INTEGER DEFAULT 60, is_active BOOLEAN DEFAULT 1,
+        last_notification TEXT, notify_methods TEXT DEFAULT '[]',
+        status TEXT DEFAULT 'unknown', status_code INTEGER, response_time REAL,
+        error_message TEXT, monitor_type TEXT DEFAULT 'http',
+        failed_attempts INTEGER DEFAULT 0, success_attempts INTEGER DEFAULT 0,
+        last_down_alert TEXT, keyword TEXT DEFAULT NULL
+    )""")
+    await conn.execute("""CREATE TABLE IF NOT EXISTS status_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER, status TEXT,
+        status_code INTEGER, response_time REAL, error_message TEXT, checked_at TEXT,
+        FOREIGN KEY (site_id) REFERENCES sites(id)
+    )""")
+    await conn.execute("""CREATE TABLE IF NOT EXISTS notify_config (
+        id INTEGER PRIMARY KEY, config TEXT
+    )""")
+    await conn.execute("""CREATE TABLE IF NOT EXISTS ssl_certificates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER UNIQUE, hostname TEXT,
+        issuer TEXT, subject TEXT, start_date TEXT, expire_date TEXT,
+        days_until_expire INTEGER, is_valid BOOLEAN, last_checked TEXT,
+        FOREIGN KEY (site_id) REFERENCES sites(id)
+    )""")
+    await conn.execute("""CREATE TABLE IF NOT EXISTS app_settings (
+        id INTEGER PRIMARY KEY, display_address TEXT,
+        site_title TEXT DEFAULT 'Uptime Monitor', logo_url TEXT DEFAULT '',
+        footer_text TEXT DEFAULT '', primary_color TEXT DEFAULT '#00ff88',
+        brand_accent_color TEXT DEFAULT '#06b6d4'
+    )""")
+    await conn.execute("""CREATE TABLE IF NOT EXISTS notification_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER, site_name TEXT,
+        method TEXT, status TEXT, message_preview TEXT, sent_at TEXT
+    )""")
+    await conn.execute("""CREATE TABLE IF NOT EXISTS backups (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, filename TEXT, filepath TEXT,
+        size_bytes INTEGER, site_count INTEGER, created_at TEXT
+    )""")
+    await conn.execute("""CREATE TABLE IF NOT EXISTS rate_limits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT NOT NULL, ip TEXT NOT NULL,
+        attempt_count INTEGER DEFAULT 1, reset_at REAL NOT NULL, UNIQUE(endpoint, ip)
+    )""")
+    await conn.execute("""CREATE INDEX IF NOT EXISTS idx_rate_limits_lookup ON rate_limits(endpoint, ip)""")
+    await conn.execute("""CREATE TABLE IF NOT EXISTS maintenance_windows (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, site_id INTEGER,
+        rule_type TEXT DEFAULT 'one_off', start_time TEXT, end_time TEXT,
+        day_of_week INTEGER, start_hour_minute TEXT, duration_minutes INTEGER,
+        is_active BOOLEAN DEFAULT 1, FOREIGN KEY(site_id) REFERENCES sites(id)
+    )""")
 
-        # Таблиця сайтів
-        await conn.execute("""CREATE TABLE IF NOT EXISTS sites (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            url TEXT NOT NULL UNIQUE,
-            check_interval INTEGER DEFAULT 60,
-            is_active BOOLEAN DEFAULT 1,
-            last_notification TEXT,
-            notify_methods TEXT DEFAULT '[]',
-            status TEXT DEFAULT 'unknown',
-            status_code INTEGER,
-            response_time REAL,
-            error_message TEXT,
-            monitor_type TEXT DEFAULT 'http',
-            failed_attempts INTEGER DEFAULT 0,
-            success_attempts INTEGER DEFAULT 0,
-            last_down_alert TEXT,
-            keyword TEXT DEFAULT NULL
-        )""")
 
-        # Таблиця історії статусів
-        await conn.execute("""CREATE TABLE IF NOT EXISTS status_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            site_id INTEGER,
-            status TEXT,
-            status_code INTEGER,
-            response_time REAL,
-            error_message TEXT,
-            checked_at TEXT,
-            FOREIGN KEY (site_id) REFERENCES sites(id)
-        )""")
+async def _run_migrations(conn):
+    """Виконує міграції для застарілих схем таблиць."""
+    async with conn.execute("PRAGMA table_info(ssl_certificates)") as c:
+        ssl_columns = {r[1] for r in await c.fetchall()}
+    if "last_notified" not in ssl_columns:
+        await conn.execute("ALTER TABLE ssl_certificates ADD COLUMN last_notified TEXT")
+    await conn.execute("""DELETE FROM ssl_certificates WHERE id NOT IN (
+        SELECT MAX(id) FROM ssl_certificates GROUP BY site_id
+    )""")
+    await conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_ssl_certificates_site_id_unique ON ssl_certificates(site_id)")
 
-        # Таблиця налаштувань сповіщень
-        await conn.execute("""CREATE TABLE IF NOT EXISTS notify_config (
-            id INTEGER PRIMARY KEY,
-            config TEXT
-        )""")
-
-        # Таблиця SSL сертифікатів
-        await conn.execute("""CREATE TABLE IF NOT EXISTS ssl_certificates (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            site_id INTEGER UNIQUE,
-            hostname TEXT,
-            issuer TEXT,
-            subject TEXT,
-            start_date TEXT,
-            expire_date TEXT,
-            days_until_expire INTEGER,
-            is_valid BOOLEAN,
-            last_checked TEXT,
-            FOREIGN KEY (site_id) REFERENCES sites(id)
-        )""")
-
-        # Таблиця налаштувань додатку
-        await conn.execute("""CREATE TABLE IF NOT EXISTS app_settings (
-            id INTEGER PRIMARY KEY,
-            display_address TEXT,
-            site_title TEXT DEFAULT 'Uptime Monitor',
-            logo_url TEXT DEFAULT '',
-            footer_text TEXT DEFAULT '',
-            primary_color TEXT DEFAULT '#00ff88',
-            brand_accent_color TEXT DEFAULT '#06b6d4'
-        )""")
-
-        # Migrations for legacy ssl_certificates
-        async with conn.execute("PRAGMA table_info(ssl_certificates)") as c:
-            rows = await c.fetchall()
-            ssl_columns = {row[1] for row in rows}
-        if "last_notified" not in ssl_columns:
-            await conn.execute("ALTER TABLE ssl_certificates ADD COLUMN last_notified TEXT")
-
-        await conn.execute("""DELETE FROM ssl_certificates
-                     WHERE id NOT IN (
-                         SELECT MAX(id) FROM ssl_certificates GROUP BY site_id
-                     )""")
-        await conn.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_ssl_certificates_site_id_unique ON ssl_certificates(site_id)"
-        )
-
-        # Migrations for legacy users
-        async with conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
-        ) as c:
-            users_table_exists = await c.fetchone() is not None
-
-        if users_table_exists:
+    async with conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'") as c:
+        if await c.fetchone():
             async with conn.execute("PRAGMA table_info(users)") as c:
-                rows = await c.fetchall()
-                columns = {row[1] for row in rows}
-            if "role" not in columns:
+                cols = {r[1] for r in await c.fetchall()}
+            if "role" not in cols:
                 await conn.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'admin'")
                 await conn.execute("UPDATE users SET role = 'admin' WHERE is_admin = 1")
-                await conn.execute(
-                    "UPDATE users SET role = 'viewer' WHERE is_admin = 0 OR is_admin IS NULL"
-                )
+                await conn.execute("UPDATE users SET role = 'viewer' WHERE is_admin = 0 OR is_admin IS NULL")
 
-        # Migrations for legacy sites
-        async with conn.execute("PRAGMA table_info(sites)") as c:
-            rows = await c.fetchall()
-            site_columns = {row[1] for row in rows}
+    async with conn.execute("PRAGMA table_info(sites)") as c:
+        site_cols = {r[1] for r in await c.fetchall()}
+    for col in ("failed_attempts", "success_attempts", "last_down_alert", "keyword", "tags"):
+        if col not in site_cols:
+            col_type = "TEXT DEFAULT '[]'" if col == "tags" else "TEXT DEFAULT NULL" if col in ("last_down_alert", "keyword") else "INTEGER DEFAULT 0"
+            await conn.execute(f"ALTER TABLE sites ADD COLUMN {col} {col_type}")
 
-        if "failed_attempts" not in site_columns:
-            await conn.execute("ALTER TABLE sites ADD COLUMN failed_attempts INTEGER DEFAULT 0")
-            await conn.execute("ALTER TABLE sites ADD COLUMN success_attempts INTEGER DEFAULT 0")
+    async with conn.execute("PRAGMA table_info(app_settings)") as c:
+        settings_cols = {r[1] for r in await c.fetchall()}
+    for col, col_type in [
+        ("site_title", "TEXT DEFAULT 'Uptime Monitor'"), ("logo_url", "TEXT DEFAULT ''"),
+        ("footer_text", "TEXT DEFAULT ''"), ("primary_color", "TEXT DEFAULT '#00ff88'"),
+        ("brand_accent_color", "TEXT DEFAULT '#06b6d4'"),
+    ]:
+        if col not in settings_cols:
+            await conn.execute(f"ALTER TABLE app_settings ADD COLUMN {col} {col_type}")
 
-        # Migrations for legacy app_settings
-        async with conn.execute("PRAGMA table_info(app_settings)") as c:
-            rows = await c.fetchall()
-            settings_columns = {row[1] for row in rows}
 
-        for col, col_type in [
-            ("site_title", "TEXT DEFAULT 'Uptime Monitor'"),
-            ("logo_url", "TEXT DEFAULT ''"),
-            ("footer_text", "TEXT DEFAULT ''"),
-            ("primary_color", "TEXT DEFAULT '#00ff88'"),
-            ("brand_accent_color", "TEXT DEFAULT '#06b6d4'"),
-        ]:
-            if col not in settings_columns:
-                await conn.execute(f"ALTER TABLE app_settings ADD COLUMN {col} {col_type}")
+async def _seed_sites(conn):
+    """Заповнює таблицю сайтів початковими даними, якщо вона порожня."""
+    import sys, urllib.parse, re
+    async with conn.execute("SELECT COUNT(*) FROM sites") as c:
+        row = await c.fetchone()
+        if row[0] > 0:
+            return
+    is_testing = "pytest" in sys.modules or os.environ.get("TESTING")
+    force_seed = os.environ.get("FORCE_DB_SEED") == "True"
+    if is_testing and not force_seed:
+        return
 
-        if "last_down_alert" not in site_columns:
-            await conn.execute("ALTER TABLE sites ADD COLUMN last_down_alert TEXT")
+    default_sites = []
+    try:
+        app_dir = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(app_dir, "default_sites.json")
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    default_sites.extend(data)
+    except Exception as e:
+        from .logger import logger
+        logger.error(f"Failed to load default_sites.json: {e}")
 
-        if "keyword" not in site_columns:
-            await conn.execute("ALTER TABLE sites ADD COLUMN keyword TEXT DEFAULT NULL")
-
-        if "tags" not in site_columns:
-            await conn.execute("ALTER TABLE sites ADD COLUMN tags TEXT DEFAULT '[]'")
-
-        await conn.execute("""CREATE TABLE IF NOT EXISTS notification_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            site_id INTEGER,
-            site_name TEXT,
-            method TEXT,
-            status TEXT,
-            message_preview TEXT,
-            sent_at TEXT
-        )""")
-
-        await conn.execute("""CREATE TABLE IF NOT EXISTS backups (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            filename TEXT,
-            filepath TEXT,
-            size_bytes INTEGER,
-            site_count INTEGER,
-            created_at TEXT
-        )""")
-
-        await conn.execute("""CREATE TABLE IF NOT EXISTS rate_limits (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            endpoint TEXT NOT NULL,
-            ip TEXT NOT NULL,
-            attempt_count INTEGER DEFAULT 1,
-            reset_at REAL NOT NULL,
-            UNIQUE(endpoint, ip)
-        )""")
-        await conn.execute("""CREATE INDEX IF NOT EXISTS idx_rate_limits_lookup
-            ON rate_limits(endpoint, ip)""")
-
-        # Таблиця періодів обслуговування (Maintenance Windows)
-        await conn.execute("""CREATE TABLE IF NOT EXISTS maintenance_windows (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            site_id INTEGER,
-            rule_type TEXT DEFAULT 'one_off',
-            start_time TEXT,
-            end_time TEXT,
-            day_of_week INTEGER,
-            start_hour_minute TEXT,
-            duration_minutes INTEGER,
-            is_active BOOLEAN DEFAULT 1,
-            FOREIGN KEY(site_id) REFERENCES sites(id)
-        )""")
-        # Автозаповнення бази даних за замовчуванням (seeding)
-        async with conn.execute("SELECT COUNT(*) FROM sites") as c:
-            row = await c.fetchone()
-            count = row[0] if row else 0
-
-        import sys
-        import urllib.parse
-        import re
-
-        is_testing = "pytest" in sys.modules or "unittest" in sys.modules or os.environ.get("TESTING")
-        force_seed = os.environ.get("FORCE_DB_SEED") == "True"
-
-        if count == 0 and (not is_testing or force_seed):
-            default_sites = []
+    for env_name in ("UPTIME_MONITOR_URL", "UPTIME_MONITOR_URLS"):
+        val = os.environ.get(env_name, "").strip()
+        if not val:
+            continue
+        if val.startswith("["):
             try:
-                app_dir = os.path.dirname(os.path.abspath(__file__))
-                default_sites_path = os.path.join(app_dir, "default_sites.json")
-                if os.path.exists(default_sites_path):
-                    with open(default_sites_path, encoding="utf-8") as f:
-                        loaded = json.load(f)
-                        if isinstance(loaded, list):
-                            default_sites.extend(loaded)
+                for item in json.loads(val):
+                    if isinstance(item, dict) and "url" in item:
+                        default_sites.append(item)
+                    elif isinstance(item, str):
+                        default_sites.append({"name": urllib.parse.urlparse(item).netloc or item, "url": item})
             except Exception as e:
                 from .logger import logger
-                logger.error(f"Failed to load default_sites.json: {e}")
+                logger.error(f"Failed to parse {env_name}: {e}")
+        else:
+            for u in re.split(r'[,\n;]+', val):
+                u = u.strip()
+                if u:
+                    default_sites.append({"name": urllib.parse.urlparse(u).netloc or u, "url": u})
 
-            for env_name in ["UPTIME_MONITOR_URL", "UPTIME_MONITOR_URLS"]:
-                env_val = os.environ.get(env_name)
-                if env_val:
-                    env_val = env_val.strip()
-                    if env_val.startswith("["):
-                        try:
-                            loaded = json.loads(env_val)
-                            if isinstance(loaded, list):
-                                for item in loaded:
-                                    if isinstance(item, dict) and "url" in item:
-                                        default_sites.append(item)
-                                    elif isinstance(item, str):
-                                        default_sites.append({
-                                            "name": urllib.parse.urlparse(item).netloc or item,
-                                            "url": item
-                                        })
-                        except Exception as e:
-                            from .logger import logger
-                            logger.error(f"Failed to parse env {env_name} as JSON: {e}")
-                    else:
-                        urls = re.split(r'[,\n;]+', env_val)
-                        for u in urls:
-                            u = u.strip()
-                            if u:
-                                name = urllib.parse.urlparse(u).netloc or u
-                                default_sites.append({"name": name, "url": u})
+    seen = set()
+    has_tg = bool(os.environ.get("TELEGRAM_BOT_TOKEN") or os.environ.get("TELEGRAM_TOKEN"))
+    for ds in default_sites:
+        url = ds.get("url")
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        methods = list(ds.get("notify_methods", []))
+        if has_tg and "telegram" not in methods:
+            methods.append("telegram")
+        try:
+            await conn.execute(
+                """INSERT OR IGNORE INTO sites (name, url, check_interval, notify_methods, monitor_type, keyword, tags, is_active)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, 1)""",
+                (ds.get("name") or urllib.parse.urlparse(url).netloc or url,
+                 url, ds.get("check_interval", 60), json.dumps(methods),
+                 ds.get("monitor_type", "http"), ds.get("keyword"), json.dumps(ds.get("tags", []))),
+            )
+        except Exception as e:
+            from .logger import logger
+            logger.error(f"Failed to seed {url}: {e}")
 
-            # Видалення дублікатів по URL
-            seen_urls = set()
-            unique_sites = []
-            for ds in default_sites:
-                url = ds.get("url")
-                if url and url not in seen_urls:
-                    seen_urls.add(url)
-                    unique_sites.append(ds)
 
-            has_tg = bool(os.environ.get("TELEGRAM_BOT_TOKEN") or os.environ.get("TELEGRAM_TOKEN"))
-            for ds in unique_sites:
-                name = ds.get("name") or urllib.parse.urlparse(ds.get("url", "")).netloc or "Default Site"
-                url = ds.get("url")
-                check_interval = ds.get("check_interval", 60)
-                notify_methods = ds.get("notify_methods", [])
-                if has_tg and "telegram" not in notify_methods:
-                    notify_methods = notify_methods + ["telegram"]
-                monitor_type = ds.get("monitor_type", "http")
-                keyword = ds.get("keyword", None)
-                tags = ds.get("tags", [])
-                
-                try:
-                    await conn.execute(
-                        """INSERT OR IGNORE INTO sites 
-                           (name, url, check_interval, notify_methods, monitor_type, keyword, tags, is_active)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, 1)""",
-                        (
-                            name,
-                            url,
-                            check_interval,
-                            json.dumps(notify_methods),
-                            monitor_type,
-                            keyword,
-                            json.dumps(tags),
-                        ),
-                    )
-                except Exception as e:
-                    from .logger import logger
-                    logger.error(f"Failed to seed site {url}: {e}")
+async def _seed_notify_config(conn):
+    """Заповнює notify_config, якщо порожня."""
+    import sys
+    is_testing = "pytest" in sys.modules or os.environ.get("TESTING")
+    force_seed = os.environ.get("FORCE_DB_SEED") == "True"
+    if is_testing and not force_seed:
+        return
+    async with conn.execute("SELECT COUNT(*) FROM notify_config") as c:
+        row = await c.fetchone()
+        if row[0] > 0:
+            return
+    tg_token = os.environ.get("TELEGRAM_BOT_TOKEN") or os.environ.get("TELEGRAM_TOKEN")
+    tg_chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+    if tg_token and tg_chat_id:
+        settings = {
+            "telegram": {"enabled": True, "channels": [{"id": "default", "name": "Основний", "token": tg_token, "chat_id": tg_chat_id}]},
+            "discord": {"enabled": False, "channels": [{"id": "default", "name": "Основний", "webhook_url": ""}]},
+            "teams": {"enabled": False, "channels": [{"id": "default", "name": "Основний", "webhook_url": ""}]},
+            "email": {"enabled": False, "smtp_server": "", "smtp_port": 587, "username": "", "password": "", "to_email": ""},
+            "webhook": {"enabled": False, "channels": []},
+        }
+        await conn.execute("INSERT OR REPLACE INTO notify_config (id, config) VALUES (1, ?)", (json.dumps(settings),))
+    elif not is_testing:
+        await conn.execute("INSERT OR IGNORE INTO notify_config (id, config) VALUES (1, '{}')")
 
-        # Автозаповнення налаштувань сповіщень за замовчуванням (seeding notify settings)
-        async with conn.execute("SELECT COUNT(*) FROM notify_config") as c:
-            row = await c.fetchone()
-            notify_count = row[0] if row else 0
 
-        if notify_count == 0 and (not is_testing or force_seed):
-            tg_token = os.environ.get("TELEGRAM_BOT_TOKEN") or os.environ.get("TELEGRAM_TOKEN")
-            tg_chat_id = os.environ.get("TELEGRAM_CHAT_ID")
-            
-            if tg_token and tg_chat_id:
-                notify_settings = {
-                    "telegram": {
-                        "enabled": True,
-                        "channels": [{"id": "default", "name": "Основний", "token": tg_token, "chat_id": tg_chat_id}],
-                    },
-                    "discord": {
-                        "enabled": False,
-                        "channels": [{"id": "default", "name": "Основний", "webhook_url": ""}],
-                    },
-                    "teams": {
-                        "enabled": False,
-                        "channels": [{"id": "default", "name": "Основний", "webhook_url": ""}],
-                    },
-                    "email": {
-                        "enabled": False,
-                        "smtp_server": "",
-                        "smtp_port": 587,
-                        "username": "",
-                        "password": "",
-                        "to_email": "",
-                    },
-                    "webhook": {
-                        "enabled": False,
-                        "channels": [],
-                    },
-                }
-                await conn.execute(
-                    "INSERT OR REPLACE INTO notify_config (id, config) VALUES (1, ?)",
-                    (json.dumps(notify_settings),),
-                )
-
+async def init_database(db_path: str):
+    """Ініціалізує базу даних: таблиці, міграції, початкові дані."""
+    async with get_db_connection(db_path) as conn:
+        await _create_tables(conn)
+        await _run_migrations(conn)
+        await _seed_sites(conn)
+        await _seed_notify_config(conn)
         await conn.commit()
 
 

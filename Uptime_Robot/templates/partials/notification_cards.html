@@ -1,3 +1,4 @@
+<script id="channel-secrets" type="application/json">{{ notify_config_json }}</script>
 {% set methods = [
     ("telegram", "📱", "Telegram", "Миттєві сповіщення"),
     ("discord", "🎮", "Discord", "Геймерські спільноти"),
@@ -34,27 +35,6 @@
                 <button onclick="removeChannel('{{ key }}','{{ ch_id }}')" class="text-red-400 hover:text-red-300 text-xs transition">✕</button>
             </div>
             <input type="hidden" id="{{ key }}_{{ ch_id }}_name" value="{{ ch_name }}">
-        {% if key == "telegram" %}
-            <input type="hidden" id="{{ key }}_{{ ch_id }}_token" value="{{ ch.get("token", "") }}">
-            <input type="hidden" id="{{ key }}_{{ ch_id }}_chat_id" value="{{ ch.get("chat_id", "") }}">
-        {% elif key == "email" %}
-            <input type="hidden" id="{{ key }}_{{ ch_id }}_smtp_server" value="{{ ch.get("smtp_server", "") }}">
-            <input type="hidden" id="{{ key }}_{{ ch_id }}_smtp_port" value="{{ ch.get("smtp_port", 587) }}">
-            <input type="hidden" id="{{ key }}_{{ ch_id }}_username" value="{{ ch.get("username", "") }}">
-            <input type="hidden" id="{{ key }}_{{ ch_id }}_password" value="{{ ch.get("password", "") }}">
-            <input type="hidden" id="{{ key }}_{{ ch_id }}_to_email" value="{{ ch.get("to_email", "") }}">
-        {% elif key == "pushover" %}
-            <input type="hidden" id="{{ key }}_{{ ch_id }}_user_key" value="{{ ch.get("user_key", "") }}">
-            <input type="hidden" id="{{ key }}_{{ ch_id }}_token" value="{{ ch.get("token", "") }}">
-        {% elif key == "gotify" %}
-            <input type="hidden" id="{{ key }}_{{ ch_id }}_server_url" value="{{ ch.get("server_url", "") }}">
-            <input type="hidden" id="{{ key }}_{{ ch_id }}_token" value="{{ ch.get("token", "") }}">
-        {% elif key == "ntfy" %}
-            <input type="hidden" id="{{ key }}_{{ ch_id }}_topic" value="{{ ch.get("topic", "") }}">
-            <input type="hidden" id="{{ key }}_{{ ch_id }}_server_url" value="{{ ch.get("server_url", "") }}">
-        {% else %}
-            <input type="hidden" id="{{ key }}_{{ ch_id }}_webhook_url" value="{{ ch.get("webhook_url", "") }}">
-        {% endif %}
         </div>
     {% endfor %}
     </div>

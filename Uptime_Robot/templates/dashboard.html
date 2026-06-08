@@ -1277,29 +1277,39 @@ function addNewChannel() {
 }
 function removeChannel(method, channelId) { const el = document.getElementById('ch_' + channelId); if (el) el.remove(); }
 
+function getSecrets() {
+    try { return JSON.parse(document.getElementById('channel-secrets')?.textContent || '{}'); } catch { return {}; }
+}
+
 async function saveNotifySettings() {
+    const secrets = getSecrets();
     const settings = {};
     ['telegram','discord','teams','email','slack','sms','webhook'].forEach(m => {
         settings[m] = { enabled: document.getElementById('toggle-' + m)?.checked || false, channels: [] };
         const container = document.getElementById('channels-' + m);
+        const cfg = secrets[m] || {};
+        const chMap = {};
+        (cfg.channels || []).forEach(ch => { chMap[ch.id] = ch; });
         if (container) {
-            container.querySelectorAll('.channel-item').forEach(item => {
+            container.querySelectorAll('[id^="ch_"]').forEach(item => {
                 const id = item.id.replace('ch_', '');
                 const name = document.getElementById(m + '_' + id + '_name')?.value;
                 if (!name) return;
+                const existing = chMap[id] || {};
+                const fromDom = (suffix) => { const el = document.getElementById(m + '_' + id + suffix); return el ? el.value : ''; };
                 if (m === 'telegram') {
-                    const token = document.getElementById(m + '_' + id + '_token')?.value;
-                    const chat_id = document.getElementById(m + '_' + id + '_chat_id')?.value;
+                    const token = fromDom('_token') || existing.token || '';
+                    const chat_id = fromDom('_chat_id') || existing.chat_id || '';
                     if (token && chat_id) settings[m].channels.push({id, name, token, chat_id});
                 } else if (m === 'email') {
-                    const smtp_server = document.getElementById(m + '_' + id + '_smtp_server')?.value;
-                    const smtp_port = parseInt(document.getElementById(m + '_' + id + '_smtp_port')?.value) || 587;
-                    const username = document.getElementById(m + '_' + id + '_username')?.value;
-                    const password = document.getElementById(m + '_' + id + '_password')?.value || '';
-                    const to_email = document.getElementById(m + '_' + id + '_to_email')?.value;
+                    const smtp_server = fromDom('_smtp_server') || existing.smtp_server || '';
+                    const smtp_port = parseInt(fromDom('_smtp_port')) || existing.smtp_port || 587;
+                    const username = fromDom('_username') || existing.username || '';
+                    const password = fromDom('_password') || existing.password || '';
+                    const to_email = fromDom('_to_email') || existing.to_email || '';
                     if (smtp_server && username && to_email) settings[m].channels.push({id, name, smtp_server, smtp_port, username, password, to_email});
                 } else {
-                    const webhook_url = document.getElementById(m + '_' + id + '_webhook_url')?.value;
+                    const webhook_url = fromDom('_webhook_url') || existing.webhook_url || '';
                     if (webhook_url) settings[m].channels.push({id, name, webhook_url});
                 }
             });

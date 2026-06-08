@@ -1,6 +1,6 @@
 # Uptime Monitor API Documentation
 
-Complete API reference for Uptime Monitor v2.0.0.
+Complete API reference for Uptime Monitor v2.1.0.
 
 **Base URL:** `http://localhost:8080`
 
