@@ -11,6 +11,7 @@ except ImportError:
 from .logger import logger
 
 MASTER_KEY_FILE = "master.key"
+ENC_PREFIX = "__ENC__"
 _FERNET_INSTANCE = None
 _SENSITIVE_KEYS = {
     "email_password",
@@ -152,7 +153,9 @@ def encrypt_config_sensitive(config: dict) -> dict:
     config = config.copy()
     notifications = config.get("notifications", {})
     if notifications.get("email_password"):
-        notifications["email_password"] = "__ENC__" + encrypt_value(notifications["email_password"])
+        pwd = notifications["email_password"]
+        if not pwd.startswith(ENC_PREFIX):
+            notifications["email_password"] = ENC_PREFIX + encrypt_value(pwd)
     config["notifications"] = notifications
     return config
 
@@ -161,22 +164,9 @@ def decrypt_config_sensitive(config: dict) -> dict:
     config = config.copy()
     notifications = config.get("notifications", {})
     pwd = notifications.get("email_password", "")
-    if pwd.startswith("__ENC__"):
-        notifications["email_password"] = decrypt_value(pwd[7:])
+    if pwd.startswith(ENC_PREFIX):
+        notifications["email_password"] = decrypt_value(pwd[len(ENC_PREFIX):])
     config["notifications"] = notifications
-
-    notify_settings_keys = ["telegram", "discord", "teams", "slack", "sms", "webhook"]
-    for service_key in notify_settings_keys:
-        service = config.get(service_key, {})
-        if isinstance(service, dict):
-            for k, v in service.items():
-                if isinstance(v, str) and v.startswith("__ENC__"):
-                    service[k] = decrypt_value(v[7:])
-        channels = service.get("channels", []) if isinstance(service, dict) else []
-        for channel in channels:
-            for k, v in channel.items():
-                if isinstance(v, str) and v.startswith("__ENC__"):
-                    channel[k] = decrypt_value(v[7:])
 
     return config
 

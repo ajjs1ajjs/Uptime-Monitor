@@ -104,7 +104,9 @@ async def _check_port(url: str, start_time: datetime, timeout: int) -> tuple:
 async def _check_http(
     url: str, start_time: datetime, policy: dict, keyword: Optional[str]
 ) -> tuple:
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    import sys
+    _os = "Windows NT 10.0; Win64; x64" if sys.platform == "win32" else "X11; Linux x86_64"
+    headers = {"User-Agent": f"Mozilla/5.0 ({_os}) AppleWebKit/537.36"}
     async with aiohttp.ClientSession() as session:
         async with session.get(
             url,

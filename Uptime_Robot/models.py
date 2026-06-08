@@ -176,7 +176,8 @@ async def init_database(db_path: str):
             endpoint TEXT NOT NULL,
             ip TEXT NOT NULL,
             attempt_count INTEGER DEFAULT 1,
-            reset_at REAL NOT NULL
+            reset_at REAL NOT NULL,
+            UNIQUE(endpoint, ip)
         )""")
         await conn.execute("""CREATE INDEX IF NOT EXISTS idx_rate_limits_lookup
             ON rate_limits(endpoint, ip)""")
@@ -452,10 +453,19 @@ async def add_status_history(
             ),
         )
 
-        await conn.execute(
-            "DELETE FROM status_history WHERE checked_at < datetime('now', '-30 days')"
-        )
         await conn.commit()
+
+
+async def cleanup_old_history():
+    """Видаляє записи старші 30 днів. Викликається з monitor_loop раз на годину."""
+    try:
+        async with get_db_connection() as conn:
+            await conn.execute(
+                "DELETE FROM status_history WHERE checked_at < datetime('now', '-30 days')"
+            )
+            await conn.commit()
+    except Exception:
+        pass
 
 
 async def get_site_stats(db_path: str, site_id: int) -> dict[str, Any]:
@@ -741,26 +751,26 @@ async def check_db_rate_limit(
     import time
 
     now = time.time()
+    # Clean expired entries first
     async with get_db_connection() as conn:
+        await conn.execute("DELETE FROM rate_limits WHERE reset_at < ?", (now,))
+
+        # Atomic upsert: create if not exists, increment if exists and within window
+        await conn.execute(
+            """INSERT INTO rate_limits (endpoint, ip, attempt_count, reset_at)
+               VALUES (?, ?, 1, ?)
+               ON CONFLICT(endpoint, ip) DO UPDATE SET
+                 attempt_count = CASE WHEN excluded.reset_at > ? THEN attempt_count + 1 ELSE 1 END,
+                 reset_at = CASE WHEN excluded.reset_at > ? THEN reset_at ELSE excluded.reset_at END""",
+            (endpoint, ip, now + window_seconds, now, now),
+        )
+
         async with conn.execute(
-            "SELECT id, attempt_count, reset_at FROM rate_limits WHERE endpoint = ? AND ip = ?",
+            "SELECT attempt_count FROM rate_limits WHERE endpoint = ? AND ip = ?",
             (endpoint, ip),
         ) as c:
             row = await c.fetchone()
+            limited = row and row["attempt_count"] > max_attempts
 
-        if row and now < row["reset_at"]:
-            if row["attempt_count"] >= max_attempts:
-                return False
-            await conn.execute(
-                "UPDATE rate_limits SET attempt_count = attempt_count + 1 WHERE id = ?",
-                (row["id"],),
-            )
-        else:
-            await conn.execute(
-                "INSERT INTO rate_limits (endpoint, ip, attempt_count, reset_at) VALUES (?, ?, ?, ?)",
-                (endpoint, ip, 1, now + window_seconds),
-            )
-
-        await conn.execute("DELETE FROM rate_limits WHERE reset_at < ?", (now,))
         await conn.commit()
-    return True
+    return not limited

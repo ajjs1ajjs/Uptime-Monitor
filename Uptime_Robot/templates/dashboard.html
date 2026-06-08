@@ -807,22 +807,11 @@ function updateGauges() {
     const responseColor = avgResponse <= 200 ? '#10b981' : avgResponse <= 500 ? '#f59e0b' : '#ef4444';
     const sslColor = sslExpiring === 0 ? '#10b981' : '#f59e0b';
 
-    if (!gaugeCharts.uptime) {
-        gaugeCharts.uptime = createGaugeChart('uptimeGauge', uptimePercent, uptimeColor);
-        gaugeCharts.response = createGaugeChart('responseGauge', Math.min(avgResponse / 5, 100), responseColor);
-        gaugeCharts.ssl = createGaugeChart('sslGauge', sslExpiring === 0 ? 100 : 50, sslColor);
-    } else {
-        gaugeCharts.uptime.data.datasets[0].data = [uptimePercent, 100 - uptimePercent];
-        gaugeCharts.uptime.data.datasets[0].backgroundColor = [uptimeColor, 'rgba(255,255,255,0.1)'];
-        gaugeCharts.uptime.update();
-        gaugeCharts.response.data.datasets[0].data = [Math.min(avgResponse / 5, 100), 100 - Math.min(avgResponse / 5, 100)];
-        gaugeCharts.response.data.datasets[0].backgroundColor = [responseColor, 'rgba(255,255,255,0.1)'];
-        gaugeCharts.response.update();
-        const sslGaugeVal = sslExpiring === 0 ? 100 : 50;
-        gaugeCharts.ssl.data.datasets[0].data = [sslGaugeVal, 100 - sslGaugeVal];
-        gaugeCharts.ssl.data.datasets[0].backgroundColor = [sslColor, 'rgba(255,255,255,0.1)'];
-        gaugeCharts.ssl.update();
-    }
+    // Destroy existing charts before recreating to prevent memory leaks
+    Object.values(gaugeCharts).forEach(c => { try { c.destroy(); } catch {} });
+    gaugeCharts.uptime = createGaugeChart('uptimeGauge', uptimePercent, uptimeColor);
+    gaugeCharts.response = createGaugeChart('responseGauge', Math.min(avgResponse / 5, 100), responseColor);
+    gaugeCharts.ssl = createGaugeChart('sslGauge', sslExpiring === 0 ? 100 : 50, sslColor);
 }
 
 
@@ -975,12 +964,13 @@ function renderMonitors() {
             statusText = 'MAINTENANCE';
         }
         
-        const safeName = (site.name || '').replace(/'/g, "\\'");
-        const safeUrl = (site.url || '').replace(/'/g, "\\'");
+        const esc = v => { const d = document.createElement('div'); d.textContent = v || ''; return d.innerHTML; };
+        const safeName = esc(site.name);
+        const safeUrl = esc(site.url);
         const methods = Array.isArray(site.notify_methods) ? site.notify_methods : [];
         const monitorType = site.monitor_type || 'http';
-        const safeKeyword = encodeURIComponent(site.keyword || '');
-        const keywordHtml = site.keyword ? `<div class="text-[11px] text-indigo-400 mt-1 flex items-center gap-1">🔑 Ключ: <span class="text-slate-300 font-mono">${site.keyword}</span></div>` : '';
+        const safeKeyword = esc(site.keyword);
+        const keywordHtml = site.keyword ? `<div class="text-[11px] text-indigo-400 mt-1 flex items-center gap-1">🔑 Ключ: <span class="text-slate-300 font-mono">${esc(site.keyword)}</span></div>` : '';
 
         const tags = Array.isArray(site.tags) ? site.tags : [];
         let tagsHtml = '';
@@ -999,8 +989,8 @@ function renderMonitors() {
         html += `<div class="gradient-card rounded-xl p-5 border-l-4 ${borderClass} border border-slate-700/30 card-hover transition" data-site-id="${site.id}">
             <div class="flex justify-between items-start mb-4">
                 <div class="min-w-0 flex-1">
-                    <div class="text-base font-semibold truncate" title="${safeName}">${site.name}</div>
-                    <a href="${site.url}" target="_blank" class="text-xs text-slate-400 hover:text-accent hover:underline truncate mt-0.5 block" title="${safeUrl}">${site.url}</a>
+                    <div class="text-base font-semibold truncate" title="${safeName}">${safeName}</div>
+                    <a href="${esc(site.url)}" target="_blank" class="text-xs text-slate-400 hover:text-accent hover:underline truncate mt-0.5 block" title="${safeUrl}">${safeUrl}</a>
                     ${keywordHtml}
                     ${tagsHtml}
                                     </div>
@@ -1043,7 +1033,7 @@ async function loadNotificationsHistory() {
     try {
         const resp = await fetch('/api/notification-history');
         const data = await resp.json();
-        if (data.length === 0) {
+        if (!Array.isArray(data) || data.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" class="py-10 text-center text-slate-500">Ще не було сповіщень.</td></tr>';
             return;
         }
