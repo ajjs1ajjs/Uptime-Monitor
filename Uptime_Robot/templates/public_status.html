@@ -40,25 +40,25 @@
         <div class="flex justify-center gap-8 md:gap-12 mt-6 flex-wrap">
             <div class="text-center">
                 <div class="text-3xl font-bold brand-text">{{ total }}</div>
-                <div class="text-xs text-slate-400 uppercase tracking-wider mt-1">Total</div>
+                <div class="text-xs text-slate-400 uppercase tracking-wider mt-1" data-i18n="public_total">Total</div>
             </div>
             <div class="text-center">
                 <div class="text-3xl font-bold text-emerald-400">{{ up_count }}</div>
-                <div class="text-xs text-slate-400 uppercase tracking-wider mt-1">Operational</div>
+                <div class="text-xs text-slate-400 uppercase tracking-wider mt-1" data-i18n="public_operational">Operational</div>
             </div>
             <div class="text-center">
                 <div class="text-3xl font-bold text-red-400">{{ down_count }}</div>
-                <div class="text-xs text-slate-400 uppercase tracking-wider mt-1">Issues</div>
+                <div class="text-xs text-slate-400 uppercase tracking-wider mt-1" data-i18n="public_issues">Issues</div>
             </div>
             <div class="text-center">
                 <div class="text-3xl font-bold text-sky-400">{{ thirty_day_uptime }}%</div>
-                <div class="text-xs text-slate-400 uppercase tracking-wider mt-1">30d Uptime</div>
+                <div class="text-xs text-slate-400 uppercase tracking-wider mt-1" data-i18n="public_uptime">30d Uptime</div>
             </div>
         </div>
     </header>
 
     <div class="max-w-3xl mx-auto px-4 py-8">
-        <div class="text-xs text-slate-500 text-center mb-6">Last updated: {{ timestamp }}</div>
+        <div class="text-xs text-slate-500 text-center mb-6"><span data-i18n="public_last_updated">Last updated</span>: {{ timestamp }}</div>
 
         <div class="space-y-3">
             {% for site in sites %}
@@ -82,7 +82,7 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-3 text-xs text-slate-500">
-                    <span>Uptime {{ site.uptime_pct }}%</span>
+                    <span data-i18n="public_uptime_pct">Uptime</span> {{ site.uptime_pct }}%
                     <div class="uptime-bar flex-1">
                         <div class="uptime-fill {{ 'bg-emerald-500' if site.uptime_pct >= 99 else 'bg-amber-500' if site.uptime_pct >= 95 else 'bg-red-500' }}"
                             style="width: {{ site.uptime_pct }}%;"></div>
@@ -95,14 +95,14 @@
         {% if sites|length == 0 %}
         <div class="text-center py-16 text-slate-500 glass rounded-2xl">
             <div class="text-4xl mb-4">📡</div>
-            <p class="text-lg">No monitors configured yet</p>
+            <p class="text-lg" data-i18n="public_no_monitors">No monitors configured yet</p>
         </div>
         {% endif %}
 
         {% if incidents|length > 0 %}
         <div class="mt-12">
             <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
-                <span>⚠️</span> Recent Incidents
+                <span>⚠️</span> <span data-i18n="public_recent_incidents">Recent Incidents</span>
             </h2>
             <div class="glass rounded-xl divide-y divide-slate-700/30 overflow-hidden">
                 {% for inc in incidents %}
@@ -117,7 +117,7 @@
     </div>
 
     <footer class="text-center py-8 text-slate-600 text-xs">
-        {% if footer_text %}{{ footer_text }}{% else %}Powered by {{ site_title }}{% endif %}
+        {% if footer_text %}{{ footer_text }}{% else %}<span data-i18n="public_powered">Powered by</span> {{ site_title }}{% endif %}
     </footer>
 </div>
 {% endblock %}
