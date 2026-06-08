@@ -51,7 +51,7 @@ def init_paths():
 # Default configuration
 DEFAULT_CONFIG = {
     "server": {"port": 8080, "host": "auto", "domain": "auto"},
-    "cors": {"allow_origins": ["*"]},
+    "cors": {"allow_origins": ["http://localhost:8080"]},
     "ssl": {
         "enabled": False,
         "type": "custom",

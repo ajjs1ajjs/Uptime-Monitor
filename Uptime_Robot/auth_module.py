@@ -68,13 +68,7 @@ async def init_auth_tables(db_path):
             print(f"Password: {default_password}")
             print(f"{'='*50}\n")
         elif admin_row["must_change_password"] == 1:
-            # If the database was already created with a random/old password and hasn't been changed yet,
-            # update it to the default password '291263' and clear the must_change_password flag.
-            await conn.execute(
-                "UPDATE users SET password_hash = ?, must_change_password = 0 WHERE username = 'admin'",
-                (password_hash,),
-            )
-            logger.info("Updated existing admin user password to 291263")
+            logger.warning("Admin user has must_change_password=1 — password was NOT reset")
 
         await conn.commit()
 
@@ -277,7 +271,8 @@ API_KEY_PREFIX = "um_"
 
 
 def _hash_api_key(key: str) -> str:
-    return hashlib.sha256(key.encode()).hexdigest()
+    salt = hashlib.sha256("uptime-monitor-api-key-salt".encode()).digest()
+    return hashlib.pbkdf2_hmac("sha256", key.encode(), salt, 100000).hex()
 
 
 def generate_api_key() -> str:

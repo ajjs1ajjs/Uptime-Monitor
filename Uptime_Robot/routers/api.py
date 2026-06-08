@@ -354,7 +354,9 @@ async def update_site(site_id: int, site: SiteUpdate, user: dict = Depends(requi
 async def delete_site(site_id: int, user: dict = Depends(require_admin)):
     if not user:
         raise HTTPException(status_code=401)
-    await models.delete_site(DB_PATH, site_id)
+    deleted = await models.delete_site(DB_PATH, site_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Site not found")
     await models.log_audit_event(
         DB_PATH,
         user["user_id"],

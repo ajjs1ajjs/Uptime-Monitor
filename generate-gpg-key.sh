@@ -17,13 +17,22 @@ echo -e "${NC}"
 
 # Generate GPG key
 echo -e "${BLUE}Generating GPG key...${NC}"
+
+# Prompt for passphrase
+read -s -p "Enter passphrase for GPG key (min 8 chars): " PASSPHRASE
+echo
+if [ ${#PASSPHRASE} -lt 8 ]; then
+    echo -e "${RED}Error: Passphrase must be at least 8 characters${NC}"
+    exit 1
+fi
+
 gpg --batch --gen-key <<EOF
 Key-Type: RSA
 Key-Length: 4096
 Name-Real: Uptime Monitor
 Name-Email: yaroslav.andreichuk@gmail.com
-Expire-Date: 0
-%no-protection
+Expire-Date: 2y
+Passphrase: $PASSPHRASE
 %commit
 EOF
 

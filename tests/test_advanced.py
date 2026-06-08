@@ -317,6 +317,7 @@ class TestStatusPageData:
             mock_req = MagicMock(spec=Request)
             mock_req.base_url = "http://test"
             resp = await public_status_page(mock_req)
+            assert "text/html" in resp.headers.get("content-type", "")
 
     def test_status_page_sorts_down_first(self, test_db):
         from Uptime_Robot.database import get_db_connection
@@ -329,6 +330,13 @@ class TestStatusPageData:
                         (name, f"https://{name}.com", 60, 1, status),
                     )
                 await conn.commit()
+            async with get_db_connection(test_db) as conn:
+                async with conn.execute("SELECT status FROM sites WHERE is_active = 1 ORDER BY id") as c:
+                    rows = await c.fetchall()
+                    statuses = [r["status"] for r in rows]
+                    assert "down" in statuses
+                    assert "up" in statuses
+                    assert "slow" in statuses
         asyncio.run(_setup())
 
     @pytest.mark.asyncio
@@ -391,6 +399,7 @@ class TestModels:
     @pytest.mark.asyncio
     async def test_get_sites_returns_active_only(self, test_db):
         from Uptime_Robot.database import get_db_connection
+        from Uptime_Robot.models import get_all_sites
         async with get_db_connection(test_db) as conn:
             await conn.execute(
                 "INSERT INTO sites (name, url, check_interval, is_active, status) VALUES (?, ?, ?, ?, ?)",
@@ -401,6 +410,13 @@ class TestModels:
                 ("Inactive", "https://inactive.com", 60, 0, "down"),
             )
             await conn.commit()
+        sites = await get_all_sites(test_db)
+        active = [s for s in sites if s["is_active"]]
+        inactive = [s for s in sites if not s["is_active"]]
+        assert len(active) >= 1
+        assert len(inactive) >= 1
+        assert any(s["name"] == "Active" for s in active)
+        assert any(s["name"] == "Inactive" for s in inactive)
 
     @pytest.mark.asyncio
     async def test_status_history_insertion(self, test_db, sample_site):

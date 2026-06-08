@@ -9,7 +9,7 @@ echo ========================================
 echo.
 
 net session >nul 2>&1
-if not %errorlevel%==0 (
+if not !errorlevel!==0 (
     echo ERROR: Run this script as Administrator.
     if not "%SILENT%"=="1" pause
     exit /b 1
@@ -17,7 +17,7 @@ if not %errorlevel%==0 (
 
 set PYTHON_CMD=python
 !PYTHON_CMD! --version >nul 2>&1
-if not %errorlevel%==0 (
+if not !errorlevel!==0 (
     set PYTHON_CMD=py -3
     !PYTHON_CMD! --version >nul 2>&1
     if not !errorlevel!==0 (
@@ -60,7 +60,7 @@ echo Ensuring pip is installed...
 
 echo Installing Python dependencies (includes: fastapi, aiohttp, bcrypt, cryptography, jinja2, aiosqlite, pywin32)...
 !PYTHON_CMD! -m pip install -r requirements.txt
-if not %errorlevel%==0 (
+if not !errorlevel!==0 (
     echo ERROR: Failed to install dependencies.
     if not "%SILENT%"=="1" pause
     exit /b 1
@@ -68,13 +68,13 @@ if not %errorlevel%==0 (
 
 echo Installing pywin32 to system site-packages (required for Windows service)...
 !PYTHON_CMD! -m pip install --upgrade --force-reinstall --no-user pywin32 2>nul
-if not %errorlevel%==0 (
+if not !errorlevel!==0 (
     echo WARNING: pywin32 system install failed. Service may not start automatically.
 )
 
 echo Verifying pywin32 service modules...
 !PYTHON_CMD! -c "import servicemanager, win32serviceutil; print('pywin32 OK:', servicemanager.__file__)"
-if not %errorlevel%==0 (
+if not !errorlevel!==0 (
     echo WARNING: pywin32 modules not found. Please reinstall: python -m pip install --force-reinstall pywin32
 )
 
@@ -103,7 +103,7 @@ echo Initializing crypto...
 
 echo Saving port to config...
 !PYTHON_CMD! -c "import config_manager as c; cfg=c.load_config(); cfg.setdefault('server', {})['port']=%PORT%; c.save_config(cfg)"
-if not %errorlevel%==0 (
+if not !errorlevel!==0 (
     echo ERROR: Failed to update config.
     if not "%SILENT%"=="1" pause
     exit /b 1
@@ -111,7 +111,7 @@ if not %errorlevel%==0 (
 
 echo Installing Windows service...
 !PYTHON_CMD! main_service.py install
-if not %errorlevel%==0 (
+if not !errorlevel!==0 (
     echo ERROR: Service installation failed.
     if not "%SILENT%"=="1" pause
     exit /b 1

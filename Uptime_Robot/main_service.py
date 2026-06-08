@@ -69,10 +69,10 @@ if IS_WINDOWS:
                 app_main.initialize_app()
 
                 # Get the event loop created by initialize_app
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
 
                 # Start monitoring in the background
-                asyncio.ensure_future(
+                asyncio.create_task(
                     app_main.monitoring.monitor_loop(
                         app_state.NOTIFY_SETTINGS, app_state.CHECK_INTERVAL
                     )

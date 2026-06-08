@@ -56,7 +56,7 @@ async def is_under_maintenance(site_id: int) -> bool:
                 duration = int(row["duration_minutes"])
 
                 current_dow = current_time.isoweekday()
-                diff_days = target_dow - current_dow
+                diff_days = (target_dow - current_dow) % 7
                 target_start = (current_time + timedelta(days=diff_days)).replace(
                     hour=start_h, minute=start_m, second=0, microsecond=0
                 )

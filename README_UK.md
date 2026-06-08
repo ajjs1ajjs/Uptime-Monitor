@@ -1,7 +1,7 @@
 # Uptime Monitor
 
-[![Версія](https://img.shields.io/badge/версія-2.0.0-blue.svg)](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
-[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://python.org)
+[![Версія](https://img.shields.io/badge/версія-2.1.0-blue.svg)](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
+[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Платформа](https://img.shields.io/badge/платформа-Linux%20%7C%20Windows-lightgrey.svg)]()
 

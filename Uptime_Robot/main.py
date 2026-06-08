@@ -81,15 +81,17 @@ def initialize_app():
     """Синхронна обгортка для ініціалізації (використовується в Windows-сервісі)"""
     config_manager.init_paths()
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    except RuntimeError:
+        pass
+
+    try:
+        loop = asyncio.get_running_loop()
+        asyncio.create_task(initialize_app_async())
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-
-    if loop.is_running():
-        # This shouldn't happen in service initialization, but just in case
-        asyncio.ensure_future(initialize_app_async())
-    else:
         loop.run_until_complete(initialize_app_async())
 
 
@@ -112,7 +114,7 @@ if static_dir.exists():
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=CONFIG.get("cors", {}).get("allow_origins", ["*"]),
+    allow_origins=CONFIG.get("cors", {}).get("allow_origins", ["http://localhost:8080"]),
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Content-Type", "Authorization"],
 )

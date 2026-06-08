@@ -418,13 +418,14 @@ async def update_site(db_path: str, site_id: int, **kwargs):
         await conn.commit()
 
 
-async def delete_site(db_path: str, site_id: int):
-    """Видаляє сайт та його історію"""
+async def delete_site(db_path: str, site_id: int) -> bool:
+    """Видаляє сайт та його історію. Повертає True, якщо сайт було видалено."""
     async with get_db_connection(db_path) as conn:
         await conn.execute("DELETE FROM status_history WHERE site_id = ?", (site_id,))
         await conn.execute("DELETE FROM ssl_certificates WHERE site_id = ?", (site_id,))
-        await conn.execute("DELETE FROM sites WHERE id = ?", (site_id,))
+        cursor = await conn.execute("DELETE FROM sites WHERE id = ?", (site_id,))
         await conn.commit()
+        return cursor.rowcount > 0
 
 
 async def add_status_history(

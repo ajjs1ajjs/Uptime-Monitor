@@ -276,14 +276,17 @@ def parse_message(message: str) -> dict[str, Any]:
         "status_code": "",
         "error": "",
         "checked_at": "",
+        "alert_type": "up",
     }
 
     lines = message.split("\n")
     for line in lines:
         if line.startswith("🔴 "):
             data["site_name"] = line.replace("🔴 ", "").replace(" - STILL DOWN", "").strip()
+            data["alert_type"] = "still_down" if "STILL DOWN" in line else "down"
         elif line.startswith("🟢 "):
             data["site_name"] = line.replace("🟢 ", "").replace(" - RECOVERED", "").strip()
+            data["alert_type"] = "up"
         elif line.startswith("🌐 "):
             data["url"] = line.replace("🌐 ", "").strip()
         elif line.startswith("Status: "):
@@ -448,9 +451,7 @@ async def send_telegram(message: Union[str, dict], settings: dict[str, Any]):
             text = format_telegram_message(message, alert_type)
         else:
             data = parse_message(message)
-            alert_type = "down" if "🔴" in message else "up"
-            if "STILL DOWN" in message:
-                alert_type = "still_down"
+            alert_type = data.get("alert_type", "down")
             text = format_telegram_message(data, alert_type)
 
         payload: dict[str, Any] = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
@@ -461,11 +462,11 @@ async def send_telegram(message: Union[str, dict], settings: dict[str, Any]):
                     [
                         {
                             "text": "✅ Acknowledge",
-                            "callback_data": f"ack_{message.get('site_name', '')}",
+                            "callback_data": f"ack_{message.get('site_name', '')}"[:64],
                         },
                         {
                             "text": "🔇 Silence 1h",
-                            "callback_data": f"silence1h_{message.get('site_name', '')}",
+                            "callback_data": f"silence1h_{message.get('site_name', '')}"[:64],
                         },
                         {
                             "text": "🔕 Silence 6h",
