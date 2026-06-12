@@ -372,6 +372,83 @@
         </div>
 
         <div class="glass rounded-2xl p-6">
+            <h3 class="text-lg font-semibold mb-4">⚡ Політика сповіщень та перевірок</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1" data-i18n="alert_timeout">Тайм-аут запиту (сек)</label>
+                    <input type="number" id="alertTimeout" min="1" max="300" value="30"
+                        class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1" data-i18n="alert_grace_period">Затримка перед сповіщенням (сек)</label>
+                    <input type="number" id="alertGracePeriod" min="0" max="3600" value="0"
+                        class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1" data-i18n="alert_up_threshold">Успішних перевірок для UP</label>
+                    <input type="number" id="alertUpThreshold" min="1" max="20" value="2"
+                        class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1" data-i18n="alert_still_down_repeat">Повтор сповіщення DOWN (сек)</label>
+                    <input type="number" id="alertStillDownRepeat" min="60" max="86400" value="600"
+                        class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1" data-i18n="alert_retry_delays">Затримки повторів (сек, через кому)</label>
+                    <input type="text" id="alertRetryDelays" value="30, 30"
+                        class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1" data-i18n="alert_max_retries">Макс. повторів</label>
+                    <input type="number" id="alertMaxRetries" min="0" max="10" value="2"
+                        class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1" data-i18n="alert_ssl_days">Днів SSL для сповіщення (через кому)</label>
+                    <input type="text" id="alertSslDays" value="30, 14, 7, 5, 3, 1"
+                        class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1" data-i18n="alert_ssl_cooldown">Кулдаун SSL сповіщення (сек)</label>
+                    <input type="number" id="alertSslCooldown" min="300" max="86400" value="21600"
+                        class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1" data-i18n="alert_ssl_interval">Інтервал перевірки SSL (год)</label>
+                    <input type="number" id="alertSslInterval" min="1" max="168" value="6"
+                        class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1" data-i18n="alert_flapping_threshold">Поріг флапінгу (змін статусу)</label>
+                    <input type="number" id="alertFlappingThreshold" min="2" max="20" value="3"
+                        class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1" data-i18n="alert_flapping_window">Вікно флапінгу (сек)</label>
+                    <input type="number" id="alertFlappingWindow" min="60" max="3600" value="300"
+                        class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 block mb-1" data-i18n="alert_flapping_suppress">Придушення флапінгу (сек)</label>
+                    <input type="number" id="alertFlappingSuppress" min="60" max="7200" value="600"
+                        class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                </div>
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" id="alertTreat4xx" checked
+                        class="w-5 h-5 rounded bg-[#0f172a] border border-slate-700/50 text-accent focus:ring-accent outline-none transition">
+                    <label class="text-xs text-slate-400" data-i18n="alert_treat_4xx">4xx помилки = DOWN</label>
+                </div>
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" id="alertVerifySsl" checked
+                        class="w-5 h-5 rounded bg-[#0f172a] border border-slate-700/50 text-accent focus:ring-accent outline-none transition">
+                    <label class="text-xs text-slate-400" data-i18n="alert_verify_ssl">Перевіряти SSL сертифікат</label>
+                </div>
+            </div>
+            <button onclick="saveAlertPolicy()" class="mt-6 w-full py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">💾 Зберегти політику сповіщень</button>
+        </div>
+
+        <div class="glass rounded-2xl p-6">
             <h3 class="text-lg font-semibold mb-4">🔔 Налаштування сповіщень</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="notifyGrid">{{ notification_cards | safe }}</div>
             <button onclick="saveNotifySettings()" class="mt-6 w-full py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">💾 Зберегти налаштування</button>
@@ -938,6 +1015,7 @@ function switchTab(tabId) {
     if (tabId === 'incidents') loadIncidents();
     if (tabId === 'maintenance') loadMaintenanceWindows();
     if (tabId === 'notifications') loadNotificationsHistory();
+    if (tabId === 'settings') { loadAppSettings(); loadAlertPolicy(); }
 }
 
 async function loadNotificationsHistory() {
@@ -1251,6 +1329,52 @@ async function saveNotifySettings() {
     try {
         await fetch('/api/notify-settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(settings)});
         alert('✅ Налаштування збережено!');
+    } catch(e) { console.error(e); }
+}
+
+async function loadAlertPolicy() {
+    try {
+        const resp = await fetch('/api/alert-policy');
+        const data = await resp.json();
+        document.getElementById('alertTimeout').value = data.request_timeout_seconds ?? 30;
+        document.getElementById('alertGracePeriod').value = data.grace_period_seconds ?? 0;
+        document.getElementById('alertUpThreshold').value = data.up_success_threshold ?? 2;
+        document.getElementById('alertStillDownRepeat').value = data.still_down_repeat_seconds ?? 600;
+        document.getElementById('alertRetryDelays').value = (data.retry_delays || [30,30]).join(', ');
+        document.getElementById('alertMaxRetries').value = data.max_retries ?? 2;
+        document.getElementById('alertSslDays').value = (data.ssl_notification_days || [30,14,7,5,3,1]).join(', ');
+        document.getElementById('alertSslCooldown').value = data.ssl_notification_cooldown_seconds ?? 21600;
+        document.getElementById('alertSslInterval').value = data.ssl_check_interval_hours ?? 6;
+        document.getElementById('alertFlappingThreshold').value = data.flapping_threshold ?? 3;
+        document.getElementById('alertFlappingWindow').value = data.flapping_window_seconds ?? 300;
+        document.getElementById('alertFlappingSuppress').value = data.flapping_suppression_seconds ?? 600;
+        document.getElementById('alertTreat4xx').checked = data.treat_4xx_as_down !== false;
+        document.getElementById('alertVerifySsl').checked = data.verify_ssl !== false;
+    } catch(e) { console.error('loadAlertPolicy', e); }
+}
+async function saveAlertPolicy() {
+    const getNum = (id) => { const v = parseInt(document.getElementById(id).value); return isNaN(v) ? null : v; };
+    const getChecked = (id) => document.getElementById(id).checked;
+    const parseCsv = (id) => document.getElementById(id).value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+    const payload = {
+        request_timeout_seconds: getNum('alertTimeout'),
+        grace_period_seconds: getNum('alertGracePeriod'),
+        up_success_threshold: getNum('alertUpThreshold'),
+        still_down_repeat_seconds: getNum('alertStillDownRepeat'),
+        retry_delays: parseCsv('alertRetryDelays'),
+        max_retries: getNum('alertMaxRetries'),
+        ssl_notification_days: parseCsv('alertSslDays'),
+        ssl_notification_cooldown_seconds: getNum('alertSslCooldown'),
+        ssl_check_interval_hours: getNum('alertSslInterval'),
+        flapping_threshold: getNum('alertFlappingThreshold'),
+        flapping_window_seconds: getNum('alertFlappingWindow'),
+        flapping_suppression_seconds: getNum('alertFlappingSuppress'),
+        treat_4xx_as_down: getChecked('alertTreat4xx'),
+        verify_ssl: getChecked('alertVerifySsl'),
+    };
+    try {
+        await fetch('/api/alert-policy', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+        alert('✅ Політику сповіщень збережено!');
     } catch(e) { console.error(e); }
 }
 

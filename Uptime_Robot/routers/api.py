@@ -8,10 +8,11 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from .. import auth_module, models, monitoring
+from .. import auth_module, config_manager, models, monitoring
 from .. import state as app_state
 from ..database import get_db_connection
 from ..dependencies import get_current_user, require_admin, require_viewer_or_higher
+from ..monitoring import alerting
 from ..state import DB_PATH
 
 router = APIRouter(prefix="/api")
@@ -56,6 +57,23 @@ class AppSettingsModel(BaseModel):
     footer_text: Optional[str] = ""
     primary_color: Optional[str] = "#00ff88"
     brand_accent_color: Optional[str] = "#06b6d4"
+
+
+class AlertPolicyModel(BaseModel):
+    request_timeout_seconds: Optional[int] = None
+    grace_period_seconds: Optional[int] = None
+    up_success_threshold: Optional[int] = None
+    still_down_repeat_seconds: Optional[int] = None
+    treat_4xx_as_down: Optional[bool] = None
+    ssl_notification_days: Optional[list[int]] = None
+    ssl_notification_cooldown_seconds: Optional[int] = None
+    ssl_check_interval_hours: Optional[int] = None
+    verify_ssl: Optional[bool] = None
+    retry_delays: Optional[list[int]] = None
+    max_retries: Optional[int] = None
+    flapping_threshold: Optional[int] = None
+    flapping_window_seconds: Optional[int] = None
+    flapping_suppression_seconds: Optional[int] = None
 
 
 class UserCreate(BaseModel):
@@ -593,6 +611,28 @@ async def get_app(user: dict = Depends(require_viewer_or_higher)):
         "primary_color": app_state.PRIMARY_COLOR,
         "brand_accent_color": app_state.BRAND_ACCENT_COLOR,
     }
+
+
+@router.get("/alert-policy")
+async def get_alert_policy_api(user: dict = Depends(require_viewer_or_higher)):
+    if not user:
+        raise HTTPException(401)
+    return alerting.get_alert_policy()
+
+
+@router.post("/alert-policy")
+async def save_alert_policy_api(settings: AlertPolicyModel, user: dict = Depends(require_admin)):
+    if not user:
+        raise HTTPException(401)
+    cfg = config_manager.load_config() or {}
+    existing = cfg.get("alert_policy") or {}
+    new_data = settings.dict(exclude_unset=True, exclude_none=True)
+    existing.update(new_data)
+    cfg["alert_policy"] = existing
+    config_manager.save_config(cfg)
+    alerting._cache = None
+    alerting._cache_time = 0
+    return {"message": "Saved"}
 
 
 @router.get("/user")
