@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
@@ -143,6 +144,38 @@ async def _check_http(
             return status, status_code, response_time, None
 
 
+_flap_state: dict[int, dict] = {}
+
+
+def _check_flapping(site_id: int, prev_status: str, status: str, policy: dict) -> bool:
+    now = time.time()
+    state = _flap_state.get(site_id)
+    if state is None:
+        state = {"count": 0, "last_time": now, "suppressed_until": 0}
+        _flap_state[site_id] = state
+
+    if state["suppressed_until"] > now:
+        if (now - state["last_time"]) >= policy["flapping_suppression_seconds"]:
+            state["count"] = 0
+            state["suppressed_until"] = 0
+        else:
+            return True
+
+    if prev_status in ("up", "down") and status in ("up", "down") and prev_status != status:
+        if (now - state["last_time"]) <= policy["flapping_window_seconds"]:
+            state["count"] += 1
+        else:
+            state["count"] = 1
+        state["last_time"] = now
+
+        if state["count"] >= policy["flapping_threshold"]:
+            state["suppressed_until"] = now + policy["flapping_suppression_seconds"]
+            logger.warning(f"Site {site_id} flapping detected — alerts suppressed for {policy['flapping_suppression_seconds']}s")
+            return True
+
+    return False
+
+
 async def _process_alerting(
     status,
     prev_status,
@@ -157,9 +190,12 @@ async def _process_alerting(
     failed_attempts,
     success_attempts,
     last_down_alert_str,
+    first_failure_at_str,
+    skip_alert,
 ):
     checked_at_dt = checked_at
     last_down_alert = datetime.fromisoformat(last_down_alert_str) if last_down_alert_str else None
+    first_failure_at = datetime.fromisoformat(first_failure_at_str) if first_failure_at_str else None
     policy = get_alert_policy()
 
     if status == "down" and notify_methods:
@@ -167,21 +203,25 @@ async def _process_alerting(
         success_attempts = 0
         should_alert = False
         alert_type = ""
+        grace = policy.get("grace_period_seconds", 0)
 
         if prev_status in ("up", None):
-            if failed_attempts >= policy["down_failures_threshold"]:
+            first_failure_at = checked_at_dt
+            if grace <= 0:
                 should_alert = True
                 alert_type = "NEW"
         else:
-            if (
-                last_down_alert is None
-                or (checked_at_dt - last_down_alert).total_seconds()
-                >= policy["still_down_repeat_seconds"]
-            ):
-                should_alert = True
-                alert_type = "REPEAT"
+            if last_down_alert is None:
+                elapsed = (checked_at_dt - first_failure_at).total_seconds() if first_failure_at else 0
+                if elapsed >= grace:
+                    should_alert = True
+                    alert_type = "NEW"
+            else:
+                if (checked_at_dt - last_down_alert).total_seconds() >= policy["still_down_repeat_seconds"]:
+                    should_alert = True
+                    alert_type = "REPEAT"
 
-        if should_alert:
+        if should_alert and not skip_alert:
             msg = {
                 "alert_type": "down" if alert_type == "NEW" else "still_down",
                 "site_name": site_name,
@@ -196,11 +236,13 @@ async def _process_alerting(
 
     if status == "up":
         failed_attempts = 0
+        first_failure_at = None
         success_attempts += 1
         if (
             prev_status == "down"
             and notify_methods
             and success_attempts >= policy["up_success_threshold"]
+            and not skip_alert
         ):
             msg = {
                 "alert_type": "up",
@@ -216,7 +258,7 @@ async def _process_alerting(
         if status != "down":
             success_attempts = 0
 
-    return failed_attempts, success_attempts, last_down_alert
+    return failed_attempts, success_attempts, last_down_alert, first_failure_at
 
 
 async def check_site_status(
@@ -250,8 +292,10 @@ async def check_site_status(
     except Exception as e:
         logger.error(f"Failed checking maintenance status for site {site_id}: {e}")
 
-    delays = [30, 30]  # Delays in seconds between retries
-    max_attempts = len(delays) + 1
+    policy = get_alert_policy()
+    delays = policy["retry_delays"]
+    max_retries = policy["max_retries"]
+    max_attempts = max_retries + 1
 
     for attempt in range(max_attempts):
         start_time = datetime.now(timezone.utc)
@@ -313,9 +357,11 @@ async def check_site_status(
     except Exception:
         pass
 
+    skip_alert = _check_flapping(site_id, None, status, policy)
+
     async with get_db_connection() as conn:
         async with conn.execute(
-            "SELECT name, status, failed_attempts, success_attempts, last_down_alert FROM sites WHERE id = ?",
+            "SELECT name, status, failed_attempts, success_attempts, last_down_alert, first_failure_at FROM sites WHERE id = ?",
             (site_id,),
         ) as c:
             row = await c.fetchone()
@@ -329,6 +375,7 @@ async def check_site_status(
             row["success_attempts"] if row and row["success_attempts"] is not None else 0
         )
         last_down_alert_str = row["last_down_alert"] if row else None
+        first_failure_at_str = row["first_failure_at"] if row else None
 
         if prev_status != status:
             await conn.execute(
@@ -344,7 +391,9 @@ async def check_site_status(
                 ),
             )
 
-        failed_attempts, success_attempts, last_down_alert = await _process_alerting(
+        skip_alert = skip_alert or _check_flapping(site_id, prev_status, status, policy)
+
+        failed_attempts, success_attempts, last_down_alert, first_failure_at = await _process_alerting(
             status,
             prev_status,
             notify_methods,
@@ -358,13 +407,17 @@ async def check_site_status(
             failed_attempts,
             success_attempts,
             last_down_alert_str,
+            first_failure_at_str,
+            skip_alert,
         )
 
         last_down_str = last_down_alert.isoformat() if last_down_alert else None
+        first_failure_str = first_failure_at.isoformat() if first_failure_at else None
         await conn.execute(
             """UPDATE sites SET
                status = ?, status_code = ?, response_time = ?,
-               failed_attempts = ?, success_attempts = ?, last_down_alert = ?
+               failed_attempts = ?, success_attempts = ?, last_down_alert = ?,
+               first_failure_at = ?
                WHERE id = ?""",
             (
                 status,
@@ -373,6 +426,7 @@ async def check_site_status(
                 failed_attempts,
                 success_attempts,
                 last_down_str,
+                first_failure_str,
                 site_id,
             ),
         )
@@ -438,47 +492,69 @@ async def check_site_certificate(
 
         policy = get_alert_policy()
         days = cert_info["days_until_expire"]
-        if days <= policy["ssl_notification_days"] and notify_methods:
-            async with conn.execute(
-                "SELECT last_notified FROM ssl_certificates WHERE site_id = ?", (site_id,)
-            ) as c:
-                row = await c.fetchone()
 
-            should_notify = True
-            if row and row["last_notified"]:
-                last_notif = datetime.fromisoformat(row["last_notified"])
-                if (datetime.now(timezone.utc) - last_notif).total_seconds() < policy[
-                    "ssl_notification_cooldown_seconds"
-                ]:
-                    should_notify = False
+        async with conn.execute(
+            "SELECT last_notified, ssl_notified_thresholds FROM ssl_certificates WHERE site_id = ?",
+            (site_id,),
+        ) as c:
+            row = await c.fetchone()
 
-            if should_notify:
-                expire_date = datetime.fromisoformat(cert_info["expire_date"]).strftime(
-                    "%Y-%m-%d %H:%M"
-                )
+        notified = set()
+        if row and row["ssl_notified_thresholds"]:
+            try:
+                notified = set(json.loads(row["ssl_notified_thresholds"]))
+            except Exception:
+                notified = set()
 
-                if days <= 0 or days <= 3:
-                    urgency = "КРИТИЧНО"
-                elif days <= 7:
-                    urgency = "ВАЖЛИВО"
-                else:
-                    urgency = "УВАГА"
+        last_notif_dt = None
+        if row and row["last_notified"]:
+            try:
+                last_notif_dt = datetime.fromisoformat(row["last_notified"])
+            except Exception:
+                last_notif_dt = None
 
-                msg = {
-                    "alert_type": "ssl",
-                    "site_name": site_name,
-                    "url": url,
-                    "days_left": days,
-                    "expire_date": expire_date,
-                    "urgency": urgency,
-                }
-                await send_notification(msg, notify_methods, notify_settings, site_id, site_name)
+        cooldown = policy["ssl_notification_cooldown_seconds"]
+        thresholds = policy["ssl_notification_days"]
+        thresholds_to_notify = [t for t in thresholds if days <= t and t not in notified]
 
-                await conn.execute(
-                    "UPDATE ssl_certificates SET last_notified = ? WHERE site_id = ?",
-                    (datetime.now(timezone.utc).isoformat(), site_id),
-                )
-                await conn.commit()
+        if thresholds_to_notify and notify_methods:
+            if last_notif_dt and (datetime.now(timezone.utc) - last_notif_dt).total_seconds() < cooldown:
+                thresholds_to_notify = []
+
+        for threshold in thresholds_to_notify:
+            expire_date = datetime.fromisoformat(cert_info["expire_date"]).strftime(
+                "%Y-%m-%d %H:%M"
+            )
+
+            if days <= 0 or days <= 3:
+                urgency = "КРИТИЧНО"
+            elif days <= 7:
+                urgency = "ВАЖЛИВО"
+            else:
+                urgency = "УВАГА"
+
+            msg = {
+                "alert_type": "ssl",
+                "site_name": site_name,
+                "url": url,
+                "days_left": days,
+                "expire_date": expire_date,
+                "urgency": urgency,
+                "threshold_days": threshold,
+            }
+            await send_notification(msg, notify_methods, notify_settings, site_id, site_name)
+            notified.add(threshold)
+
+        if thresholds_to_notify:
+            await conn.execute(
+                "UPDATE ssl_certificates SET last_notified = ?, ssl_notified_thresholds = ? WHERE site_id = ?",
+                (
+                    datetime.now(timezone.utc).isoformat(),
+                    json.dumps(list(notified)),
+                    site_id,
+                ),
+            )
+            await conn.commit()
 
 
 async def check_all_certificates(notify_settings: dict[str, Any]):

@@ -146,7 +146,7 @@ class TestMonitoring:
         policy = get_alert_policy()
 
         assert policy["request_timeout_seconds"] >= 1
-        assert policy["down_failures_threshold"] >= 1
+        assert policy["grace_period_seconds"] >= 0
         assert policy["up_success_threshold"] >= 1
         assert policy["still_down_repeat_seconds"] >= 60
         assert "verify_ssl" in policy

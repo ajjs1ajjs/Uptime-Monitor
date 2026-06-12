@@ -21,7 +21,7 @@ async def _create_tables(conn):
         status TEXT DEFAULT 'unknown', status_code INTEGER, response_time REAL,
         error_message TEXT, monitor_type TEXT DEFAULT 'http',
         failed_attempts INTEGER DEFAULT 0, success_attempts INTEGER DEFAULT 0,
-        last_down_alert TEXT, keyword TEXT DEFAULT NULL
+        last_down_alert TEXT, first_failure_at TEXT, keyword TEXT DEFAULT NULL
     )""")
     await conn.execute("""CREATE TABLE IF NOT EXISTS status_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER, status TEXT,
@@ -70,6 +70,8 @@ async def _run_migrations(conn):
         ssl_columns = {r[1] for r in await c.fetchall()}
     if "last_notified" not in ssl_columns:
         await conn.execute("ALTER TABLE ssl_certificates ADD COLUMN last_notified TEXT")
+    if "ssl_notified_thresholds" not in ssl_columns:
+        await conn.execute("ALTER TABLE ssl_certificates ADD COLUMN ssl_notified_thresholds TEXT DEFAULT '[]'")
     await conn.execute("""DELETE FROM ssl_certificates WHERE id NOT IN (
         SELECT MAX(id) FROM ssl_certificates GROUP BY site_id
     )""")
@@ -86,9 +88,9 @@ async def _run_migrations(conn):
 
     async with conn.execute("PRAGMA table_info(sites)") as c:
         site_cols = {r[1] for r in await c.fetchall()}
-    for col in ("failed_attempts", "success_attempts", "last_down_alert", "keyword", "tags"):
+    for col in ("failed_attempts", "success_attempts", "last_down_alert", "first_failure_at", "keyword", "tags"):
         if col not in site_cols:
-            col_type = "TEXT DEFAULT '[]'" if col == "tags" else "TEXT DEFAULT NULL" if col in ("last_down_alert", "keyword") else "INTEGER DEFAULT 0"
+            col_type = "TEXT DEFAULT '[]'" if col == "tags" else "TEXT DEFAULT NULL" if col in ("last_down_alert", "keyword", "first_failure_at") else "INTEGER DEFAULT 0"
             await conn.execute(f"ALTER TABLE sites ADD COLUMN {col} {col_type}")
 
     async with conn.execute("PRAGMA table_info(app_settings)") as c:

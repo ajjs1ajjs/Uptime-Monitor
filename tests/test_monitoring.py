@@ -7,9 +7,11 @@ from Uptime_Robot.monitoring import get_alert_policy, normalize_ssl_url
 
 
 SENSITIVE_KEYS = {
-    "request_timeout_seconds", "down_failures_threshold", "up_success_threshold",
+    "request_timeout_seconds", "grace_period_seconds", "up_success_threshold",
     "still_down_repeat_seconds", "treat_4xx_as_down", "ssl_notification_days",
     "ssl_notification_cooldown_seconds", "ssl_check_interval_hours", "verify_ssl",
+    "retry_delays", "max_retries", "flapping_threshold",
+    "flapping_window_seconds", "flapping_suppression_seconds",
 }
 
 
@@ -18,10 +20,11 @@ class TestAlertPolicy:
         policy = get_alert_policy()
         assert isinstance(policy, dict)
         assert policy.get("request_timeout_seconds", 0) >= 1
-        assert policy.get("down_failures_threshold", 0) >= 1
+        assert isinstance(policy.get("grace_period_seconds"), int)
         assert policy.get("up_success_threshold", 0) >= 1
         assert policy.get("still_down_repeat_seconds", 0) >= 60
         assert policy.get("verify_ssl") is True
+        assert isinstance(policy.get("retry_delays"), list) and len(policy["retry_delays"]) > 0
 
     def test_all_expected_keys_present(self):
         policy = get_alert_policy()
@@ -38,8 +41,9 @@ class TestAlertPolicy:
 
     def test_thresholds_are_positive(self):
         policy = get_alert_policy()
-        assert policy["down_failures_threshold"] >= 1
         assert policy["up_success_threshold"] >= 1
+        assert policy["grace_period_seconds"] >= 0
+        assert all(d > 0 for d in policy["retry_delays"])
 
 
 class TestNormalizeSSLUrl:
