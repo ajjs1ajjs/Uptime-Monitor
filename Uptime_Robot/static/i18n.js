@@ -1,7 +1,7 @@
 const i18n = {
     uk: {
         dashboard_title: "Uptime Monitor - Панель керування",
-        tab_dashboard: "📊 Дашборд", tab_ssl: "🔒 SSL", tab_incidents: "⚠️ Інциденти",
+        tab_dashboard: "📊 Дашборд", tab_monitors: "📋 Монітори", tab_ssl: "🔒 SSL", tab_incidents: "⚠️ Інциденти",
         tab_settings: "⚙️ Налаштування", tab_maintenance: "🛠️ Обслуговування",
         tab_notifications: "🔔 Сповіщення", status_page: "📄 Статус",
         users_page: "👥 Користувачі", logout: "🚪 Вийти",
@@ -94,7 +94,7 @@ const i18n = {
     },
     en: {
         dashboard_title: "Uptime Monitor - Dashboard",
-        tab_dashboard: "📊 Dashboard", tab_ssl: "🔒 SSL",
+        tab_dashboard: "📊 Dashboard", tab_monitors: "📋 Monitors", tab_ssl: "🔒 SSL",
         tab_incidents: "⚠️ Incidents", tab_settings: "⚙️ Settings",
         tab_maintenance: "🛠️ Maintenance",
         tab_notifications: "🔔 Notifications", status_page: "📄 Status",

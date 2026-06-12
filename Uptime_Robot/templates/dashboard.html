@@ -16,6 +16,9 @@
     </div>
     <div class="flex items-center gap-2 md:gap-4">
         <span id="lastUpdate" class="text-slate-400 text-xs md:text-sm hidden md:block"></span>
+        <span id="workerStatus" class="hidden md:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-800/50 text-[10px] text-slate-400" title="Worker Status"><span class="w-2 h-2 rounded-full bg-slate-500" id="workerDot"></span><span id="workerLabel">Worker</span></span>
+        <button onclick="checkAllMonitors()" class="px-2.5 py-1.5 rounded-xl gradient-accent text-black text-xs font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition" title="🔄 Check All">🔄</button>
+        <button onclick="loadDashboard()" class="px-2.5 py-1.5 rounded-xl bg-accent/10 text-accent hover:bg-accent/20 transition text-xs font-medium" title="📊 Refresh">📊</button>
         <button onclick="toggleLang()" id="langBtn" class="px-3 py-2 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-400 hover:border-accent hover:text-white transition text-sm">🇺🇦 UA</button>
         <button onclick="toggleTheme()" id="themeBtn" class="px-3 py-2 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-400 hover:border-accent hover:text-white transition text-sm">🌙</button>
         <a href="/status" target="_blank" data-i18n="status_page" class="px-3 py-2 rounded-xl bg-accent/10 text-accent hover:bg-accent/20 transition text-sm font-medium">📄 Статус</a>
@@ -27,6 +30,7 @@
 <div class="px-4 md:px-8 mt-6">
     <div class="flex gap-2 p-1 bg-slate-900/60 rounded-xl border border-slate-700/30 w-fit overflow-x-auto">
         <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap active" onclick="switchTab('dashboard')" data-i18n="tab_dashboard">📊 Дашборд</button>
+        <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('monitors')" data-i18n="tab_monitors">📋 Монітори</button>
         <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('ssl')" data-i18n="tab_ssl">🔒 SSL</button>
         <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('incidents')" data-i18n="tab_incidents">⚠️ Інциденти</button>
         <button class="tab-btn px-5 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white transition whitespace-nowrap" onclick="switchTab('settings')" data-i18n="tab_settings">⚙️ Налаштування</button>
@@ -90,12 +94,69 @@
 
 
         <div class="glass rounded-2xl p-6 card-hover transition">
-            <h3 class="text-lg font-semibold mb-4">🎯 Швидкі дії</h3>
-            <div class="flex flex-wrap gap-3">
-                <button onclick="checkAllMonitors()" class="px-5 py-2.5 rounded-xl gradient-accent text-black font-semibold text-sm hover:shadow-lg hover:shadow-cyan-500/30 transition">🔄 Перевірити всі</button>
-                <button onclick="loadDashboard()" class="px-5 py-2.5 rounded-xl bg-accent/10 text-accent hover:bg-accent/20 transition text-sm font-medium">📊 Оновити</button>
-                <button onclick="switchTab('incidents')" class="px-5 py-2.5 rounded-xl bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-sm font-medium">⚠️ Інциденти</button>
+            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">⚠️ Останні інциденти</h3>
+            <div id="dashboardIncidents" class="space-y-2">
+                <div class="text-center py-8 text-slate-500">Завантаження...</div>
             </div>
+            <button onclick="switchTab('incidents')" class="mt-4 w-full py-2.5 rounded-xl bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-sm font-medium">📋 Всі інциденти</button>
+        </div>
+    </div>
+</div>
+
+<div id="tab-monitors" class="tab-content mt-6 px-4 md:px-8 hidden">
+    <div class="max-w-6xl mx-auto space-y-6">
+        <div class="glass rounded-2xl p-6">
+            <h3 class="text-lg font-semibold mb-4" data-i18n="add_monitor_title">➕ Додати монітор</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <input type="text" id="siteName" placeholder="Назва" data-i18n="monitor_name_lbl" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                <input type="url" id="siteUrl" placeholder="URL" data-i18n="monitor_url_lbl" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                <select id="monitorType" onchange="toggleKeywordField('monitorType', 'keywordFieldContainer')" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                    <option value="http">🌐 HTTP(S)</option>
+                    <option value="port">🔌 Порт</option>
+                    <option value="ping">📡 Пінг</option>
+                    <option value="ssl">🔒 SSL</option>
+                    <option value="dns">🔍 DNS</option>
+                </select>
+                <div class="flex items-center gap-3">
+                    <input type="number" id="siteCheckInterval" value="60" min="10" max="3600" step="10" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+                    <span class="text-slate-400 text-xs whitespace-nowrap" data-i18n="check_interval_lbl">інтервал (сек)</span>
+                </div>
+            </div>
+            <div class="mt-4" id="keywordFieldContainer">
+                <label class="text-slate-400 text-sm mb-1.5 block" data-i18n="keyword_lbl">Ключове слово для пошуку (опціонально, тільки для HTTP. Підтримується префікс regex:)</label>
+                <input type="text" id="siteKeyword" placeholder="напр. Welcome, Success, або regex:^Welcome to .*$" data-i18n="keyword_lbl" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
+            </div>
+            <div class="mt-4">
+                <label class="text-slate-400 text-sm mb-1.5 block">📁 Папки / Теги (виберіть зі списку або введіть назву)</label>
+                <div id="siteTagsWidget" class="w-full min-h-[48px] px-4 py-2 rounded-xl bg-[#0f172a] border border-slate-700/50 flex flex-wrap gap-2 items-center focus-within:border-accent focus-within:ring-1 focus-within:ring-accent transition cursor-text" onclick="document.getElementById('siteTagsInput').focus()">
+                    <input type="text" id="siteTagsInput" placeholder="Додати папку..." class="bg-transparent border-none text-white text-sm outline-none flex-grow min-w-[120px] focus:ring-0 p-0 placeholder-slate-500">
+                </div>
+                <div class="text-[10px] text-slate-500 mt-1">Натисніть Enter або кому, щоб створити нову папку</div>
+                <div class="flex flex-wrap gap-1.5 mt-2" id="existingTagsContainer"></div>
+            </div>
+            <div class="mt-4">
+                <label class="text-slate-400 text-sm mb-2 block" data-i18n="notifications_lbl">Способи сповіщень</label>
+                <div class="flex flex-wrap gap-3" id="siteNotifyOptions">
+                    <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
+                        <input type="checkbox" value="telegram" class="accent-accent w-4 h-4"> 📱 Telegram
+                    </label>
+                    <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
+                        <input type="checkbox" value="discord" class="accent-accent w-4 h-4"> 🎮 Discord
+                    </label>
+                    <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
+                        <input type="checkbox" value="teams" class="accent-accent w-4 h-4"> 🏢 MS Teams
+                    </label>
+                    <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
+                        <input type="checkbox" value="email" class="accent-accent w-4 h-4"> 📧 Email
+                    </label>
+                    <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
+                        <input type="checkbox" value="webhook" class="accent-accent w-4 h-4"> 🔗 Webhook
+                    </label>
+                </div>
+            </div>
+            <button onclick="addSite()" class="mt-6 w-full py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition" data-i18n="add_monitor_btn">➕ Додати монітор</button>
         </div>
 
         <div class="glass rounded-2xl p-6 card-hover transition">
@@ -110,10 +171,10 @@
                 </div>
             </div>
             <div class="flex flex-col sm:flex-row gap-3 mb-4">
-                <input type="text" id="monitorSearch" name="search" placeholder="Search by name or URL..." data-i18n="search_placeholder" 
+                <input type="text" id="monitorSearch" name="search" placeholder="Search by name or URL..." data-i18n="search_placeholder"
                        class="flex-1 px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:border-accent transition"
                        onkeyup="renderMonitors()">
-                <select id="monitorSort" name="sort" 
+                <select id="monitorSort" name="sort"
                         class="w-full sm:w-48 px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:border-accent transition"
                         onchange="renderMonitors()">
                     <option value="status" data-i18n="sort_status">By Status</option>
@@ -122,7 +183,7 @@
                     <option value="response_time" data-i18n="sort_response">By Response Time</option>
                 </select>
             </div>
-            <div id="dashboardMonitors"
+            <div id="monitorsGrid"
                 class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 <div class="col-span-full text-center py-10 text-slate-500">Завантаження моніторів...</div>
             </div>
@@ -263,60 +324,6 @@
 
 <div id="tab-settings" class="tab-content mt-6 px-4 md:px-8 hidden">
     <div class="max-w-4xl mx-auto space-y-6">
-        <div class="glass rounded-2xl p-6">
-            <h3 class="text-lg font-semibold mb-4" data-i18n="add_monitor_title">➕ Додати монітор</h3>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <input type="text" id="siteName" placeholder="Назва" data-i18n="monitor_name_lbl" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
-                <input type="url" id="siteUrl" placeholder="URL" data-i18n="monitor_url_lbl" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                <select id="monitorType" onchange="toggleKeywordField('monitorType', 'keywordFieldContainer')" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
-                    <option value="http">🌐 HTTP(S)</option>
-                    <option value="port">🔌 Порт</option>
-                    <option value="ping">📡 Пінг</option>
-                    <option value="ssl">🔒 SSL</option>
-                    <option value="dns">🔍 DNS</option>
-                </select>
-                <div class="flex items-center gap-3">
-                    <input type="number" id="siteCheckInterval" value="60" min="10" max="3600" step="10" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
-                    <span class="text-slate-400 text-xs whitespace-nowrap" data-i18n="check_interval_lbl">інтервал (сек)</span>
-                </div>
-            </div>
-            <div class="mt-4" id="keywordFieldContainer">
-                <label class="text-slate-400 text-sm mb-1.5 block" data-i18n="keyword_lbl">Ключове слово для пошуку (опціонально, тільки для HTTP. Підтримується префікс regex:)</label>
-                <input type="text" id="siteKeyword" placeholder="напр. Welcome, Success, або regex:^Welcome to .*$" data-i18n="keyword_lbl" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
-            </div>
-            <div class="mt-4">
-                <label class="text-slate-400 text-sm mb-1.5 block">📁 Папки / Теги (виберіть зі списку або введіть назву)</label>
-                <div id="siteTagsWidget" class="w-full min-h-[48px] px-4 py-2 rounded-xl bg-[#0f172a] border border-slate-700/50 flex flex-wrap gap-2 items-center focus-within:border-accent focus-within:ring-1 focus-within:ring-accent transition cursor-text" onclick="document.getElementById('siteTagsInput').focus()">
-                    <input type="text" id="siteTagsInput" placeholder="Додати папку..." class="bg-transparent border-none text-white text-sm outline-none flex-grow min-w-[120px] focus:ring-0 p-0 placeholder-slate-500">
-                </div>
-                <div class="text-[10px] text-slate-500 mt-1">Натисніть Enter або кому, щоб створити нову папку</div>
-                <div class="flex flex-wrap gap-1.5 mt-2" id="existingTagsContainer"></div>
-            </div>
-            <div class="mt-4">
-                <label class="text-slate-400 text-sm mb-2 block" data-i18n="notifications_lbl">Способи сповіщень</label>
-                <div class="flex flex-wrap gap-3" id="siteNotifyOptions">
-                    <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
-                        <input type="checkbox" value="telegram" class="accent-accent w-4 h-4"> 📱 Telegram
-                    </label>
-                    <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
-                        <input type="checkbox" value="discord" class="accent-accent w-4 h-4"> 🎮 Discord
-                    </label>
-                    <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
-                        <input type="checkbox" value="teams" class="accent-accent w-4 h-4"> 🏢 MS Teams
-                    </label>
-                    <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
-                        <input type="checkbox" value="email" class="accent-accent w-4 h-4"> 📧 Email
-                    </label>
-                    <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
-                        <input type="checkbox" value="webhook" class="accent-accent w-4 h-4"> 🔗 Webhook
-                    </label>
-                </div>
-            </div>
-            <button onclick="addSite()" class="mt-6 w-full py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition" data-i18n="add_monitor_btn">➕ Додати монітор</button>
-        </div>
-
         <div class="glass rounded-2xl p-6">
             <h3 class="text-lg font-semibold mb-4">🎨 Налаштування сторінки статусу</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -805,7 +812,7 @@ function updateGauges() {
 
 
 function renderMonitors() {
-    const grid = document.getElementById('dashboardMonitors');
+    const grid = document.getElementById('monitorsGrid');
     if (!grid) return;
     
     const searchQuery = (document.getElementById('monitorSearch')?.value || '').toLowerCase().trim();
@@ -925,7 +932,8 @@ function switchTab(tabId) {
     document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('bg-accent', 'text-black'); b.classList.add('text-slate-400'); });
     document.getElementById('tab-' + tabId).classList.remove('hidden');
     document.querySelector(`.tab-btn[onclick*="${tabId}"]`).classList.add('bg-accent', 'text-black');
-    if (tabId === 'dashboard') { loadSites(); loadResponseTimeChart(); loadSSLTimelineChart(); }
+    if (tabId === 'dashboard') { loadSites(); loadResponseTimeChart(); loadSSLTimelineChart(); renderDashboardIncidents(); }
+    if (tabId === 'monitors') { loadSites(); }
     if (tabId === 'ssl') loadSSLCertificates();
     if (tabId === 'incidents') loadIncidents();
     if (tabId === 'maintenance') loadMaintenanceWindows();
@@ -1078,7 +1086,7 @@ async function loadSSLTimelineChart() {
 }
 
 async function loadIncidents() {
-    try { const resp = await fetch('/api/incidents'); incidentsData = await resp.json(); renderIncidents(); const icEl = document.getElementById('incidentCount'); if (icEl) icEl.textContent = incidentsData.length; } catch(e) { console.error(e); }
+    try { const resp = await fetch('/api/incidents'); incidentsData = await resp.json(); renderIncidents(); renderDashboardIncidents(); const icEl = document.getElementById('incidentCount'); if (icEl) icEl.textContent = incidentsData.length; } catch(e) { console.error(e); }
 }
 function renderIncidents() {
     const list = document.getElementById('incidentsList');
@@ -1102,6 +1110,26 @@ function renderIncidents() {
 
 async function checkAllMonitors() { for (const site of sitesData) { try { await fetch('/api/sites/' + site.id + '/check', {method:'POST'}); } catch(e) {} } loadSites(); }
 async function checkSSLCertificates() { try { await fetch('/api/ssl-certificates/check', {method:'POST'}); loadSSLCertificates(); } catch(e) { console.error(e); } }
+
+function renderDashboardIncidents() {
+    const container = document.getElementById('dashboardIncidents');
+    if (!container) return;
+    if (!incidentsData || incidentsData.length === 0) {
+        container.innerHTML = '<div class="text-center py-6 text-slate-500">✅ Немає інцидентів — всі монітори працюють!</div>';
+        return;
+    }
+    const recent = incidentsData.slice(0, 5);
+    container.innerHTML = recent.map(inc => {
+        const isDown = inc.status === 'down';
+        const borderColor = isDown ? '#ef4444' : '#eab308';
+        const statusText = isDown ? '🔴 DOWN' : '🟡 SLOW';
+        const date = new Date(inc.checked_at).toLocaleString('uk-UA');
+        return `<div style="border-left:3px solid ${borderColor}" class="pl-3 py-2 border-b border-slate-700/20 last:border-0">
+            <div class="flex items-center gap-2 text-sm"><span class="font-medium truncate">${inc.site_name}</span><span class="text-[10px] px-1.5 py-0.5 rounded" style="background:${borderColor}22;color:${borderColor}">${statusText}</span></div>
+            <div class="text-xs text-slate-500 mt-0.5">🕐 ${date}${inc.response_time ? ' ⚡'+Math.round(inc.response_time)+'ms' : ''}</div>
+        </div>`;
+    }).join('');
+}
 
 // Notifications
 function initNotifyUI() {
@@ -1487,12 +1515,21 @@ let wsReconnectTimer = null;
 let wsRetries = 0;
 const WS_MAX_RETRIES = 5;
 
+function updateWorkerDot(connected) {
+    const dot = document.getElementById('workerDot');
+    const label = document.getElementById('workerLabel');
+    if (!dot || !label) return;
+    dot.className = `w-2 h-2 rounded-full ${connected ? 'bg-emerald-400' : 'bg-red-400'}`;
+    label.textContent = connected ? 'Online' : 'Offline';
+}
+
 function connectWebSocket() {
-    if (wsRetries >= WS_MAX_RETRIES) return;
+    if (wsRetries >= WS_MAX_RETRIES) { updateWorkerDot(false); return; }
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const url = `${protocol}//${location.host}/ws`;
     try {
         ws = new WebSocket(url);
+        ws.onopen = function() { updateWorkerDot(true); wsRetries = 0; };
         ws.onmessage = function(event) {
             try {
                 const data = JSON.parse(event.data);
@@ -1502,6 +1539,7 @@ function connectWebSocket() {
             } catch(e) { console.error('WS parse error', e); }
         };
         ws.onclose = function() {
+            updateWorkerDot(false);
             ws = null;
             wsRetries++;
             if (wsRetries < WS_MAX_RETRIES && !wsReconnectTimer) {
@@ -1512,25 +1550,25 @@ function connectWebSocket() {
             }
         };
         ws.onerror = function() {
+            updateWorkerDot(false);
             if (ws) ws.close();
         };
-    } catch(e) { console.error('WS connection error', e); }
+    } catch(e) { console.error('WS connection error', e); updateWorkerDot(false); }
 }
 
 function updateSiteCard(data) {
-    const card = document.querySelector(`[data-site-id="${data.site_id}"]`);
-    if (!card) return;
-    const statusEl = card.querySelector('.status-badge');
-    if (statusEl) {
-        const isUp = data.status === 'up';
-        statusEl.textContent = isUp ? 'UP' : 'DOWN';
-        statusEl.className = 'status-badge ' + (isUp ? 'up' : 'down');
-    }
-    const rtEl = card.querySelector('.response-time');
-    if (rtEl && data.response_time) {
-        rtEl.textContent = data.response_time + 'ms';
-    }
-    card.className = 'monitor ' + data.status;
+    document.querySelectorAll(`[data-site-id="${data.site_id}"]`).forEach(card => {
+        const statusEl = card.querySelector('.status-badge');
+        if (statusEl) {
+            const isUp = data.status === 'up';
+            statusEl.textContent = isUp ? 'UP' : 'DOWN';
+            statusEl.className = 'status-badge ' + (isUp ? 'up' : 'down');
+        }
+        const rtEl = card.querySelector('.response-time');
+        if (rtEl && data.response_time) {
+            rtEl.textContent = data.response_time + 'ms';
+        }
+    });
 }
 
 connectWebSocket();
