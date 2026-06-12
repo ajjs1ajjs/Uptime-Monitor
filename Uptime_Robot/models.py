@@ -2,7 +2,7 @@
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from .database import get_db_connection
@@ -322,7 +322,7 @@ async def add_status_history(
                 status_code,
                 response_time,
                 error_message,
-                datetime.now().isoformat(),
+                datetime.now(timezone.utc).isoformat(),
             ),
         )
 
@@ -423,7 +423,7 @@ async def save_ssl_certificate(db_path: str, site_id: int, cert_data: dict[str, 
                     cert_data["expire_date"],
                     cert_data["days_until_expire"],
                     cert_data["is_valid"],
-                    datetime.now().isoformat(),
+                    datetime.now(timezone.utc).isoformat(),
                     site_id,
                 ),
             )
@@ -442,7 +442,7 @@ async def save_ssl_certificate(db_path: str, site_id: int, cert_data: dict[str, 
                     cert_data["expire_date"],
                     cert_data["days_until_expire"],
                     cert_data["is_valid"],
-                    datetime.now().isoformat(),
+                    datetime.now(timezone.utc).isoformat(),
                 ),
             )
 
@@ -531,7 +531,7 @@ async def log_audit_event(
                 target_type,
                 target_id,
                 details,
-                datetime.now().isoformat(),
+                datetime.now(timezone.utc).isoformat(),
             ),
         )
         await conn.commit()
@@ -564,7 +564,7 @@ async def log_notification(
                 method,
                 status,
                 (message_preview or "")[:200],
-                datetime.now().isoformat(),
+                datetime.now(timezone.utc).isoformat(),
             ),
         )
         await conn.commit()
@@ -598,7 +598,7 @@ async def create_backup(db_path: str, backup_path: str) -> dict:
                 backup_path,
                 os.path.getsize(backup_path),
                 site_count,
-                datetime.now().isoformat(),
+                datetime.now(timezone.utc).isoformat(),
             ),
         )
         await conn.commit()

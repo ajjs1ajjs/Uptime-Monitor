@@ -2,7 +2,7 @@
 
 import asyncio
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 import aiohttp
@@ -48,10 +48,10 @@ async def _check_dns(url: str, start_time: datetime) -> tuple:
     loop = asyncio.get_event_loop()
     try:
         await loop.getaddrinfo(host, None)
-        response_time = (datetime.now() - start_time).total_seconds() * 1000
+        response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
         return "up", 0, response_time, None
     except Exception as e:
-        response_time = (datetime.now() - start_time).total_seconds() * 1000
+        response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
         return "down", 1, response_time, f"DNS resolution failed: {e}"
 
 
@@ -70,7 +70,7 @@ async def _check_ping(url: str, start_time: datetime) -> tuple:
         *ping_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
     stdout, stderr = await proc.communicate()
-    response_time = (datetime.now() - start_time).total_seconds() * 1000
+    response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
     if proc.returncode == 0:
         return "up", 0, response_time, None
     return "down", 1, response_time, "Ping failed"
@@ -97,7 +97,7 @@ async def _check_port(url: str, start_time: datetime, timeout: int) -> tuple:
         await writer.wait_closed()
     except Exception:
         pass
-    response_time = (datetime.now() - start_time).total_seconds() * 1000
+    response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
     return "up", port, response_time, None
 
 
@@ -116,7 +116,7 @@ async def _check_http(
             allow_redirects=True,
         ) as response:
             status_code = response.status
-            response_time = (datetime.now() - start_time).total_seconds() * 1000
+            response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
 
             if keyword:
                 try:
@@ -222,7 +222,7 @@ async def _process_alerting(
 async def check_site_status(
     site_id: int, url: str, notify_methods: list[str], notify_settings: dict[str, Any]
 ):
-    start_time = datetime.now()
+    start_time = datetime.now(timezone.utc)
     status = "down"
     status_code = None
     response_time = None
@@ -254,7 +254,7 @@ async def check_site_status(
     max_attempts = len(delays) + 1
 
     for attempt in range(max_attempts):
-        start_time = datetime.now()
+        start_time = datetime.now(timezone.utc)
         try:
             policy = get_alert_policy()
             if under_maint:
@@ -293,7 +293,7 @@ async def check_site_status(
     if status == "down" and not under_maint:
         increment_metric("checks_failed")
 
-    checked_at = datetime.now()
+    checked_at = datetime.now(timezone.utc)
     checked_at_iso = checked_at.isoformat()
 
     try:
@@ -447,7 +447,7 @@ async def check_site_certificate(
             should_notify = True
             if row and row["last_notified"]:
                 last_notif = datetime.fromisoformat(row["last_notified"])
-                if (datetime.now() - last_notif).total_seconds() < policy[
+                if (datetime.now(timezone.utc) - last_notif).total_seconds() < policy[
                     "ssl_notification_cooldown_seconds"
                 ]:
                     should_notify = False
@@ -476,7 +476,7 @@ async def check_site_certificate(
 
                 await conn.execute(
                     "UPDATE ssl_certificates SET last_notified = ? WHERE site_id = ?",
-                    (datetime.now().isoformat(), site_id),
+                    (datetime.now(timezone.utc).isoformat(), site_id),
                 )
                 await conn.commit()
 
@@ -501,8 +501,8 @@ async def check_all_certificates(notify_settings: dict[str, Any]):
 async def monitor_loop(notify_settings: dict[str, Any], default_check_interval: int = 60):
     policy = get_alert_policy()
     ssl_check_interval = policy["ssl_check_interval_hours"] * 3600
-    last_cert_check = datetime.now() - timedelta(hours=25)
-    last_notify_settings_reload = datetime.now()
+    last_cert_check = datetime.now(timezone.utc) - timedelta(hours=25)
+    last_notify_settings_reload = datetime.now(timezone.utc)
     notify_settings_reload_interval = 30
 
     last_check_time = {}
@@ -510,7 +510,7 @@ async def monitor_loop(notify_settings: dict[str, Any], default_check_interval: 
 
     while True:
         try:
-            current_time = datetime.now()
+            current_time = datetime.now(timezone.utc)
 
             # Reap completed tasks
             for site_id in list(active_tasks.keys()):
@@ -560,10 +560,10 @@ async def monitor_loop(notify_settings: dict[str, Any], default_check_interval: 
                         active_tasks[site["id"]] = task
                         last_check_time[site["id"]] = current_time
 
-            if (datetime.now() - last_cert_check).total_seconds() >= ssl_check_interval:
+            if (datetime.now(timezone.utc) - last_cert_check).total_seconds() >= ssl_check_interval:
                 logger.info("Checking SSL certificates in background...")
                 await check_all_certificates(notify_settings)
-                last_cert_check = datetime.now()
+                last_cert_check = datetime.now(timezone.utc)
 
             await asyncio.sleep(5)
 

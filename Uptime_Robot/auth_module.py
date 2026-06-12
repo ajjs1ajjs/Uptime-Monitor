@@ -1,6 +1,6 @@
 import hashlib
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 
 import bcrypt
 
@@ -55,7 +55,7 @@ async def init_auth_tables(db_path):
         if not admin_row:
             await conn.execute(
                 "INSERT INTO users (username, password_hash, role, must_change_password, created_at) VALUES (?, ?, 'admin', 0, ?)",
-                ("admin", password_hash, datetime.now().isoformat()),
+                ("admin", password_hash, datetime.now(timezone.utc).isoformat()),
             )
             logger.info("=" * 50)
             logger.info("DEFAULT ADMIN USER CREATED")
@@ -90,7 +90,7 @@ def verify_password(password: str, password_hash: str) -> bool:
 async def create_session(user_id: int, db_path: str) -> str:
     """Створює сесію і повертає session_id"""
     session_id = secrets.token_urlsafe(32)
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     expires = now + timedelta(days=7)
 
     async with get_db_connection(db_path) as conn:
@@ -127,7 +127,7 @@ async def validate_session(session_id: str, db_path: str) -> dict:
         return None
 
     expires = datetime.fromisoformat(row["expires_at"])
-    if datetime.now() > expires:
+    if datetime.now(timezone.utc) > expires:
         return None
 
     return {
@@ -208,7 +208,7 @@ async def create_user(db_path: str, username: str, password: str, role: str = "v
             try:
                 await conn.execute(
                     "INSERT INTO users (username, password_hash, role, created_at) VALUES (?, ?, ?, ?)",
-                    (username, password_hash, role, datetime.now().isoformat()),
+                    (username, password_hash, role, datetime.now(timezone.utc).isoformat()),
                 )
                 await conn.commit()
                 return True
@@ -286,7 +286,7 @@ async def create_api_key(db_path: str, user_id: int, name: str) -> tuple:
     async with get_db_connection(db_path) as conn:
         await conn.execute(
             "INSERT INTO api_keys (key_id, user_id, name, key_hash, created_at, is_active) VALUES (?, ?, ?, ?, ?, 1)",
-            (key_id, user_id, name, key_hash, datetime.now().isoformat()),
+            (key_id, user_id, name, key_hash, datetime.now(timezone.utc).isoformat()),
         )
         await conn.commit()
     return (key_id, raw_key)
@@ -312,7 +312,7 @@ async def validate_api_key(db_path: str, api_key: str) -> dict:
     async with get_db_connection(db_path) as conn:
         await conn.execute(
             "UPDATE api_keys SET last_used_at = ? WHERE key_id = ?",
-            (datetime.now().isoformat(), row["key_id"]),
+            (datetime.now(timezone.utc).isoformat(), row["key_id"]),
         )
         await conn.commit()
 

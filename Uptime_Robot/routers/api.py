@@ -234,11 +234,11 @@ async def get_site_history(
 
 @router.get("/server-time")
 async def get_server_time():
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     return {
         "timestamp": now.timestamp(),
         "iso": now.isoformat(),
-        "timezone": now.astimezone().tzname() if now.tzinfo else "local",
+        "timezone": "UTC",
     }
 
 
@@ -520,8 +520,6 @@ async def get_incidents(user: dict = Depends(require_viewer_or_higher)):
                         start = dt["started_at"]
                         end = dt["ended_at"] or start
                         try:
-                            from datetime import datetime
-
                             start_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
                             end_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
                             duration = end_dt - start_dt

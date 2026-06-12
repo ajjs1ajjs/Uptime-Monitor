@@ -67,7 +67,7 @@ def _check_ssl_certificate_sync(url: str):
                         "expire_date": expire_date.isoformat(),
                         "days_until_expire": days_until_expire,
                         "is_valid": days_until_expire > 0,
-                        "checked_at": datetime.now().isoformat(),
+                        "checked_at": datetime.now(timezone.utc).isoformat(),
                     }
 
         return None

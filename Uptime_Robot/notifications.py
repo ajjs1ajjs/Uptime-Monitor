@@ -2,7 +2,7 @@
 
 import asyncio
 import smtplib
-from datetime import datetime
+from datetime import datetime, timezone
 from email.mime.text import MIMEText
 from typing import Any, Optional, Union
 
@@ -122,7 +122,7 @@ def format_discord_message(data: dict[str, Any], alert_type: str = "down") -> di
                         "text": "Uptime Monitor",
                         "icon_url": "https://i.imgur.com/AfFp7pu.png",
                     },
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             ]
         }
@@ -149,7 +149,7 @@ def format_discord_message(data: dict[str, Any], alert_type: str = "down") -> di
                         {"name": "🕐 Час", "value": checked_at, "inline": True},
                     ],
                     "footer": {"text": "Uptime Monitor"},
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             ]
         }
@@ -176,7 +176,7 @@ def format_discord_message(data: dict[str, Any], alert_type: str = "down") -> di
                         {"name": "🕐 Час", "value": checked_at, "inline": True},
                     ],
                     "footer": {"text": "Uptime Monitor"},
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             ]
         }
@@ -211,7 +211,7 @@ def format_discord_message(data: dict[str, Any], alert_type: str = "down") -> di
                         },
                     ],
                     "footer": {"text": "Uptime Monitor"},
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             ]
         }
@@ -624,7 +624,7 @@ async def send_webhook(message: Union[str, dict], settings: dict[str, Any]):
             payload = {
                 "alert_type": "info",
                 "message": message,
-                "checked_at": datetime.now().isoformat(),
+                "checked_at": datetime.now(timezone.utc).isoformat(),
             }
 
         async with aiohttp.ClientSession() as session:

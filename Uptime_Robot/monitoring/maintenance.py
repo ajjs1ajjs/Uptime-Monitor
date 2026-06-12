@@ -1,11 +1,11 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from ..database import get_db_connection
 from ..logger import logger
 
 
 async def is_under_maintenance(site_id: int) -> bool:
-    current_time = datetime.now()
+    current_time = datetime.now(timezone.utc)
     try:
         async with get_db_connection() as conn:
             async with conn.execute(

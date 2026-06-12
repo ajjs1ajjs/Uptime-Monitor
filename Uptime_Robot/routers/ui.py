@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -266,7 +266,7 @@ async def public_status_page(request: Request):
             sites_raw = await c.fetchall()
             sites = [dict(s) for s in sites_raw]
 
-        cutoff_30d = (datetime.now() - timedelta(days=30)).isoformat()
+        cutoff_30d = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
 
         incidents_raw = []
         for s in sites:
@@ -360,7 +360,7 @@ async def public_status_page(request: Request):
 
     overall_status_class = "up" if down_count == 0 else "down"
     overall_status_text = "All systems operational" if down_count == 0 else "Some issues detected"
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
     return templates.TemplateResponse(
         request,
