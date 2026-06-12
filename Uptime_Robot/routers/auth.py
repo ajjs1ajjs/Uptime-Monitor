@@ -40,12 +40,11 @@ async def login_page(request: Request, error: str = None, user: dict = Depends(g
         return RedirectResponse(url="/", status_code=302)
 
     error_html = f'<div class="error">{error}</div>' if error else ""
-    warning_html = '<div class="warning">WARNING: Change password after first login!</div>'
 
     return templates.TemplateResponse(
         request,
         "login.html",
-        {"request": request, "error_message": error_html, "warning_message": warning_html},
+        {"request": request, "error_message": error_html},
     )
 
 

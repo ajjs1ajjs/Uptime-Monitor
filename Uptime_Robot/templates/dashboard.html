@@ -77,23 +77,20 @@
     </div>
 
     <div class="space-y-6">
-        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <div class="glass rounded-2xl p-6 card-hover transition">
-                <h3 class="text-lg font-semibold mb-4">📈 Час відповіді (24год)</h3>
-                <div class="relative h-64">
-                    <canvas id="responseTimeChart"></canvas>
-                </div>
+        <div class="glass rounded-2xl p-6 card-hover transition">
+            <h3 class="text-lg font-semibold mb-4">📈 Час відповіді (24год)</h3>
+            <div class="relative h-64">
+                <canvas id="responseTimeChart"></canvas>
             </div>
-            <div class="glass rounded-2xl p-6 card-hover transition">
-                <h3 class="text-lg font-semibold mb-4">🔒 Термін SSL</h3>
-                <div class="relative h-64">
-                    <canvas id="sslTimelineChart"></canvas>
-                </div>
+        </div>
+        <div class="glass rounded-2xl p-6 card-hover transition">
+            <h3 class="text-lg font-semibold mb-4">🔒 Термін SSL</h3>
+            <div class="relative h-64">
+                <canvas id="sslTimelineChart"></canvas>
             </div>
         </div>
 
-
-        <div class="glass rounded-2xl p-6 card-hover transition">
+        <div class="glass rounded-2xl p-6 card-hover transition border-l-4 border-amber-500/50">
             <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">⚠️ Останні інциденти</h3>
             <div id="dashboardIncidents" class="space-y-2">
                 <div class="text-center py-8 text-slate-500">Завантаження...</div>

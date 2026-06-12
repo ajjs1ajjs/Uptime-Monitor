@@ -13,9 +13,6 @@
             {% if error_message %}
             <div class="mb-6 p-4 rounded-xl bg-status-down/10 border border-red-500/30 text-status-down text-sm">{{ error_message }}</div>
             {% endif %}
-            {% if warning_message %}
-            <div class="mb-6 p-4 rounded-xl bg-status-warning/10 border border-amber-500/30 text-status-warning text-sm">{{ warning_message }}</div>
-            {% endif %}
 
             <form method="POST" action="/login" class="space-y-5">
                 <div>
