@@ -76,26 +76,29 @@
         </div>
     </div>
 
-    <div class="space-y-6">
-        <div class="glass rounded-2xl p-6 card-hover transition">
-            <h3 class="text-lg font-semibold mb-4">📈 Час відповіді (24год)</h3>
-            <div class="relative h-64">
-                <canvas id="responseTimeChart"></canvas>
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div class="lg:col-span-3 space-y-6">
+            <div class="glass rounded-2xl p-6 card-hover transition">
+                <h3 class="text-lg font-semibold mb-4">📈 Час відповіді (24год)</h3>
+                <div class="relative h-64">
+                    <canvas id="responseTimeChart"></canvas>
+                </div>
+            </div>
+            <div class="glass rounded-2xl p-6 card-hover transition">
+                <h3 class="text-lg font-semibold mb-4">🔒 Термін SSL</h3>
+                <div class="relative h-64">
+                    <canvas id="sslTimelineChart"></canvas>
+                </div>
             </div>
         </div>
-        <div class="glass rounded-2xl p-6 card-hover transition">
-            <h3 class="text-lg font-semibold mb-4">🔒 Термін SSL</h3>
-            <div class="relative h-64">
-                <canvas id="sslTimelineChart"></canvas>
+        <div class="lg:col-span-1">
+            <div class="glass rounded-2xl p-6 card-hover transition border-l-4 border-amber-500/50 sticky top-24">
+                <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">⚠️ Останні інциденти</h3>
+                <div id="dashboardIncidents" class="space-y-2">
+                    <div class="text-center py-8 text-slate-500">Завантаження...</div>
+                </div>
+                <button onclick="switchTab('incidents')" class="mt-4 w-full py-2.5 rounded-xl bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-sm font-medium">📋 Всі інциденти</button>
             </div>
-        </div>
-
-        <div class="glass rounded-2xl p-6 card-hover transition border-l-4 border-amber-500/50">
-            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">⚠️ Останні інциденти</h3>
-            <div id="dashboardIncidents" class="space-y-2">
-                <div class="text-center py-8 text-slate-500">Завантаження...</div>
-            </div>
-            <button onclick="switchTab('incidents')" class="mt-4 w-full py-2.5 rounded-xl bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-sm font-medium">📋 Всі інциденти</button>
         </div>
     </div>
 </div>
