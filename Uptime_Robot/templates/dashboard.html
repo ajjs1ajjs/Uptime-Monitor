@@ -4,8 +4,6 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
     canvas.gauge-chart { max-height: 100px; }
-    .timeline-bar { min-width: 4px; border-radius: 2px; cursor: pointer; transition: opacity 0.2s; }
-    .timeline-bar:hover { opacity: 0.8; }
     .now-marker { position: absolute; top: 0; bottom: 0; width: 2px; background: #00d9ff; z-index: 10; box-shadow: 0 0 8px #00d9ff; pointer-events: none; }
     .status-dot { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 8px currentColor; flex-shrink: 0; }
 </style>
@@ -89,16 +87,7 @@
                 </div>
             </div>
         </div>
-        <div class="glass rounded-2xl p-6 card-hover transition">
-            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">📊 Часова шкала (24год)</h3>
-            <div class="flex gap-4 mb-4 text-xs">
-                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-emerald-500"></span> UP</span>
-                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-500"></span> DOWN</span>
-                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-amber-500"></span> SLOW</span>
-                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-slate-500"></span> НЕМАЄ ДАНИХ</span>
-            </div>
-            <div id="uptimeChartContainer" class="max-h-[500px] overflow-y-auto scrollbar-thin"></div>
-        </div>
+
 
         <div class="glass rounded-2xl p-6 card-hover transition">
             <h3 class="text-lg font-semibold mb-4">🎯 Швидкі дії</h3>
@@ -740,7 +729,6 @@ async function loadSites() {
         renderMonitors();
         updateStats();
         updateGauges();
-        loadUptimeChart();
         updateTagFilters();
         updateExistingTagsSuggest('existingTagsContainer', 'siteTagsInput', 'add');
         updateExistingTagsSuggest('editExistingTagsContainer', 'editSiteTagsInput', 'edit');
@@ -815,89 +803,6 @@ function updateGauges() {
 }
 
 
-
-async function loadUptimeChart() {
-    const container = document.getElementById('uptimeChartContainer');
-    if (!container) return;
-    try {
-        const timeCtx = await fetch('/api/server-time');
-        const serverTime = await timeCtx.json();
-        const now = new Date(serverTime.timestamp * 1000);
-        const historyCtx = await fetch('/api/sites/history-all');
-        const allHistory = await historyCtx.json();
-        const sites = sitesData;
-        if (sites.length === 0) { container.innerHTML = '<div class="text-slate-500 text-center py-10">No monitors</div>'; return; }
-
-        sites.sort((a, b) => { const o = {down:0, slow:1, paused:2, unknown:3, up:4}; return (o[a.status]??5) - (o[b.status]??5); });
-
-        const nowMs = now.getTime();
-        const windowStartMs = nowMs - (24 * 60 * 60 * 1000);
-        const chartWidth = Math.max(600, container.clientWidth - 200);
-
-        const hourMarkers = [];
-        const timeLabels = [];
-        for (let h = 0; h <= 24; h += 4) {
-            const x = (h / 24) * chartWidth;
-            const markerTime = new Date(windowStartMs + (h * 60 * 60 * 1000));
-            hourMarkers.push(`<div class="absolute left-[${x}px] top-0 bottom-0 w-px bg-slate-700/30 z-[1]"></div>`);
-            timeLabels.push(`<div class="absolute left-[${x}px] -top-4 text-[10px] text-slate-500 -translate-x-1/2 whitespace-nowrap">${markerTime.toLocaleTimeString('uk-UA', {hour:'2-digit',minute:'2-digit'})}</div>`);
-        }
-        const preciseCurrentHour = now.getHours() + now.getMinutes()/60 + now.getSeconds()/3600;
-        const nowX = (preciseCurrentHour / 24) * chartWidth;
-
-        let siteCharts = '';
-        for (const site of sites) {
-            const history = allHistory[site.id] || [];
-            const hourlyData = {};
-            for (let h = 0; h < 24; h++) hourlyData[h] = {up:0, down:0, slow:0, total:0};
-            history.forEach(h => {
-                const ts = new Date(h.checked_at).getTime();
-                if (!Number.isFinite(ts) || ts < windowStartMs || ts > nowMs) return;
-                const hour = Math.floor((ts - windowStartMs) / (60 * 60 * 1000));
-                if (hourlyData[hour] !== undefined) { hourlyData[hour].total++; if (h.status === 'up') hourlyData[hour].up++; else if (h.status === 'down') hourlyData[hour].down++; else if (h.status === 'slow') hourlyData[hour].slow++; }
-            });
-            const hasData = Object.values(hourlyData).some(d => d.total > 0);
-            if (!hasData) {
-                for (let h = 0; h < 24; h++) { hourlyData[h].total = 1; hourlyData[h][site.status === 'up' ? 'up' : 'down'] = 1; }
-            }
-            let timelineBars = '';
-            for (let h = 0; h < 24; h++) {
-                const data = hourlyData[h];
-                const x = (h / 24) * chartWidth;
-                const barWidth = (chartWidth / 24) - 2;
-                let color = '#6b7280', tooltip = 'No data';
-                if (data.total > 0) {
-                    const uptime = (data.up / data.total) * 100;
-                    if (uptime >= 90) { color = '#22c55e'; tooltip = `UP: ${data.up}/${data.total}`; }
-                    else if (uptime >= 50) { color = '#eab308'; tooltip = `SLOW: ${data.slow}/${data.total}`; }
-                    else { color = '#ef4444'; tooltip = `DOWN: ${data.down}/${data.total}`; }
-                }
-                timelineBars += `<div class="timeline-bar absolute" style="left:${x}px;width:${barWidth}px;height:100%;background:${color}" title="${h}:00 - ${(h+1)%24}:00 ${tooltip}"></div>`;
-            }
-            const statusColor = site.status === 'up' ? '#22c55e' : site.status === 'slow' ? '#eab308' : '#ef4444';
-            const samples = Object.values(hourlyData).reduce((a, d) => a + d.total, 0);
-            const upSamples = Object.values(hourlyData).reduce((a, d) => a + d.up, 0);
-            const uptime = samples > 0 ? ((upSamples / samples) * 100).toFixed(1) : 0;
-
-            siteCharts += `<div class="relative py-2 border-b border-slate-700/30">
-                <div class="flex items-center gap-2 mb-2">
-                    <div class="status-dot" style="color:${statusColor};background:${statusColor}"></div>
-                    <div class="flex-1 min-w-0">
-                        <div class="text-sm font-medium truncate">${site.name}</div>
-                    </div>
-                    <div class="text-sm font-bold ${uptime >= 99 ? 'text-emerald-400' : uptime >= 95 ? 'text-amber-400' : 'text-red-400'}">${uptime}%</div>
-                </div>
-                <div class="relative h-10 bg-slate-800/50 rounded-lg overflow-visible">
-                    <div class="absolute -top-5 left-0 right-0 h-5">${timeLabels.join('')}</div>
-                    ${hourMarkers.join('')}
-                    <div class="now-marker" style="left:${nowX}px"></div>
-                    ${timelineBars}
-                </div>
-            </div>`;
-        }
-        container.innerHTML = `<div class="divide-y divide-slate-700/30">${siteCharts || '<div class="text-slate-500 text-center py-8">No data</div>'}</div>`;
-    } catch(e) { console.error(e); container.innerHTML = '<div class="text-slate-500 text-center py-8">Load error</div>'; }
-}
 
 function renderMonitors() {
     const grid = document.getElementById('dashboardMonitors');
@@ -1020,7 +925,7 @@ function switchTab(tabId) {
     document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('bg-accent', 'text-black'); b.classList.add('text-slate-400'); });
     document.getElementById('tab-' + tabId).classList.remove('hidden');
     document.querySelector(`.tab-btn[onclick*="${tabId}"]`).classList.add('bg-accent', 'text-black');
-    if (tabId === 'dashboard') { loadSites(); loadUptimeChart(); loadResponseTimeChart(); loadSSLTimelineChart(); }
+    if (tabId === 'dashboard') { loadSites(); loadResponseTimeChart(); loadSSLTimelineChart(); }
     if (tabId === 'ssl') loadSSLCertificates();
     if (tabId === 'incidents') loadIncidents();
     if (tabId === 'maintenance') loadMaintenanceWindows();
@@ -1098,7 +1003,7 @@ function renderSSLCertificates() {
     grid.innerHTML = html;
 }
 
-async function loadDashboard() { loadSites(); loadUptimeChart(); loadSSLCertificates(); await loadResponseTimeChart(); await loadSSLTimelineChart(); await loadIncidents(); }
+async function loadDashboard() { loadSites(); loadSSLCertificates(); await loadResponseTimeChart(); await loadSSLTimelineChart(); await loadIncidents(); }
 
 async function loadResponseTimeChart() {
     try {
