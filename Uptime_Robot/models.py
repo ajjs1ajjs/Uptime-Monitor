@@ -62,6 +62,11 @@ async def _create_tables(conn):
         day_of_week INTEGER, start_hour_minute TEXT, duration_minutes INTEGER,
         is_active BOOLEAN DEFAULT 1, FOREIGN KEY(site_id) REFERENCES sites(id)
     )""")
+    await conn.execute("""CREATE TABLE IF NOT EXISTS csrf_tokens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL,
+        token TEXT NOT NULL, created_at TEXT DEFAULT (datetime('now'))
+    )""")
+    await conn.execute("CREATE INDEX IF NOT EXISTS idx_csrf_tokens_session ON csrf_tokens(session_id)")
 
 
 async def _run_migrations(conn):
@@ -91,7 +96,8 @@ async def _run_migrations(conn):
     for col in ("failed_attempts", "success_attempts", "last_down_alert", "first_failure_at", "keyword", "tags"):
         if col not in site_cols:
             col_type = "TEXT DEFAULT '[]'" if col == "tags" else "TEXT DEFAULT NULL" if col in ("last_down_alert", "keyword", "first_failure_at") else "INTEGER DEFAULT 0"
-            await conn.execute(f"ALTER TABLE sites ADD COLUMN {col} {col_type}")
+            if col in ("failed_attempts", "success_attempts", "last_down_alert", "first_failure_at", "keyword", "tags"):
+                await conn.execute(f"ALTER TABLE sites ADD COLUMN {col} {col_type}")
 
     async with conn.execute("PRAGMA table_info(app_settings)") as c:
         settings_cols = {r[1] for r in await c.fetchall()}

@@ -229,7 +229,7 @@ async def dashboard(request: Request, user: dict = Depends(get_current_user)):
     notification_cards = notify_cards_template.render(
         {"request": request, "notify_settings": NOTIFY_SETTINGS}
     )
-    notify_config_json = json.dumps(NOTIFY_SETTINGS)
+    notify_config_json = json.dumps(NOTIFY_SETTINGS).replace("</", "<\\/")
 
     return templates.TemplateResponse(
         request,
@@ -242,6 +242,7 @@ async def dashboard(request: Request, user: dict = Depends(get_current_user)):
             "down_sites": down_sites,
             "notification_cards": notification_cards,
             "notify_config_json": notify_config_json,
+            "notify_settings": NOTIFY_SETTINGS,
         },
     )
 
@@ -398,17 +399,14 @@ async def dashboard_websocket(ws: WebSocket):
     from ..auth_module import validate_session
     from ..state import DB_PATH
 
-    cookies = ws.headers.get("cookie", "")
-    session_id = None
-    for c in cookies.split(";"):
-        c = c.strip()
-        if c.startswith("session_id="):
-            session_id = c[len("session_id="):]
-            break
+    from http.cookies import SimpleCookie
 
+    cookies = SimpleCookie(ws.headers.get("cookie", ""))
+    session_id = cookies.get("session_id")
     if not session_id:
         await ws.close(code=4001, reason="Authentication required")
         return
+    session_id = session_id.value
     session = await validate_session(session_id, DB_PATH)
     if not session:
         await ws.close(code=4001, reason="Invalid session")
@@ -416,7 +414,11 @@ async def dashboard_websocket(ws: WebSocket):
     await manager.connect(ws)
     try:
         while True:
-            await ws.receive_text()
+            data = await asyncio.wait_for(ws.receive_text(), timeout=120)
+            if data == "ping":
+                await ws.send_text("pong")
+    except asyncio.TimeoutError:
+        logger.debug("WS idle timeout — closing")
     except WebSocketDisconnect:
         pass
     except Exception:

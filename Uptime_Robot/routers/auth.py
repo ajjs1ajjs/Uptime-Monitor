@@ -199,12 +199,15 @@ async def forgot_password_action(
 
     success_html = (
         '<div class="success">'
-        f"Temporary password for {html.escape(username)}: "
-        f"<code>{html.escape(temporary_password)}</code>"
+        f"Password reset for {html.escape(username)} — user must change on next login. "
+        f"Temporary password: <code>{html.escape(temporary_password)}</code> "
+        f'<button onclick="setTimeout(function(){{ document.getElementById(\'temp-pw\').style.display=\'none\'; }},60000)" class="text-xs text-slate-400">(hide in 60s)</button>'
         "</div>"
     )
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         request,
         "forgot_password.html",
         {"request": request, "error_message": "", "success_message": success_html},
     )
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    return response

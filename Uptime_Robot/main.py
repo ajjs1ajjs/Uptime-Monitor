@@ -19,9 +19,6 @@ IS_WINDOWS = sys.platform == "win32"
 if IS_WINDOWS:
     pass
 
-# App initialization
-config_manager.init_paths()
-
 # Global state and constants from state.py
 CONFIG = app_state.CONFIG
 DB_PATH = app_state.DB_PATH
@@ -46,6 +43,7 @@ async def initialize_app_async():
         await models.init_database(DB_PATH)
     except Exception as e:
         logger.error("Database initialization failed: %s", e)
+        raise
 
     import json
 

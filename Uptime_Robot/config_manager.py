@@ -235,26 +235,14 @@ def backup_config(config):
         with open(backup_file, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=4, ensure_ascii=False)
 
-        # Update symlinks
+        # Update symlinks atomically
         latest_link = os.path.join(backup_dir, "config.latest.json")
         prev_link = os.path.join(backup_dir, "config.previous.json")
 
-        if os.path.exists(latest_link):
-            if os.path.exists(prev_link):
-                try:
-                    os.remove(prev_link)
-                except OSError:
-                    pass
-            try:
-                os.rename(latest_link, prev_link)
-            except OSError:
-                pass
-
-        if os.path.exists(latest_link):
-            try:
-                os.remove(latest_link)
-            except OSError:
-                pass
+        try:
+            os.replace(latest_link, prev_link)
+        except OSError:
+            pass
 
         try:
             if hasattr(os, "symlink"):

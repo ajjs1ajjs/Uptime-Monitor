@@ -614,7 +614,7 @@ document.addEventListener('DOMContentLoaded', function() {
 {% endblock %}
 {% block scripts %}
 <script>
-var notifyConfig = {{ notify_config_json | safe }};
+var notifyConfig = {{ notify_settings | tojson }};
 let currentFilter = 'all';
 
 function toggleKeywordField(selectId, containerId) {
@@ -1179,7 +1179,7 @@ function renderIncidents() {
         const bgColor = isDown ? 'rgba(239,68,68,0.1)' : 'rgba(234,179,8,0.1)';
         const borderColor = isDown ? '#ef4444' : '#eab308';
         const statusText = isDown ? '🔴 DOWN' : '🟡 SLOW';
-        const date = new Date(inc.checked_at).toLocaleString('uk-UA');
+        const date = inc.checked_at ? new Date(inc.checked_at).toLocaleString('uk-UA') : '';
         return `<div style="background:${bgColor};border-left:4px solid ${borderColor}" class="p-4 rounded-xl">
             <div class="flex items-center gap-2 mb-1"><span class="font-semibold text-sm">${inc.site_name}</span><span class="text-xs px-2 py-0.5 rounded" style="background:${borderColor}22;color:${borderColor}">${statusText}</span></div>
             <div class="text-xs text-slate-400">${inc.site_url}</div>
@@ -1189,10 +1189,8 @@ function renderIncidents() {
         </div>`;
     }).join('') + '</div>';
 }
-
 async function checkAllMonitors() { for (const site of sitesData) { try { await fetch('/api/sites/' + site.id + '/check', {method:'POST'}); } catch(e) {} } loadSites(); }
 async function checkSSLCertificates() { try { await fetch('/api/ssl-certificates/check', {method:'POST'}); loadSSLCertificates(); } catch(e) { console.error(e); } }
-
 function renderDashboardIncidents() {
     const container = document.getElementById('dashboardIncidents');
     if (!container) return;
@@ -1205,7 +1203,7 @@ function renderDashboardIncidents() {
         const isDown = inc.status === 'down';
         const borderColor = isDown ? '#ef4444' : '#eab308';
         const statusText = isDown ? '🔴 DOWN' : '🟡 SLOW';
-        const date = new Date(inc.checked_at).toLocaleString('uk-UA');
+        const date = inc.checked_at ? new Date(inc.checked_at).toLocaleString('uk-UA') : '';
         return `<div style="border-left:3px solid ${borderColor}" class="pl-3 py-2 border-b border-slate-700/20 last:border-0">
             <div class="flex items-center gap-2 text-sm"><span class="font-medium truncate">${inc.site_name}</span><span class="text-[10px] px-1.5 py-0.5 rounded" style="background:${borderColor}22;color:${borderColor}">${statusText}</span></div>
             <div class="text-xs text-slate-500 mt-0.5">🕐 ${date}${inc.response_time ? ' ⚡'+Math.round(inc.response_time)+'ms' : ''}</div>
@@ -1649,6 +1647,7 @@ function updateWorkerDot(connected) {
 }
 
 function connectWebSocket() {
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const url = `${protocol}//${location.host}/ws`;
     try {
@@ -1676,7 +1675,6 @@ function connectWebSocket() {
         };
         ws.onerror = function() {
             updateWorkerDot(false);
-            if (ws) ws.close();
         };
     } catch(e) { console.error('WS connection error', e); updateWorkerDot(false); }
 }

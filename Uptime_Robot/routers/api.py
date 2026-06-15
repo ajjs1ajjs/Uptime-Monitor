@@ -901,7 +901,7 @@ async def export_sla_report(days: int = 7, user: dict = Depends(require_viewer_o
 
     output.seek(0)
 
-    response = StreamingResponse(io.StringIO(output.getvalue()), media_type="text/csv")
+    response = StreamingResponse(output, media_type="text/csv")
     response.headers["Content-Disposition"] = f"attachment; filename=sla_report_{days}days.csv"
     return response
 

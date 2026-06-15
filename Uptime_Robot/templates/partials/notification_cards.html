@@ -1,4 +1,4 @@
-<script id="channel-secrets" type="application/json">{{ notify_config_json }}</script>
+<script id="channel-secrets" type="application/json">{{ notify_settings | tojson }}</script>
 {% set methods = [
     ("telegram", "📱", "Telegram", "Миттєві сповіщення"),
     ("discord", "🎮", "Discord", "Геймерські спільноти"),

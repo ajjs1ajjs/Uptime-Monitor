@@ -145,9 +145,23 @@ async def _check_http(
 
 
 _flap_state: dict[int, dict] = {}
+_LAST_FLAP_CLEANUP = time.time()
+
+
+def _cleanup_flap_state():
+    global _LAST_FLAP_CLEANUP
+    now = time.time()
+    if now - _LAST_FLAP_CLEANUP < 3600:
+        return
+    _LAST_FLAP_CLEANUP = now
+    cutoff = now - 3600
+    for sid in list(_flap_state.keys()):
+        if _flap_state[sid]["last_time"] < cutoff:
+            del _flap_state[sid]
 
 
 def _check_flapping(site_id: int, prev_status: str, status: str, policy: dict) -> bool:
+    _cleanup_flap_state()
     now = time.time()
     state = _flap_state.get(site_id)
     if state is None:
@@ -617,7 +631,7 @@ async def monitor_loop(notify_settings: dict[str, Any], default_check_interval: 
                 if db_settings:
                     for key, value in db_settings.items():
                         notify_settings[key] = value
-                    last_notify_settings_reload = current_time
+                    last_notify_settings_reload += timedelta(seconds=notify_settings_reload_interval)
                     logger.debug("Reloaded notification settings from DB")
 
             async with get_db_connection() as conn:
