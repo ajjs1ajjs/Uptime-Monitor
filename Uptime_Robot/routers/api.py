@@ -993,6 +993,9 @@ async def restore_backup_endpoint(backup_id: int, confirm: bool = Query(False)):
         raise HTTPException(status_code=404, detail="Backup not found")
     import shutil
 
+    from ..database import close_db
+
+    await close_db()
     shutil.copy2(target["filepath"], DB_PATH)
     await models.log_audit_event(
         DB_PATH,

@@ -1253,12 +1253,11 @@ function addNewChannel() {
         const token = document.getElementById('newTelegramToken').value.trim();
         const chat_id = document.getElementById('newTelegramChatId').value.trim();
         if (!token || !chat_id) return alert('Введіть токен та chat_id!');
+        __secrets[channelId] = { token, chat_id };
         html = `<div class="channel-item p-3 rounded-lg bg-slate-800/50 border border-slate-700/50 mb-2" id="ch_${channelId}">
             <div class="flex justify-between items-center"><span class="text-sm font-medium">📱 ${name}</span>
             <button onclick="removeChannel('${method}','${channelId}')" class="text-red-400 hover:text-red-300 text-xs">✕</button></div>
             <input type="hidden" id="${method}_${channelId}_name" value="${name}">
-            <input type="hidden" id="${method}_${channelId}_token" value="${token}">
-            <input type="hidden" id="${method}_${channelId}_chat_id" value="${chat_id}">
         </div>`;
     } else if (method === 'email') {
         const smtp_server = document.getElementById('newEmailSmtp').value.trim();
@@ -1267,31 +1266,28 @@ function addNewChannel() {
         const password = document.getElementById('newEmailPass').value;
         const to_email = document.getElementById('newEmailTo').value.trim();
         if (!smtp_server || !username || !to_email) return alert('Заповніть всі поля email!');
+        __secrets[channelId] = { smtp_server, smtp_port: parseInt(smtp_port), username, password, to_email };
         html = `<div class="channel-item p-3 rounded-lg bg-slate-800/50 border border-slate-700/50 mb-2" id="ch_${channelId}">
             <div class="flex justify-between items-center"><span class="text-sm font-medium">📧 ${name}</span>
             <button onclick="removeChannel('${method}','${channelId}')" class="text-red-400 hover:text-red-300 text-xs">✕</button></div>
             <input type="hidden" id="${method}_${channelId}_name" value="${name}">
-            <input type="hidden" id="${method}_${channelId}_smtp_server" value="${smtp_server}">
-            <input type="hidden" id="${method}_${channelId}_smtp_port" value="${smtp_port}">
-            <input type="hidden" id="${method}_${channelId}_username" value="${username}">
-            <input type="hidden" id="${method}_${channelId}_password" value="${password}">
-            <input type="hidden" id="${method}_${channelId}_to_email" value="${to_email}">
         </div>`;
     } else {
         const webhookUrl = document.getElementById('newWebhookUrl').value.trim();
         if (!webhookUrl) return alert('Введіть URL webhook!');
+        __secrets[channelId] = { webhook_url: webhookUrl };
         html = `<div class="channel-item p-3 rounded-lg bg-slate-800/50 border border-slate-700/50 mb-2" id="ch_${channelId}">
             <div class="flex justify-between items-center"><span class="text-sm font-medium">🔗 ${name}</span>
             <button onclick="removeChannel('${method}','${channelId}')" class="text-red-400 hover:text-red-300 text-xs">✕</button></div>
             <input type="hidden" id="${method}_${channelId}_name" value="${name}">
-            <input type="hidden" id="${method}_${channelId}_webhook_url" value="${webhookUrl}">
         </div>`;
     }
     container.insertAdjacentHTML('beforeend', html);
     closeAddChannelModal();
 }
-function removeChannel(method, channelId) { const el = document.getElementById('ch_' + channelId); if (el) el.remove(); }
+function removeChannel(method, channelId) { const el = document.getElementById('ch_' + channelId); if (el) el.remove(); delete __secrets[channelId]; }
 
+var __secrets = {};
 function getSecrets() {
     try { return JSON.parse(document.getElementById('channel-secrets')?.textContent || '{}'); } catch { return {}; }
 }
@@ -1311,20 +1307,21 @@ async function saveNotifySettings() {
                 const name = document.getElementById(m + '_' + id + '_name')?.value;
                 if (!name) return;
                 const existing = chMap[id] || {};
-                const fromDom = (suffix) => { const el = document.getElementById(m + '_' + id + suffix); return el ? el.value : ''; };
+                const pending = __secrets[id] || {};
+                const val = (suffix, field) => pending[field] || (document.getElementById(m + '_' + id + suffix)?.value) || existing[field] || '';
                 if (m === 'telegram') {
-                    const token = fromDom('_token') || existing.token || '';
-                    const chat_id = fromDom('_chat_id') || existing.chat_id || '';
+                    const token = val('_token', 'token');
+                    const chat_id = val('_chat_id', 'chat_id');
                     if (token && chat_id) settings[m].channels.push({id, name, token, chat_id});
                 } else if (m === 'email') {
-                    const smtp_server = fromDom('_smtp_server') || existing.smtp_server || '';
-                    const smtp_port = parseInt(fromDom('_smtp_port')) || existing.smtp_port || 587;
-                    const username = fromDom('_username') || existing.username || '';
-                    const password = fromDom('_password') || existing.password || '';
-                    const to_email = fromDom('_to_email') || existing.to_email || '';
+                    const smtp_server = val('_smtp_server', 'smtp_server');
+                    const smtp_port = parseInt(val('_smtp_port', 'smtp_port')) || existing.smtp_port || 587;
+                    const username = val('_username', 'username');
+                    const password = val('_password', 'password');
+                    const to_email = val('_to_email', 'to_email');
                     if (smtp_server && username && to_email) settings[m].channels.push({id, name, smtp_server, smtp_port, username, password, to_email});
                 } else {
-                    const webhook_url = fromDom('_webhook_url') || existing.webhook_url || '';
+                    const webhook_url = val('_webhook_url', 'webhook_url');
                     if (webhook_url) settings[m].channels.push({id, name, webhook_url});
                 }
             });

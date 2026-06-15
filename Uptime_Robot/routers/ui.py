@@ -75,8 +75,8 @@ def _monitor_card_html(site: dict) -> str:
         {
             "name": site.get("name", ""),
             "url": site.get("url", ""),
-            "escaped_name": (site.get("name") or "").replace("'", "\\'"),
-            "escaped_url": (site.get("url") or "").replace("'", "\\'"),
+            "escaped_name": json.dumps(site.get("name", "")),
+            "escaped_url": json.dumps(site.get("url", "")),
             "escaped_methods": urllib.parse.quote(json.dumps(methods)),
             "escaped_keyword": urllib.parse.quote(keyword),
             "escaped_tags": urllib.parse.quote(json.dumps(tags)),

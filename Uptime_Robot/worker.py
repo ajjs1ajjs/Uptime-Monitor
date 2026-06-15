@@ -34,7 +34,10 @@ async def _shutdown():
     tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
     for t in tasks:
         t.cancel()
-    await asyncio.gather(*tasks, return_exceptions=True)
+    try:
+        await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=10)
+    except asyncio.TimeoutError:
+        logger.warning("Shutdown timeout — forcing exit")
     await close_db()
     asyncio.get_event_loop().stop()
 

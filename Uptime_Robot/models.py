@@ -223,8 +223,9 @@ async def _cleanup_old_data(conn):
         if deleted:
             logger.info("Cleaned %d old notification_history rows", deleted)
 
-    # rate_limits — старше 7 днів
-    async with conn.execute("DELETE FROM rate_limits WHERE attempted_at < datetime('now', '-7 days')") as c:
+    # rate_limits — старше 7 днів (reset_at REAL = Unix timestamp)
+    cutoff = datetime.now(timezone.utc).timestamp() - 7 * 86400
+    async with conn.execute("DELETE FROM rate_limits WHERE reset_at < ?", (cutoff,)) as c:
         deleted = c.rowcount
         if deleted:
             logger.info("Cleaned %d old rate_limit rows", deleted)

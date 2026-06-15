@@ -575,7 +575,7 @@ async def send_email(message: Union[str, dict], settings: dict[str, Any]):
         msg["To"] = to_email
 
         def _send():
-            with smtplib.SMTP(str(smtp_server), int(smtp_port)) as server:
+            with smtplib.SMTP(str(smtp_server), int(smtp_port), timeout=15) as server:
                 server.starttls()
                 server.login(str(username), str(password))
                 server.send_message(msg)

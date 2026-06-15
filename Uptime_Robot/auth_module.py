@@ -213,6 +213,10 @@ def is_viewer_or_higher(user: dict) -> bool:
 
 async def create_user(db_path: str, username: str, password: str, role: str = "viewer") -> bool:
     """Create a new user with specified role"""
+    is_valid, err = validate_password_strength(password)
+    if not is_valid:
+        logger.error("Cannot create user '%s': %s", username, err)
+        return False
     try:
         async with get_db_connection(db_path) as conn:
             password_hash = hash_password(password)

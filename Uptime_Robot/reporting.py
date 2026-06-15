@@ -1,6 +1,6 @@
 """SLA report generation (PDF via weasyprint)."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
@@ -66,7 +66,7 @@ async def generate_sla_report(days: int = 30) -> dict:
             "period_days": days,
             "generated_at": now.strftime("%Y-%m-%d %H:%M UTC"),
             "period_end": now.strftime("%Y-%m-%d %H:%M UTC"),
-            "period_start": now.replace(day=now.day - days if now.day > days else 1).strftime("%Y-%m-%d %H:%M UTC"),
+            "period_start": (now - timedelta(days=days)).strftime("%Y-%m-%d %H:%M UTC"),
             "total_sites": len(report_sites),
             "overall_uptime": round(uptime_sum / len(report_sites), 2) if report_sites else 100.0,
             "overall_avg_rt": round(rt_sum / len(report_sites), 1) if report_sites else 0,

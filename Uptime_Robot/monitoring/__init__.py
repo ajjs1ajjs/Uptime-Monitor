@@ -442,23 +442,22 @@ async def check_site_status(
         skip_alert,
     )
 
-    # Transaction 2: update alert-related fields (last_down_alert, etc.)
+    # Transaction 2: always persist counters + alert-related fields
     last_down_str = last_down_alert.isoformat() if last_down_alert else None
     first_failure_str = first_failure_at.isoformat() if first_failure_at else None
-    if (last_down_str != last_down_alert_str or first_failure_str != first_failure_at_str):
-        async with get_db_connection(DB_PATH) as conn:
-            try:
-                await conn.execute("BEGIN")
-                await conn.execute(
-                    """UPDATE sites SET
-                       failed_attempts = ?, success_attempts = ?, last_down_alert = ?,
-                       first_failure_at = ?
-                       WHERE id = ?""",
-                    (failed_attempts, success_attempts, last_down_str, first_failure_str, site_id),
-                )
-                await conn.commit()
-            except Exception:
-                await conn.rollback()
+    async with get_db_connection(DB_PATH) as conn:
+        try:
+            await conn.execute("BEGIN")
+            await conn.execute(
+                """UPDATE sites SET
+                   failed_attempts = ?, success_attempts = ?, last_down_alert = ?,
+                   first_failure_at = ?
+                   WHERE id = ?""",
+                (failed_attempts, success_attempts, last_down_str, first_failure_str, site_id),
+            )
+            await conn.commit()
+        except Exception:
+            await conn.rollback()
 
     return status, status_code, response_time, error_message
 
@@ -481,12 +480,17 @@ async def check_site_certificate(
             row = await c.fetchone()
             site_name = row["name"] if row else url
 
-        cursor = await conn.execute(
-            """UPDATE ssl_certificates SET
-               hostname = ?, issuer = ?, subject = ?, start_date = ?, expire_date = ?,
-               days_until_expire = ?, is_valid = ?, last_checked = ?
-               WHERE site_id = ?""",
+        await conn.execute(
+            """INSERT INTO ssl_certificates
+            (site_id, hostname, issuer, subject, start_date, expire_date, days_until_expire, is_valid, last_checked)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(site_id) DO UPDATE SET
+            hostname=excluded.hostname, issuer=excluded.issuer, subject=excluded.subject,
+            start_date=excluded.start_date, expire_date=excluded.expire_date,
+            days_until_expire=excluded.days_until_expire, is_valid=excluded.is_valid,
+            last_checked=excluded.last_checked""",
             (
+                site_id,
                 cert_info["hostname"],
                 cert_info["issuer"],
                 cert_info["subject"],
@@ -495,27 +499,8 @@ async def check_site_certificate(
                 cert_info["days_until_expire"],
                 cert_info["is_valid"],
                 cert_info["checked_at"],
-                site_id,
             ),
         )
-
-        if cursor.rowcount == 0:
-            await conn.execute(
-                """INSERT INTO ssl_certificates
-                (site_id, hostname, issuer, subject, start_date, expire_date, days_until_expire, is_valid, last_checked)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    site_id,
-                    cert_info["hostname"],
-                    cert_info["issuer"],
-                    cert_info["subject"],
-                    cert_info["start_date"],
-                    cert_info["expire_date"],
-                    cert_info["days_until_expire"],
-                    cert_info["is_valid"],
-                    cert_info["checked_at"],
-                ),
-            )
         await conn.commit()
 
         policy = get_alert_policy()
