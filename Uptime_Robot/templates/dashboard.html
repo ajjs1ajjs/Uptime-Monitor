@@ -954,6 +954,7 @@ function renderMonitors() {
         }
         
         const esc = v => { const d = document.createElement('div'); d.textContent = v || ''; return d.innerHTML; };
+        const jsStr = v => (v || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         const safeName = esc(site.name);
         const safeUrl = esc(site.url);
         const methods = Array.isArray(site.notify_methods) ? site.notify_methods : [];
@@ -993,7 +994,7 @@ function renderMonitors() {
             </div>
             <div class="flex gap-2 mt-4">
                 <button onclick="checkSite(${site.id})" class="flex-1 py-2.5 rounded-lg gradient-accent text-black text-xs font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">${dict.card_check || '🔄 Check'}</button>
-                <button onclick="openEditModal(${site.id},'${safeName}','${encodeURIComponent(safeUrl)}','${encodeURIComponent(JSON.stringify(methods))}',${site.check_interval||60},'${monitorType}','${safeKeyword}','${safeTags}')" class="flex-1 py-2.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium">${dict.card_edit || '✏️ Edit'}</button>
+                <button onclick="openEditModal(${site.id},'${jsStr(site.name)}','${encodeURIComponent(site.url)}','${encodeURIComponent(JSON.stringify(methods))}',${site.check_interval||60},'${monitorType}','${encodeURIComponent(site.keyword||'')}','${safeTags}')" class="flex-1 py-2.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium">${dict.card_edit || '✏️ Edit'}</button>
                 <button onclick="deleteSite(${site.id})" class="flex-1 py-2.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-xs font-medium">${dict.card_delete || '🗑️ Delete'}</button>
             </div>
         </div>`;
