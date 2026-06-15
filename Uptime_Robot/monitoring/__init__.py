@@ -34,7 +34,7 @@ async def load_notify_settings_from_db() -> dict[str, Any]:
                 if row:
                     return json.loads(row["config"])
     except Exception as e:
-        logger.error(f"Failed to load notify settings from DB: {e}")
+        logger.error("Failed to load notify settings from DB: %s", e)
     return {}
 
 
@@ -170,7 +170,7 @@ def _check_flapping(site_id: int, prev_status: str, status: str, policy: dict) -
 
         if state["count"] >= policy["flapping_threshold"]:
             state["suppressed_until"] = now + policy["flapping_suppression_seconds"]
-            logger.warning(f"Site {site_id} flapping detected — alerts suppressed for {policy['flapping_suppression_seconds']}s")
+            logger.warning("Site %d flapping detected — alerts suppressed for %ss", site_id, policy['flapping_suppression_seconds'])
             return True
 
     return False
@@ -284,13 +284,13 @@ async def check_site_status(
                     monitor_type = (row["monitor_type"] or "http").lower()
                     keyword = row["keyword"]
     except Exception as e:
-        logger.error(f"Failed to fetch monitor config for site {site_id}: {e}")
+        logger.error("Failed to fetch monitor config for site %d: %s", site_id, e)
 
     under_maint = False
     try:
         under_maint = await is_under_maintenance(site_id)
     except Exception as e:
-        logger.error(f"Failed checking maintenance status for site {site_id}: {e}")
+        logger.error("Failed checking maintenance status for site %d: %s", site_id, e)
 
     policy = get_alert_policy()
     delays = policy["retry_delays"]
@@ -330,7 +330,8 @@ async def check_site_status(
 
         delay = delays[attempt]
         logger.info(
-            f"Site {url} (ID: {site_id}) check failed (attempt {attempt+1}/{max_attempts}): {error_message}. Retrying in {delay}s..."
+            "Site %s (ID: %d) check failed (attempt %d/%d): %s. Retrying in %ds...",
+            url, site_id, attempt + 1, max_attempts, error_message, delay,
         )
         await asyncio.sleep(delay)
 
@@ -357,82 +358,107 @@ async def check_site_status(
     except Exception:
         pass
 
+    from ..state import DB_PATH
+
     skip_alert = _check_flapping(site_id, None, status, policy)
 
-    async with get_db_connection() as conn:
-        # atomic transaction: if anything fails, both status_history and sites.status rollback
-        await conn.execute("BEGIN")
-        async with conn.execute(
-            "SELECT name, status, failed_attempts, success_attempts, last_down_alert, first_failure_at FROM sites WHERE id = ?",
-            (site_id,),
-        ) as c:
-            row = await c.fetchone()
+    # Transaction 1: DB writes only (fast, no network I/O inside)
+    async with get_db_connection(DB_PATH) as conn:
+        try:
+            await conn.execute("BEGIN")
+            async with conn.execute(
+                "SELECT name, status, failed_attempts, success_attempts, last_down_alert, first_failure_at FROM sites WHERE id = ?",
+                (site_id,),
+            ) as c:
+                row = await c.fetchone()
 
-        site_name = row["name"] if row else url
-        prev_status = row["status"] if row else None
-        failed_attempts = (
-            row["failed_attempts"] if row and row["failed_attempts"] is not None else 0
-        )
-        success_attempts = (
-            row["success_attempts"] if row and row["success_attempts"] is not None else 0
-        )
-        last_down_alert_str = row["last_down_alert"] if row else None
-        first_failure_at_str = row["first_failure_at"] if row else None
+            site_name = row["name"] if row else url
+            prev_status = row["status"] if row else None
+            failed_attempts = (
+                row["failed_attempts"] if row and row["failed_attempts"] is not None else 0
+            )
+            success_attempts = (
+                row["success_attempts"] if row and row["success_attempts"] is not None else 0
+            )
+            last_down_alert_str = row["last_down_alert"] if row else None
+            first_failure_at_str = row["first_failure_at"] if row else None
 
-        if prev_status != status:
+            if prev_status != status:
+                await conn.execute(
+                    """INSERT INTO status_history (site_id, status, status_code, response_time, error_message, checked_at)
+                       VALUES (?, ?, ?, ?, ?, ?)""",
+                    (
+                        site_id,
+                        status,
+                        status_code,
+                        round(response_time, 2) if response_time else None,
+                        error_message,
+                        checked_at_iso,
+                    ),
+                )
+
+            last_down_str = last_down_alert_str
+            first_failure_str = first_failure_at_str
             await conn.execute(
-                """INSERT INTO status_history (site_id, status, status_code, response_time, error_message, checked_at)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
+                """UPDATE sites SET
+                   status = ?, status_code = ?, response_time = ?,
+                   failed_attempts = ?, success_attempts = ?, last_down_alert = ?,
+                   first_failure_at = ?
+                   WHERE id = ?""",
                 (
-                    site_id,
                     status,
                     status_code,
                     round(response_time, 2) if response_time else None,
-                    error_message,
-                    checked_at_iso,
+                    failed_attempts,
+                    success_attempts,
+                    last_down_str,
+                    first_failure_str,
+                    site_id,
                 ),
             )
+            await conn.commit()
+        except Exception:
+            await conn.rollback()
+            raise
 
-        skip_alert = skip_alert or _check_flapping(site_id, prev_status, status, policy)
+    # Alerting (network I/O) — outside transaction, no DB lock held
+    skip_alert = skip_alert or _check_flapping(site_id, prev_status, status, policy)
 
-        failed_attempts, success_attempts, last_down_alert, first_failure_at = await _process_alerting(
-            status,
-            prev_status,
-            notify_methods,
-            notify_settings,
-            site_id,
-            site_name,
-            url,
-            status_code,
-            error_message,
-            checked_at,
-            failed_attempts,
-            success_attempts,
-            last_down_alert_str,
-            first_failure_at_str,
-            skip_alert,
-        )
+    failed_attempts, success_attempts, last_down_alert, first_failure_at = await _process_alerting(
+        status,
+        prev_status,
+        notify_methods,
+        notify_settings,
+        site_id,
+        site_name,
+        url,
+        status_code,
+        error_message,
+        checked_at,
+        failed_attempts,
+        success_attempts,
+        last_down_alert_str,
+        first_failure_at_str,
+        skip_alert,
+    )
 
-        last_down_str = last_down_alert.isoformat() if last_down_alert else None
-        first_failure_str = first_failure_at.isoformat() if first_failure_at else None
-        await conn.execute(
-            """UPDATE sites SET
-               status = ?, status_code = ?, response_time = ?,
-               failed_attempts = ?, success_attempts = ?, last_down_alert = ?,
-               first_failure_at = ?
-               WHERE id = ?""",
-            (
-                status,
-                status_code,
-                round(response_time, 2) if response_time else None,
-                failed_attempts,
-                success_attempts,
-                last_down_str,
-                first_failure_str,
-                site_id,
-            ),
-        )
-        await conn.commit()
+    # Transaction 2: update alert-related fields (last_down_alert, etc.)
+    last_down_str = last_down_alert.isoformat() if last_down_alert else None
+    first_failure_str = first_failure_at.isoformat() if first_failure_at else None
+    if (last_down_str != last_down_alert_str or first_failure_str != first_failure_at_str):
+        async with get_db_connection(DB_PATH) as conn:
+            try:
+                await conn.execute("BEGIN")
+                await conn.execute(
+                    """UPDATE sites SET
+                       failed_attempts = ?, success_attempts = ?, last_down_alert = ?,
+                       first_failure_at = ?
+                       WHERE id = ?""",
+                    (failed_attempts, success_attempts, last_down_str, first_failure_str, site_id),
+                )
+                await conn.commit()
+            except Exception:
+                await conn.rollback()
 
     return status, status_code, response_time, error_message
 
@@ -572,7 +598,7 @@ async def check_all_certificates(notify_settings: dict[str, Any]):
         try:
             await check_site_certificate(site["id"], site["url"], notify_methods, notify_settings)
         except Exception as e:
-            logger.error(f"Error checking SSL certificate for site {site['url']}: {e}")
+            logger.error("Error checking SSL certificate for site %s: %s", site['url'], e)
         await asyncio.sleep(1)
 
 
@@ -596,7 +622,7 @@ async def monitor_loop(notify_settings: dict[str, Any], default_check_interval: 
                     try:
                         active_tasks[site_id].result()
                     except Exception as e:
-                        logger.error(f"Background check task for site {site_id} failed: {e}")
+                        logger.error("Background check task for site %d failed: %s", site_id, e)
                     del active_tasks[site_id]
 
             if (
@@ -645,6 +671,9 @@ async def monitor_loop(notify_settings: dict[str, Any], default_check_interval: 
 
             await asyncio.sleep(5)
 
+        except asyncio.CancelledError:
+            logger.info("Monitor loop cancelled, shutting down...")
+            raise
         except Exception as e:
-            logger.error(f"Error in monitor_loop: {e}")
+            logger.error("Error in monitor_loop: %s", e)
             await asyncio.sleep(5)

@@ -45,7 +45,7 @@ def init_paths():
         if db_dir and not os.path.exists(db_dir):
             os.makedirs(db_dir, exist_ok=True)
     except OSError as e:
-        logger.warning(f"Could not create DB directory: {e}")
+        logger.warning("Could not create DB directory: %s", e)
 
 
 # Default configuration
@@ -175,7 +175,7 @@ def load_config():
             config = decrypt_config_sensitive(config)
             return config
         except Exception as e:
-            logger.error(f"Error loading config: {e}")
+            logger.error("Error loading config: %s", e)
             return DEFAULT_CONFIG.copy()
     else:
         config = DEFAULT_CONFIG.copy()
@@ -184,7 +184,7 @@ def load_config():
             with open(CONFIG_PATH, "w", encoding="utf-8") as f:
                 json.dump(config, f, indent=4, ensure_ascii=False)
         except OSError as e:
-            logger.warning(f"Could not create default config: {e}")
+            logger.warning("Could not create default config: %s", e)
         return config
 
 
@@ -197,7 +197,7 @@ def save_config(config):
             json.dump(encrypted, f, indent=4, ensure_ascii=False)
         return True
     except Exception as e:
-        logger.error(f"Error saving config: {e}")
+        logger.error("Error saving config: %s", e)
         return False
 
 
@@ -218,7 +218,7 @@ def log_config_change(config, old_config, new_config, user="system"):
         with open(log_file, "a", encoding="utf-8") as f:
             f.write(json.dumps(change_entry, ensure_ascii=False) + "\n")
     except Exception as e:
-        logger.warning(f"Failed to log config change: {e}")
+        logger.warning("Failed to log config change: %s", e)
 
 
 def backup_config(config):
@@ -283,7 +283,7 @@ def backup_config(config):
                     pass
 
     except Exception as e:
-        logger.error(f"Backup error: {e}")
+        logger.error("Backup error: %s", e)
 
 
 def setup_ssl(config):
@@ -296,14 +296,14 @@ def setup_ssl(config):
         key_path = config["ssl"].get("key_path", "")
 
         if not os.path.exists(cert_path) or not os.path.exists(key_path):
-            logger.warning(f"SSL certificates not found: {cert_path}, {key_path}")
+            logger.warning("SSL certificates not found: %s, %s", cert_path, key_path)
             return None
 
         ssl_context = ssl_module.create_default_context(ssl_module.Purpose.CLIENT_AUTH)
         ssl_context.load_cert_chain(cert_path, key_path)
         return ssl_context
     except Exception as e:
-        logger.error(f"SSL setup error: {e}")
+        logger.error("SSL setup error: %s", e)
         return None
 
 

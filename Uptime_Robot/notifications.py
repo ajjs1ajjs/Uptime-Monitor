@@ -480,9 +480,9 @@ async def send_telegram(message: Union[str, dict], settings: dict[str, Any]):
             async with session.post(url, json=payload) as response:
                 if response.status != 200:
                     error_text = await response.text()
-                    logger.error(f"Telegram API error: {response.status} - {error_text}")
+                    logger.error("Telegram API error: %s - %s", response.status, error_text)
     except Exception as e:
-        logger.error(f"Telegram error: {e}")
+        logger.error("Telegram error: %s", e)
 
 
 async def send_teams(message: Union[str, dict], settings: dict[str, Any]):
@@ -505,9 +505,9 @@ async def send_teams(message: Union[str, dict], settings: dict[str, Any]):
         async with aiohttp.ClientSession() as session:
             async with session.post(webhook_url, json=payload) as response:
                 if response.status not in [200, 204]:
-                    logger.error(f"Teams API error: {response.status}")
+                    logger.error("Teams API error: %s", response.status)
     except Exception as e:
-        logger.error(f"Teams error: {e}")
+        logger.error("Teams error: %s", e)
 
 
 async def send_discord(message: Union[str, dict], settings: dict[str, Any]):
@@ -530,9 +530,9 @@ async def send_discord(message: Union[str, dict], settings: dict[str, Any]):
         async with aiohttp.ClientSession() as session:
             async with session.post(webhook_url, json=payload) as response:
                 if response.status not in [200, 204]:
-                    logger.error(f"Discord API error: {response.status}")
+                    logger.error("Discord API error: %s", response.status)
     except Exception as e:
-        logger.error(f"Discord error: {e}")
+        logger.error("Discord error: %s", e)
 
 
 async def send_slack(message: Union[str, dict], settings: dict[str, Any]):
@@ -550,9 +550,9 @@ async def send_slack(message: Union[str, dict], settings: dict[str, Any]):
         async with aiohttp.ClientSession() as session:
             async with session.post(webhook_url, json=payload) as response:
                 if response.status not in [200, 204]:
-                    logger.error(f"Slack API error: {response.status}")
+                    logger.error("Slack API error: %s", response.status)
     except Exception as e:
-        logger.error(f"Slack error: {e}")
+        logger.error("Slack error: %s", e)
 
 
 async def send_email(message: Union[str, dict], settings: dict[str, Any]):
@@ -582,7 +582,7 @@ async def send_email(message: Union[str, dict], settings: dict[str, Any]):
 
         await asyncio.to_thread(_send)
     except Exception as e:
-        logger.error(f"Email error: {e}")
+        logger.error("Email error: %s", e)
 
 
 async def send_sms(message: Union[str, dict], settings: dict[str, Any]):
@@ -606,9 +606,9 @@ async def send_sms(message: Union[str, dict], settings: dict[str, Any]):
         async with aiohttp.ClientSession() as session:
             async with session.post(url, data=payload, auth=auth) as response:
                 if response.status not in [200, 201]:
-                    logger.error(f"SMS API error: {response.status}")
+                    logger.error("SMS API error: %s", response.status)
     except Exception as e:
-        logger.error(f"SMS error: {e}")
+        logger.error("SMS error: %s", e)
 
 
 async def send_webhook(message: Union[str, dict], settings: dict[str, Any]):
@@ -630,9 +630,9 @@ async def send_webhook(message: Union[str, dict], settings: dict[str, Any]):
         async with aiohttp.ClientSession() as session:
             async with session.post(webhook_url, json=payload) as response:
                 if response.status not in [200, 201, 202, 204]:
-                    logger.error(f"Webhook HTTP error: {response.status}")
+                    logger.error("Webhook HTTP error: %s", response.status)
     except Exception as e:
-        logger.error(f"Webhook error: {e}")
+        logger.error("Webhook error: %s", e)
 
 
 async def send_pushover(message: Union[str, dict], settings: dict[str, Any]):
@@ -664,9 +664,9 @@ async def send_pushover(message: Union[str, dict], settings: dict[str, Any]):
                 data=payload,
             ) as response:
                 if response.status not in [200, 201]:
-                    logger.error(f"Pushover API error: {response.status}")
+                    logger.error("Pushover API error: %s", response.status)
     except Exception as e:
-        logger.error(f"Pushover error: {e}")
+        logger.error("Pushover error: %s", e)
 
 
 async def send_gotify(message: Union[str, dict], settings: dict[str, Any]):
@@ -692,9 +692,9 @@ async def send_gotify(message: Union[str, dict], settings: dict[str, Any]):
                 json=payload,
             ) as response:
                 if response.status not in [200, 201]:
-                    logger.error(f"Gotify API error: {response.status}")
+                    logger.error("Gotify API error: %s", response.status)
     except Exception as e:
-        logger.error(f"Gotify error: {e}")
+        logger.error("Gotify error: %s", e)
 
 
 async def send_ntfy(message: Union[str, dict], settings: dict[str, Any]):
@@ -723,6 +723,6 @@ async def send_ntfy(message: Union[str, dict], settings: dict[str, Any]):
                 headers=headers,
             ) as response:
                 if response.status not in [200, 201, 202]:
-                    logger.error(f"ntfy API error: {response.status}")
+                    logger.error("ntfy API error: %s", response.status)
     except Exception as e:
-        logger.error(f"ntfy error: {e}")
+        logger.error("ntfy error: %s", e)

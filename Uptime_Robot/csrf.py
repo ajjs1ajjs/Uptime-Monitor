@@ -19,7 +19,7 @@ async def init_csrf_table():
                 await conn.commit()
                 logger.info("Added csrf_token column to sessions table")
     except Exception as e:
-        logger.error(f"CSRF table init failed: {e}")
+        logger.error("CSRF table init failed: %s", e)
 
 
 async def generate_csrf_token(session_id: str) -> str:
@@ -33,7 +33,7 @@ async def generate_csrf_token(session_id: str) -> str:
             )
             await conn.commit()
     except Exception as e:
-        logger.error(f"CSRF token save failed: {e}")
+        logger.error("CSRF token save failed: %s", e)
         return ""
     return token
 

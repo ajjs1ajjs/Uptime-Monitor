@@ -72,7 +72,7 @@ def _check_ssl_certificate_sync(url: str):
 
         return None
     except Exception as e:
-        logger.error(f"SSL check error for {url}: {e}")
+        logger.error("SSL check error for %s: %s", url, e)
         return None
 
 

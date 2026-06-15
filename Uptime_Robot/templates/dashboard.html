@@ -1638,7 +1638,7 @@ async function deleteMaintWindow(id) {
 let ws = null;
 let wsReconnectTimer = null;
 let wsRetries = 0;
-const WS_MAX_RETRIES = 5;
+const WS_MAX_BACKOFF = 30000; // max 30s between retries
 
 function updateWorkerDot(connected) {
     const dot = document.getElementById('workerDot');
@@ -1649,7 +1649,6 @@ function updateWorkerDot(connected) {
 }
 
 function connectWebSocket() {
-    if (wsRetries >= WS_MAX_RETRIES) { updateWorkerDot(false); return; }
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const url = `${protocol}//${location.host}/ws`;
     try {
@@ -1666,12 +1665,13 @@ function connectWebSocket() {
         ws.onclose = function() {
             updateWorkerDot(false);
             ws = null;
+            var delay = Math.min(1000 * Math.pow(2, wsRetries), WS_MAX_BACKOFF);
             wsRetries++;
-            if (wsRetries < WS_MAX_RETRIES && !wsReconnectTimer) {
+            if (!wsReconnectTimer) {
                 wsReconnectTimer = setTimeout(function() {
                     wsReconnectTimer = null;
                     connectWebSocket();
-                }, 5000);
+                }, delay);
             }
         };
         ws.onerror = function() {
@@ -1683,15 +1683,21 @@ function connectWebSocket() {
 
 function updateSiteCard(data) {
     document.querySelectorAll(`[data-site-id="${data.site_id}"]`).forEach(card => {
-        const statusEl = card.querySelector('.status-badge');
+        var isUp = data.status === 'up';
+        var borderClass = isUp ? 'border-emerald-500' : 'border-red-500';
+        card.className = card.className.replace(/border-\w+-\d+/g, '').trim() + ' ' + borderClass;
+        var statusEl = card.querySelector('.status-badge');
         if (statusEl) {
-            const isUp = data.status === 'up';
             statusEl.textContent = isUp ? 'UP' : 'DOWN';
             statusEl.className = 'status-badge ' + (isUp ? 'up' : 'down');
         }
-        const rtEl = card.querySelector('.response-time');
+        var rtEl = card.querySelector('.response-time');
         if (rtEl && data.response_time) {
             rtEl.textContent = data.response_time + 'ms';
+        }
+        var codeEl = card.querySelector('.grid-cols-4 > div:last-child .text-sm.font-bold');
+        if (codeEl && data.status_code) {
+            codeEl.textContent = data.status_code;
         }
     });
     if (data.status !== 'up') {

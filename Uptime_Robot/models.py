@@ -134,7 +134,7 @@ async def _seed_sites(conn):
                     default_sites.extend(data)
     except Exception as e:
         from .logger import logger
-        logger.error(f"Failed to load default_sites.json: {e}")
+        logger.error("Failed to load default_sites.json: %s", e)
 
     for env_name in ("UPTIME_MONITOR_URL", "UPTIME_MONITOR_URLS"):
         val = os.environ.get(env_name, "").strip()
@@ -149,7 +149,7 @@ async def _seed_sites(conn):
                         default_sites.append({"name": urllib.parse.urlparse(item).netloc or item, "url": item})
             except Exception as e:
                 from .logger import logger
-                logger.error(f"Failed to parse {env_name}: {e}")
+                logger.error("Failed to parse %s: %s", env_name, e)
         else:
             for u in re.split(r'[,\n;]+', val):
                 u = u.strip()
@@ -176,7 +176,7 @@ async def _seed_sites(conn):
             )
         except Exception as e:
             from .logger import logger
-            logger.error(f"Failed to seed {url}: {e}")
+            logger.error("Failed to seed %s: %s", url, e)
 
 
 async def _seed_notify_config(conn):
@@ -205,6 +205,35 @@ async def _seed_notify_config(conn):
         await conn.execute("INSERT OR IGNORE INTO notify_config (id, config) VALUES (1, '{}')")
 
 
+async def _cleanup_old_data(conn):
+    """Retention: видаляє застарілі записи з таблиць."""
+    from .logger import logger
+
+    # status_history — старше 30 днів
+    async with conn.execute("DELETE FROM status_history WHERE checked_at < datetime('now', '-30 days')") as c:
+        deleted = c.rowcount
+        if deleted:
+            logger.info("Cleaned %d old status_history rows", deleted)
+
+    # notification_history — старше 90 днів
+    async with conn.execute("DELETE FROM notification_history WHERE sent_at < datetime('now', '-90 days')") as c:
+        deleted = c.rowcount
+        if deleted:
+            logger.info("Cleaned %d old notification_history rows", deleted)
+
+    # rate_limits — старше 7 днів
+    async with conn.execute("DELETE FROM rate_limits WHERE attempted_at < datetime('now', '-7 days')") as c:
+        deleted = c.rowcount
+        if deleted:
+            logger.info("Cleaned %d old rate_limit rows", deleted)
+
+    # csrf_tokens — старше 24 годин
+    async with conn.execute("DELETE FROM csrf_tokens WHERE created_at < datetime('now', '-1 day')") as c:
+        deleted = c.rowcount
+        if deleted:
+            logger.info("Cleaned %d old csrf_token rows", deleted)
+
+
 async def init_database(db_path: str):
     """Ініціалізує базу даних: таблиці, міграції, початкові дані."""
     async with get_db_connection(db_path) as conn:
@@ -212,6 +241,7 @@ async def init_database(db_path: str):
         await _run_migrations(conn)
         await _seed_sites(conn)
         await _seed_notify_config(conn)
+        await _cleanup_old_data(conn)
         await conn.commit()
 
 

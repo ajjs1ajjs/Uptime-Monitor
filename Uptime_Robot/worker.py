@@ -10,7 +10,7 @@ import sys
 
 from . import config_manager, models, monitoring
 from . import state as app_state
-from .database import get_db_connection
+from .database import close_db, get_db_connection
 from .logger import logger
 
 DB_PATH = app_state.DB_PATH
@@ -18,10 +18,25 @@ NOTIFY_SETTINGS = app_state.NOTIFY_SETTINGS
 CHECK_INTERVAL = app_state.CHECK_INTERVAL
 CONFIG_PATH = config_manager.CONFIG_PATH
 
+_worker_loop: asyncio.AbstractEventLoop | None = None
+
 
 def _handle_signal(signum, frame):
-    logger.info(f"Received signal {signum}, shutting down worker...")
-    sys.exit(0)
+    logger.info("Received signal %s, shutting down worker...", signum)
+    loop = _worker_loop
+    if loop and loop.is_running():
+        loop.call_soon_threadsafe(lambda: asyncio.create_task(_shutdown()))
+    else:
+        sys.exit(0)
+
+
+async def _shutdown():
+    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+    for t in tasks:
+        t.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
+    await close_db()
+    asyncio.get_event_loop().stop()
 
 
 async def initialize_worker():
@@ -37,7 +52,7 @@ async def initialize_worker():
                     NOTIFY_SETTINGS.update(loaded)
                     logger.info("Loaded notification settings from DB")
                 except Exception as e:
-                    logger.error(f"Failed to parse notification settings: {e}")
+                    logger.error("Failed to parse notification settings: %s", e)
 
 
 async def main_async():
@@ -47,25 +62,32 @@ async def main_async():
 
 
 def run_worker():
+    global _worker_loop
     logger.info("Starting Uptime Monitor Background Worker...")
-    logger.info(f"Database: {DB_PATH}")
-    logger.info(f"Config: {CONFIG_PATH}")
-    logger.info(f"Check interval: {CHECK_INTERVAL}s")
+    logger.info("Database: %s", DB_PATH)
+    logger.info("Config: %s", CONFIG_PATH)
+    logger.info("Check interval: %ss", CHECK_INTERVAL)
 
     signal.signal(signal.SIGINT, _handle_signal)
     signal.signal(signal.SIGTERM, _handle_signal)
 
     try:
-        asyncio.run(main_async())
+        _worker_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(_worker_loop)
+        _worker_loop.run_until_complete(main_async())
     except KeyboardInterrupt:
         logger.info("Worker stopped by user")
-        sys.exit(0)
     except SystemExit:
         logger.info("Worker stopped")
-        sys.exit(0)
     except Exception as e:
-        logger.error(f"Worker crashed: {e}")
+        logger.error("Worker crashed: %s", e)
         sys.exit(1)
+    finally:
+        try:
+            _worker_loop.run_until_complete(close_db())
+        except Exception:
+            pass
+        _worker_loop.close()
 
 
 if __name__ == "__main__":

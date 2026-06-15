@@ -45,7 +45,7 @@ async def initialize_app_async():
     try:
         await models.init_database(DB_PATH)
     except Exception as e:
-        logger.error(f"Database initialization failed: {e}")
+        logger.error("Database initialization failed: %s", e)
 
     import json
 
@@ -54,7 +54,7 @@ async def initialize_app_async():
         from .csrf import init_csrf_table
         await init_csrf_table()
     except Exception as e:
-        logger.error(f"CSRF init failed: {e}")
+        logger.error("CSRF init failed: %s", e)
 
     # Load settings from DB
     try:
@@ -76,12 +76,12 @@ async def initialize_app_async():
                     app_state.PRIMARY_COLOR = row["primary_color"] or "#00ff88"
                     app_state.BRAND_ACCENT_COLOR = row["brand_accent_color"] or "#06b6d4"
     except Exception as e:
-        logger.error(f"Settings load failed: {e}")
+        logger.error("Settings load failed: %s", e)
 
     try:
         await auth_module.init_auth_tables(DB_PATH)
     except Exception as e:
-        logger.error(f"Auth tables initialization failed: {e}")
+        logger.error("Auth tables initialization failed: %s", e)
 
 
 def initialize_app():
@@ -297,7 +297,7 @@ async def run_monitor_in_background():
         logger.info("Starting background monitoring loop...")
         await monitoring.monitor_loop(app_state.NOTIFY_SETTINGS, CHECK_INTERVAL)
     except Exception as e:
-        logger.error(f"Background monitoring error: {e}")
+        logger.error("Background monitoring error: %s", e)
 
 
 def main():
@@ -336,7 +336,7 @@ def main():
 
     host = get_default_host() if args.host == "auto" else args.host
     port = args.port
-    logger.info(f"Uptime Monitor starting on {host}:{port}...")
+    logger.info("Uptime Monitor starting on %s:%s...", host, port)
 
     # Start background monitoring only if explicitly enabled with --monitor
     if args.enable_monitor:
@@ -352,12 +352,13 @@ def main():
         monitor_thread.start()
 
     ssl_context = config_manager.setup_ssl(CONFIG)
+    ssl_cfg = CONFIG.get("ssl", {})
     uvicorn.run(
         app,
         host=host,
         port=port,
-        ssl_keyfile=CONFIG["ssl"].get("key_path") if ssl_context else None,
-        ssl_certfile=CONFIG["ssl"].get("cert_path") if ssl_context else None,
+        ssl_keyfile=ssl_cfg.get("key_path") if ssl_context else None,
+        ssl_certfile=ssl_cfg.get("cert_path") if ssl_context else None,
         log_level="info",
     )
 

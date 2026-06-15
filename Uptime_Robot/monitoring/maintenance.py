@@ -15,7 +15,7 @@ async def is_under_maintenance(site_id: int) -> bool:
             ) as c:
                 rows = await c.fetchall()
     except Exception as e:
-        logger.error(f"Error checking maintenance windows for site {site_id}: {e}")
+        logger.error("Error checking maintenance windows for site %d: %s", site_id, e)
         return False
 
     for row in rows:

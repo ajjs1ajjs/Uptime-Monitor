@@ -60,7 +60,7 @@ async def init_auth_tables(db_path):
             logger.info("=" * 50)
             logger.info("DEFAULT ADMIN USER CREATED")
             logger.info("Username: admin")
-            logger.info(f"Password: {default_password}")
+            logger.info("Password: %s", default_password)
             logger.info("=" * 50)
             print(f"\n{'='*50}")
             print("DEFAULT ADMIN USER CREATED")
@@ -127,8 +127,19 @@ async def validate_session(session_id: str, db_path: str) -> dict:
         return None
 
     expires = datetime.fromisoformat(row["expires_at"])
-    if datetime.now(timezone.utc) > expires:
+    now = datetime.now(timezone.utc)
+    if now > expires:
         return None
+
+    # Продовжити сесію, якщо залишилось менше 24 годин
+    if (expires - now).total_seconds() < 86400:
+        async with get_db_connection(db_path) as conn:
+            new_expires = now + timedelta(days=7)
+            await conn.execute(
+                "UPDATE sessions SET expires_at = ? WHERE session_id = ?",
+                (new_expires.isoformat(), session_id),
+            )
+            await conn.commit()
 
     return {
         "user_id": row["user_id"],
@@ -157,7 +168,7 @@ async def change_password(user_id: int, new_password: str, db_path: str) -> bool
             await conn.commit()
         return True
     except Exception as e:
-        logger.error(f"Error changing password: {e}")
+        logger.error("Error changing password: %s", e)
         return False
 
 
@@ -213,10 +224,10 @@ async def create_user(db_path: str, username: str, password: str, role: str = "v
                 await conn.commit()
                 return True
             except Exception as e:
-                logger.error(f"Error creating user db: {e}")
+                logger.error("Error creating user db: %s", e)
                 return False
     except Exception as e:
-        logger.error(f"Error creating user: {e}")
+        logger.error("Error creating user: %s", e)
         return False
 
 
@@ -228,7 +239,7 @@ async def update_user_role(db_path: str, username: str, new_role: str) -> bool:
             await conn.commit()
             return True
     except Exception as e:
-        logger.error(f"Error updating user role: {e}")
+        logger.error("Error updating user role: %s", e)
         return False
 
 
@@ -253,7 +264,7 @@ async def delete_user(db_path: str, username: str) -> tuple:
             await conn.commit()
             return (True, None)
     except Exception as e:
-        logger.error(f"Error deleting user: {e}")
+        logger.error("Error deleting user: %s", e)
         return (False, str(e))
 
 

@@ -55,17 +55,17 @@ def generate_master_key(base_path: Optional[str] = None) -> str:
         with open(path, "w") as f:
             f.write(key)
         os.chmod(path, 0o600)
-        logger.info(f"Master key generated: {path}")
+        logger.info("Master key generated: %s", path)
         return key
     except OSError as e:
-        logger.warning(f"Could not save master key to {path}: {e}")
+        logger.warning("Could not save master key to %s: %s", path, e)
         for alt_path in _get_alternative_key_paths():
             try:
                 os.makedirs(os.path.dirname(alt_path) or ".", exist_ok=True)
                 with open(alt_path, "w") as f:
                     f.write(key)
                 os.chmod(alt_path, 0o600)
-                logger.info(f"Master key saved to alternative path: {alt_path}")
+                logger.info("Master key saved to alternative path: %s", alt_path)
                 return key
             except OSError:
                 continue
@@ -111,7 +111,7 @@ def get_fernet() -> Optional[object]:
         _FERNET_INSTANCE = Fernet(key.encode())
         return _FERNET_INSTANCE
     except Exception as e:
-        logger.error(f"Failed to initialize Fernet: {e}")
+        logger.error("Failed to initialize Fernet: %s", e)
         return None
 
 
@@ -130,7 +130,7 @@ def encrypt_value(plaintext: str) -> str:
     try:
         return f.encrypt(plaintext.encode()).decode()
     except Exception as e:
-        logger.error(f"Encryption failed: {e}")
+        logger.error("Encryption failed: %s", e)
         return plaintext
 
 
@@ -146,7 +146,7 @@ def decrypt_value(ciphertext: str) -> str:
         logger.warning("Decryption failed: invalid token")
         return ciphertext
     except Exception as e:
-        logger.error(f"Decryption error: {e}")
+        logger.error("Decryption error: %s", e)
         return ciphertext
 
 

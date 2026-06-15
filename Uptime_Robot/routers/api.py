@@ -933,8 +933,10 @@ async def list_backups_endpoint():
 
 
 @router.post("/backup/restore/{backup_id}", dependencies=[Depends(require_admin)])
-async def restore_backup_endpoint(backup_id: int):
-    """Restore a backup by ID (admin only)."""
+async def restore_backup_endpoint(backup_id: int, confirm: bool = Query(False)):
+    """Restore a backup by ID (admin only). Requires confirm=true."""
+    if not confirm:
+        raise HTTPException(status_code=400, detail="Confirmation required: add ?confirm=true")
     backups = await models.get_backups(DB_PATH)
     target = None
     for b in backups:
