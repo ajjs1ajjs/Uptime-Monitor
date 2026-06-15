@@ -310,7 +310,14 @@ def main():
     parser.add_argument(
         "--no-monitor",
         action="store_true",
+        default=True,
         help="Disable background monitoring (use separate worker service)",
+    )
+    parser.add_argument(
+        "--monitor",
+        action="store_true",
+        dest="enable_monitor",
+        help="Enable embedded background monitoring (not recommended when worker service is used)",
     )
     parser.add_argument(
         "command",
@@ -331,9 +338,9 @@ def main():
     port = args.port
     logger.info(f"Uptime Monitor starting on {host}:{port}...")
 
-    # Start background monitoring unless disabled
-    if not args.no_monitor:
-        logger.info("Background monitoring enabled")
+    # Start background monitoring only if explicitly enabled with --monitor
+    if args.enable_monitor:
+        logger.warning("Embedded monitoring enabled via --monitor (consider using worker service instead)")
         import threading
 
         def run_monitor():
@@ -343,8 +350,6 @@ def main():
 
         monitor_thread = threading.Thread(target=run_monitor, daemon=True)
         monitor_thread.start()
-    else:
-        print("Background monitoring disabled (use worker.py separately)")
 
     ssl_context = config_manager.setup_ssl(CONFIG)
     uvicorn.run(

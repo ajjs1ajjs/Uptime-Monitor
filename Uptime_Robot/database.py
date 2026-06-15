@@ -36,7 +36,7 @@ async def get_db() -> aiosqlite.Connection:
         _db_connection = await aiosqlite.connect(db_path)
         _db_connection.row_factory = aiosqlite.Row
         await _db_connection.execute("PRAGMA journal_mode=WAL")
-        await _db_connection.execute("PRAGMA busy_timeout=5000")
+        await _db_connection.execute("PRAGMA busy_timeout=30000")
     return _db_connection
 
 
@@ -47,7 +47,7 @@ async def get_db_connection(db_path: Optional[str] = None) -> AsyncIterator[aios
         async with aiosqlite.connect(db_path) as db:
             db.row_factory = aiosqlite.Row
             await db.execute("PRAGMA journal_mode=WAL")
-            await db.execute("PRAGMA busy_timeout=5000")
+            await db.execute("PRAGMA busy_timeout=30000")
             yield db
     else:
         conn = await get_db()

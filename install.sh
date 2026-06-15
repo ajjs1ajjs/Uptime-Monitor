@@ -381,7 +381,7 @@ Environment="PATH=$INSTALL_DIR/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="CONFIG_PATH=$CONFIG_DIR/config.json"
 Environment="UPTIME_MONITOR_LOG=$LOG_DIR/uptime-monitor.log"
 Environment="APP_VERSION=$APP_VERSION"
-ExecStart=$INSTALL_DIR/venv/bin/python -m Uptime_Robot.main
+ExecStart=$INSTALL_DIR/venv/bin/python -m Uptime_Robot.main --no-monitor
 Restart=always
 RestartSec=10
 StandardOutput=journal
