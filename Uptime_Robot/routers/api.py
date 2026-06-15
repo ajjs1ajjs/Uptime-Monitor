@@ -2,10 +2,10 @@ import asyncio
 import json
 import os
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from .. import auth_module, config_manager, models, monitoring
@@ -475,6 +475,35 @@ async def get_incidents(user: dict = Depends(require_viewer_or_higher)):
             results_raw = await c.fetchall()
             results = [dict(r) for r in results_raw]
 
+        # Include sites that are currently down/slow but have NO recent status_history
+        async with conn.execute("""
+            SELECT s.id as site_id, s.name as site_name, s.url as site_url,
+                   s.status, s.status_code, NULL as response_time,
+                   NULL as error_message, s.first_failure_at as checked_at
+            FROM sites s
+            WHERE s.status IN ('down', 'slow')
+            AND s.id NOT IN (
+                SELECT DISTINCT site_id FROM status_history
+                WHERE checked_at >= datetime('now', '-7 days')
+            )
+        """) as c:
+            extra_raw = await c.fetchall()
+
+        for row in extra_raw:
+            site_id = row["site_id"]
+            if not any(r["site_id"] == site_id for r in results):
+                results.append({
+                    "id": None,
+                    "site_id": site_id,
+                    "site_name": row["site_name"],
+                    "site_url": row["site_url"],
+                    "status": row["status"],
+                    "status_code": row["status_code"],
+                    "response_time": None,
+                    "error_message": None,
+                    "checked_at": row["checked_at"] or datetime.now(timezone.utc).isoformat(),
+                })
+
         down_times = {}
         for site_id in {r["site_id"] for r in results}:
             async with conn.execute(
@@ -915,7 +944,7 @@ async def get_notification_history_endpoint(limit: int = 100):
 @router.post("/backup", dependencies=[Depends(require_admin)])
 async def create_backup_endpoint():
     """Create a DB backup (admin only)."""
-    from datetime import datetime
+from datetime import datetime, timezone
 
     backup_dir = os.path.join(os.path.dirname(DB_PATH), "backups")
     os.makedirs(backup_dir, exist_ok=True)

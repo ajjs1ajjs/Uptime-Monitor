@@ -233,6 +233,12 @@ async def _cleanup_old_data(conn):
         if deleted:
             logger.info("Cleaned %d old csrf_token rows", deleted)
 
+    # sessions — прострочені
+    async with conn.execute("DELETE FROM sessions WHERE expires_at < datetime('now')") as c:
+        deleted = c.rowcount
+        if deleted:
+            logger.info("Cleaned %d expired sessions", deleted)
+
 
 async def init_database(db_path: str):
     """Ініціалізує базу даних: таблиці, міграції, початкові дані."""
