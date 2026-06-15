@@ -113,7 +113,9 @@ async def _run_migrations(conn):
 
 async def _seed_sites(conn):
     """Заповнює таблицю сайтів початковими даними, якщо вона порожня."""
-    import sys, urllib.parse, re
+    import sys
+    import urllib.parse
+    import re
     async with conn.execute("SELECT COUNT(*) FROM sites") as c:
         row = await c.fetchone()
         if row[0] > 0:

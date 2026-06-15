@@ -1,6 +1,5 @@
 """CSRF protection using session-bound tokens."""
 import secrets
-from typing import Optional
 
 from fastapi import HTTPException, Request
 
