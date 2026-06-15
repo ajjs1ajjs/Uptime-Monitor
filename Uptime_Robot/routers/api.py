@@ -944,7 +944,7 @@ async def get_notification_history_endpoint(limit: int = 100):
 @router.post("/backup", dependencies=[Depends(require_admin)])
 async def create_backup_endpoint():
     """Create a DB backup (admin only)."""
-from datetime import datetime, timezone
+    from datetime import datetime
 
     backup_dir = os.path.join(os.path.dirname(DB_PATH), "backups")
     os.makedirs(backup_dir, exist_ok=True)
