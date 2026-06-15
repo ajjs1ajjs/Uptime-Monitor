@@ -906,6 +906,23 @@ async def export_sla_report(days: int = 7, user: dict = Depends(require_viewer_o
     return response
 
 
+@router.get("/reports/sla/pdf")
+async def export_sla_pdf(days: int = 30, user: dict = Depends(require_viewer_or_higher)):
+    from ..reporting import render_sla_pdf
+
+    pdf_bytes = await render_sla_pdf(days)
+    if not pdf_bytes:
+        raise HTTPException(status_code=500, detail="PDF generation failed (weasyprint not available)")
+
+    from fastapi.responses import Response
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=sla_report_{days}days.pdf"},
+    )
+
+
 @router.post("/api-keys", dependencies=[Depends(require_admin)])
 async def create_api_key_endpoint(name: str, user: dict = Depends(get_current_user)):
     """Create a new API key (admin only). Returns the key once."""

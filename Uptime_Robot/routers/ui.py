@@ -259,6 +259,12 @@ async def users_page(request: Request, user: dict = Depends(require_admin)):
 @router.get("/public-status", response_class=HTMLResponse)
 async def public_status_page(request: Request):
     """Public status page with uptime %, response time, and incident history."""
+    # Rate limit: 30 req/min per IP
+    from ..models import check_db_rate_limit
+
+    client_ip = request.client.host if request.client else "unknown"
+    if not await check_db_rate_limit("public_status", client_ip, 30, 60):
+        return HTMLResponse("Too Many Requests", status_code=429)
     async with get_db_connection() as conn:
         async with conn.execute(
             "SELECT id, name, url, monitor_type, status, response_time FROM sites WHERE is_active = 1 ORDER BY id"

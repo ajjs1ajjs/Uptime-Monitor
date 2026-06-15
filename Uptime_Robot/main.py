@@ -139,6 +139,20 @@ async def add_security_headers(request: Request, call_next):
     return response
 
 
+# Access log middleware
+@app.middleware("http")
+async def access_log(request: Request, call_next):
+    import time
+    path = request.url.path
+    if path.startswith(("/static/", "/health", "/metrics", "/favicon")):
+        return await call_next(request)
+    start = time.time()
+    response = await call_next(request)
+    elapsed = int((time.time() - start) * 1000)
+    logger.info("%s %s %s %dms", request.method, path, response.status_code, elapsed)
+    return response
+
+
 # Add cache-control middleware to prevent HTML caching
 @app.middleware("http")
 async def add_cache_control(request: Request, call_next):
