@@ -109,18 +109,12 @@ async def htmx_hero_stats(user: dict = Depends(get_current_user)):
     async with get_db_connection() as conn:
         async with conn.execute("SELECT COUNT(*) FROM sites") as c:
             total = (await c.fetchone())[0]
-        async with conn.execute(
-            "SELECT site_id, status FROM (SELECT site_id, status, ROW_NUMBER() OVER (PARTITION BY site_id ORDER BY checked_at DESC) as rn FROM status_history) WHERE rn = 1"
-        ) as c:
-            last_status_raw = await c.fetchall()
-            status_counts = {"up": 0, "down": 0, "slow": 0}
-            for row in last_status_raw:
-                s = row["status"]
-                if s in status_counts:
-                    status_counts[s] += 1
-        up = status_counts["up"]
-        down = status_counts["down"]
-        slow = status_counts["slow"]
+        async with conn.execute("SELECT COUNT(*) FROM sites WHERE status = 'up'") as c:
+            up = (await c.fetchone())[0]
+        async with conn.execute("SELECT COUNT(*) FROM sites WHERE status = 'down'") as c:
+            down = (await c.fetchone())[0]
+        async with conn.execute("SELECT COUNT(*) FROM sites WHERE status = 'slow'") as c:
+            slow = (await c.fetchone())[0]
     incidents = down + slow
     return HTMLResponse(
         _hero_stat_html("Monitors", total)

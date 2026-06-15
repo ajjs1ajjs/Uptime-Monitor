@@ -360,6 +360,8 @@ async def check_site_status(
     skip_alert = _check_flapping(site_id, None, status, policy)
 
     async with get_db_connection() as conn:
+        # atomic transaction: if anything fails, both status_history and sites.status rollback
+        await conn.execute("BEGIN")
         async with conn.execute(
             "SELECT name, status, failed_attempts, success_attempts, last_down_alert, first_failure_at FROM sites WHERE id = ?",
             (site_id,),

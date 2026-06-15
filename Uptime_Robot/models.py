@@ -103,6 +103,13 @@ async def _run_migrations(conn):
         if col not in settings_cols:
             await conn.execute(f"ALTER TABLE app_settings ADD COLUMN {col} {col_type}")
 
+    # Sync sites.status from latest status_history for consistency
+    await conn.execute("""UPDATE sites SET status = (
+        SELECT sh.status FROM status_history sh
+        WHERE sh.site_id = sites.id
+        ORDER BY sh.checked_at DESC LIMIT 1
+    ) WHERE id IN (SELECT DISTINCT site_id FROM status_history)""")
+
 
 async def _seed_sites(conn):
     """Заповнює таблицю сайтів початковими даними, якщо вона порожня."""
