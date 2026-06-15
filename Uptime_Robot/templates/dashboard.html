@@ -363,11 +363,14 @@
 
         <div class="glass rounded-2xl p-6">
             <h3 class="text-lg font-semibold mb-4">📊 Звіти про доступність (SLA)</h3>
-            <p class="text-slate-400 text-sm mb-4">Виберіть період та завантажте звіт про доступність моніторів у форматі CSV.</p>
+            <p class="text-slate-400 text-sm mb-4">Виберіть період та завантажте звіт про доступність моніторів.</p>
             <div class="flex flex-wrap gap-3">
-                <a href="/api/reports/sla/export?days=7" class="px-5 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:border-accent hover:text-white transition text-sm font-medium">7 days (CSV)</a>
-                <a href="/api/reports/sla/export?days=30" class="px-5 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:border-accent hover:text-white transition text-sm font-medium">30 days (CSV)</a>
-                <a href="/api/reports/sla/export?days=90" class="px-5 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:border-accent hover:text-white transition text-sm font-medium">90 days (CSV)</a>
+                <a href="/api/reports/sla/export?days=7" class="px-5 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:border-accent hover:text-white transition text-sm font-medium">7d CSV</a>
+                <a href="/api/reports/sla/export?days=30" class="px-5 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:border-accent hover:text-white transition text-sm font-medium">30d CSV</a>
+                <a href="/api/reports/sla/export?days=90" class="px-5 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:border-accent hover:text-white transition text-sm font-medium">90d CSV</a>
+                <a href="/api/reports/sla/pdf?days=7" class="px-5 py-3 rounded-xl bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 hover:text-white transition text-sm font-medium">7d PDF</a>
+                <a href="/api/reports/sla/pdf?days=30" class="px-5 py-3 rounded-xl bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 hover:text-white transition text-sm font-medium">30d PDF</a>
+                <a href="/api/reports/sla/pdf?days=90" class="px-5 py-3 rounded-xl bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 hover:text-white transition text-sm font-medium">90d PDF</a>
             </div>
         </div>
 
