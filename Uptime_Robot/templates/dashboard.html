@@ -1694,9 +1694,15 @@ function updateSiteCard(data) {
             rtEl.textContent = data.response_time + 'ms';
         }
     });
+    if (data.status !== 'up') {
+        loadIncidents();
+    }
 }
 
 connectWebSocket();
+
+// Auto-refresh incidents and sites every 30s
+setInterval(() => { loadIncidents(); loadSites(); }, 30000);
 
 // Init
 function saveDisplayAddress() { return saveStatusSettings(); }
