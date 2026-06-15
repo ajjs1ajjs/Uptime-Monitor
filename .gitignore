@@ -172,6 +172,7 @@ port.txt
 UptimeMonitor.exe
 get-pip.py
 installer/build/
+*.tar.gz
 
 # Temporary files
 tmp/
