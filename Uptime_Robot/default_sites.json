@@ -1,106 +1,106 @@
 [
   {
-    "name": "api-s.smarttender ItPurchasingKit",
+    "name": "https://api-s.smarttender.biz/gateway/ItPurchasingKit/ping",
     "url": "https://api-s.smarttender.biz/gateway/ItPurchasingKit/ping"
   },
   {
-    "name": "assistants.it",
+    "name": "https://assistants.it.ua/prod-ws/ws/api/ping",
     "url": "https://assistants.it.ua/prod-ws/ws/api/ping"
   },
   {
-    "name": "diia-sign.it",
+    "name": "https://diia-sign.it.ua/health",
     "url": "https://diia-sign.it.ua/health"
   },
   {
-    "name": "ditran",
+    "name": "https://ditran.com.ua",
     "url": "https://ditran.com.ua"
   },
   {
-    "name": "ettn.signy",
+    "name": "https://ettn.signy.online",
     "url": "https://ettn.signy.online"
   },
   {
-    "name": "it.it-enterprise webservice",
+    "name": "https://it.it-enterprise.com/ws/webservice.asmx/ExecuteEx?calcId=PING&args=from_uptimerobot_it&ticket=&pureJSON=",
     "url": "https://it.it-enterprise.com/ws/webservice.asmx/ExecuteEx?calcId=PING&args=from_uptimerobot_it&ticket=&pureJSON="
   },
   {
-    "name": "it.it webservice",
+    "name": "https://it.it.ua/ws/webservice.asmx/ExecuteEx?calcId=PING&args=from_uptimerobot_itua&ticket=&pureJSON=",
     "url": "https://it.it.ua/ws/webservice.asmx/ExecuteEx?calcId=PING&args=from_uptimerobot_itua&ticket=&pureJSON="
   },
   {
-    "name": "m.it webservice",
+    "name": "https://ita-ws.it.ua/ws/webservice.asmx/ExecuteEx?calcId=PING&args=&ticket=&pureJSON=",
     "url": "https://ita-ws.it.ua/ws/webservice.asmx/ExecuteEx?calcId=PING&args=&ticket=&pureJSON="
   },
   {
-    "name": "mdm",
+    "name": "https://mdm.it-enterprise.com/ws/api/ping",
     "url": "https://mdm.it-enterprise.com/ws/api/ping"
   },
   {
-    "name": "WSSM webservice",
+    "name": "https://my.it-enterprise.com/WSSM/ws/webservice.asmx/ExecuteEx?calcId=PING&args=&ticket=&pureJSON=",
     "url": "https://my.it-enterprise.com/WSSM/ws/webservice.asmx/ExecuteEx?calcId=PING&args=&ticket=&pureJSON="
   },
   {
-    "name": "my.signy",
+    "name": "https://my.signy.online/",
     "url": "https://my.signy.online/"
   },
   {
-    "name": "my.signy DigitalSignature WebEds",
+    "name": "https://my.signy.online/DigitalSignature/WebEds",
     "url": "https://my.signy.online/DigitalSignature/WebEds"
   },
   {
-    "name": "pbolt",
+    "name": "https://pbolt.it.ua",
     "url": "https://pbolt.it.ua"
   },
   {
-    "name": "rps-engineering",
+    "name": "https://rps-engineering.com",
     "url": "https://rps-engineering.com"
   },
   {
-    "name": "s.smarttender",
+    "name": "https://s.smarttender.biz/",
     "url": "https://s.smarttender.biz/"
   },
   {
-    "name": "service.clobbi",
+    "name": "https://service.clobbi.com/wsbsh/ws/webservice.asmx/ExecuteEx?calcId=PING&args=&ticket=",
     "url": "https://service.clobbi.com/wsbsh/ws/webservice.asmx/ExecuteEx?calcId=PING&args=&ticket="
   },
   {
-    "name": "smartid.smarttender",
+    "name": "https://smartid.smarttender.biz/login/health",
     "url": "https://smartid.smarttender.biz/login/health"
   },
   {
-    "name": "smarttender publichni-zakupivli-prozorro",
+    "name": "https://smarttender.biz/publichni-zakupivli-prozorro/",
     "url": "https://smarttender.biz/publichni-zakupivli-prozorro/"
   },
   {
-    "name": "smarttender webservice",
+    "name": "https://smarttender.biz/ws/webservice.asmx/ExecuteEx?calcId=PING&args=from_uptimerobot_smarttender&ticket=&pureJSON=",
     "url": "https://smarttender.biz/ws/webservice.asmx/ExecuteEx?calcId=PING&args=from_uptimerobot_smarttender&ticket=&pureJSON="
   },
   {
-    "name": "support.it-enterprise",
+    "name": "https://support.it-enterprise.com/",
     "url": "https://support.it-enterprise.com/"
   },
   {
-    "name": "support.it",
+    "name": "https://support.it.ua",
     "url": "https://support.it.ua"
   },
   {
-    "name": "webclient.it-enterprise",
+    "name": "https://webclient.it-enterprise.com/ws/api/ping",
     "url": "https://webclient.it-enterprise.com/ws/api/ping"
   },
   {
-    "name": "it.ua",
+    "name": "https://www.it.ua",
     "url": "https://www.it.ua"
   },
   {
-    "name": "aix-digital",
+    "name": "https://aix-digital.com",
     "url": "https://aix-digital.com"
   },
   {
-    "name": "Monita",
+    "name": "https://monita.it.ua",
     "url": "https://monita.it.ua"
   },
   {
-    "name": "my.clobbi",
+    "name": "https://my.clobbi.com",
     "url": "https://my.clobbi.com"
   }
 ]
