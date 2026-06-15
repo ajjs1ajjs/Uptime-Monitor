@@ -1,3 +1,4 @@
+import asyncio
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -9,6 +10,7 @@ from fastapi.templating import Jinja2Templates
 
 from ..database import get_db_connection
 from ..dependencies import get_current_user, require_admin
+from ..logger import logger
 from ..state import (
     BRAND_ACCENT_COLOR,
     DISPLAY_ADDRESS,
