@@ -152,9 +152,11 @@ Starting from v2.0.0, the project includes enterprise-grade security:
 sudo systemctl start|stop|restart|status uptime-monitor
 sudo systemctl start|stop|restart|status uptime-monitor-worker
 
-# Deploy update (with backup + rollback)
+# One-command update (auto backup + rollback)
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
+
+# Or via deploy script (if installed from Git)
 sudo /opt/uptime-monitor/deploy_update.sh
-sudo /opt/uptime-monitor/deploy_update.sh --rollback
 
 # Backup & Restore
 sudo /opt/uptime-monitor/scripts/backup-system.sh --dest /backup/ --verify

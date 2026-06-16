@@ -319,6 +319,11 @@ case "${1:-}" in
         step_backup
         info "Backup only — no changes applied"
         ;;
+    --curl|--installer)
+        header "Curl-based update (one command)"
+        info "Running: curl -fsSL ...install.sh | sudo bash"
+        curl -fsSL "https://raw.githubusercontent.com/${GITHUB_REPO:-ajjs1ajjs/Uptime-Monitor}/main/install.sh" | sudo bash
+        ;;
     --help|-h)
         usage
         ;;

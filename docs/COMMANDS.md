@@ -27,7 +27,13 @@ sudo systemctl restart uptime-monitor uptime-monitor-worker
 
 ## 🔄 Update (Оновлення)
 
-### Рекомендований спосіб (автоматичний скрипт)
+### ⭐ Рекомендований спосіб — одна команда (для curl-встановлення)
+```bash
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
+```
+Скрипт сам виявить існуюче встановлення, зробить бекап, оновить код та перезапустить сервіси.
+
+### Для Git-встановлення (deploy_update.sh)
 ```bash
 # Повне оновлення з бекапом + перевіркою
 sudo /opt/uptime-monitor/deploy_update.sh
@@ -37,6 +43,9 @@ sudo /opt/uptime-monitor/deploy_update.sh --rollback
 
 # Зробити тільки бекап (без оновлення)
 sudo /opt/uptime-monitor/deploy_update.sh --backup
+
+# Примусове оновлення через curl (якщо немає .git)
+sudo /opt/uptime-monitor/deploy_update.sh --curl
 ```
 
 ### Ручне оновлення

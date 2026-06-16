@@ -35,30 +35,69 @@
 
 ---
 
-## ⚡ Швидке оновлення (рекомендовано)
+## ⚡ Швидке оновлення (рекомендовано — одна команда)
 
-Для більшості випадків — скрипт `deploy_update.sh`:
+Для більшості випадків — просто запустіть **ту саму команду** що й для встановлення:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
+```
+
+Скрипт автоматично:
+1. Виявляє, що це оновлення (якщо `/opt/uptime-monitor` вже існує)
+2. Робить бекап БД та конфігу в `/tmp/`
+3. Зупиняє сервіси
+4. Завантажує та встановлює останню версію
+5. Перезапускає сервіси
+6. Перевіряє статус
+
+**Час:** ~1-3 хвилини  
+**Ризики:** Мінімальні (автоматичний бекап + інструкція з відкату)
+
+> Якщо потрібен більш контрольований процес — скористайтесь **Безпечним оновленням** нижче.
+
+---
+
+## 🛡️ Безпечне оновлення з бекапом (ручне)
+
+### Для Git-встановлення
+
+```bash
+cd /opt/uptime-monitor
+sudo git pull --ff-only origin main
+sudo systemctl restart uptime-monitor uptime-monitor-worker
+```
+
+### Для Docker
+
+```bash
+cd /opt/uptime-monitor
+docker compose down
+git pull --ff-only origin main
+docker compose up -d --build
+```
+
+### Для встановлення через ZIP
+
+```bash
+cd /tmp
+sudo cp /var/lib/uptime-monitor/sites.db /tmp/sites.db.backup
+curl -fsSL https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.tar.gz -o uptime.tar.gz
+tar -xzf uptime.tar.gz
+sudo cp -r Uptime-Monitor-main/Uptime_Robot/* /opt/uptime-monitor/
+sudo chown -R uptime-monitor:uptime-monitor /opt/uptime-monitor
+sudo systemctl restart uptime-monitor uptime-monitor-worker
+```
+
+---
+
+## 🌀 Швидке оновлення через deploy_update.sh
+
+Для серверів з Git-встановленням:
 
 ```bash
 sudo /opt/uptime-monitor/deploy_update.sh
 ```
-
-Скрипт автоматично:
-1. Робить pre-update backup (БД + конфіг + systemd units)
-2. Зупиняє сервіси
-3. Оновлює код (Git pull або ZIP)
-4. Запускає сервіси
-5. Перевіряє health + статус
-
-Для кастомних параметрів:
-```bash
-sudo INSTALL_DIR=/opt/uptime-monitor APP_USER=uptime-monitor \
-  BACKUP_ROOT=/backup/uptime-monitor \
-  /opt/uptime-monitor/deploy_update.sh
-```
-
-**Час:** ~2-5 хвилин  
-**Ризики:** Низькі (автоматичний бекап + rollback)
 
 ---
 

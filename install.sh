@@ -31,6 +31,13 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
+# Detect if this is an update
+IS_UPDATE=false
+UPDATE_BACKUP_TS=""
+if [ -f "$DATA_DIR/sites.db" ] && [ -d "$INSTALL_DIR/Uptime_Robot" ]; then
+    IS_UPDATE=true
+fi
+
 # Parse arguments
 PORT=8080
 INSTALL_VERSION="main"
@@ -64,6 +71,13 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [ "$IS_UPDATE" = true ]; then
+    echo -e "${YELLOW}=========================================="
+    echo "   Update Mode Detected"
+    echo "==========================================${NC}"
+    echo ""
+fi
 
 # Determine download URL based on version
 if [[ "$INSTALL_VERSION" == "main" ]]; then
@@ -183,6 +197,25 @@ fi
 # Create directories
 echo -e "${BLUE}Creating directories...${NC}"
 mkdir -p "$INSTALL_DIR" "$CONFIG_DIR" "$DATA_DIR" "$LOG_DIR"
+
+# Backup existing data if updating
+if [ "$IS_UPDATE" = true ]; then
+    UPDATE_BACKUP_TS=$(date +%Y%m%d-%H%M%S)
+    echo -e "${YELLOW}Backing up current data...${NC}"
+    if [ -f "$DATA_DIR/sites.db" ]; then
+        cp "$DATA_DIR/sites.db" "/tmp/sites.db.backup.$UPDATE_BACKUP_TS"
+        echo -e "${GREEN}  ✓ Database backed up: /tmp/sites.db.backup.$UPDATE_BACKUP_TS${NC}"
+    fi
+    if [ -f "$CONFIG_DIR/config.json" ]; then
+        cp "$CONFIG_DIR/config.json" "/tmp/config.json.backup.$UPDATE_BACKUP_TS"
+        echo -e "${GREEN}  ✓ Config backed up: /tmp/config.json.backup.$UPDATE_BACKUP_TS${NC}"
+    fi
+    echo -e "${YELLOW}Stopping services...${NC}"
+    systemctl stop "$SERVICE_NAME" 2>/dev/null || true
+    systemctl stop "$SERVICE_NAME-worker" 2>/dev/null || true
+    sleep 2
+    echo ""
+fi
 
 # Download or use local files
 if [ "$LOCAL_INSTALL" = true ]; then
@@ -465,61 +498,103 @@ if systemctl is-active --quiet $SERVICE_NAME; then
     fi
 
     echo ""
-    echo -e "${GREEN}=========================================="
-    echo "   Uptime Monitor - Installation Successful!"
-    echo "==========================================${NC}"
-    echo ""
-    echo -e "  ${GREEN}Version:${NC}     $APP_VERSION"
-    echo -e "  ${GREEN}Port:${NC}        $PORT"
-    echo -e "  ${GREEN}Host:${NC}        0.0.0.0"
-    echo -e "  ${GREEN}Domain:${NC}      $IP (auto-detected)"
-    echo -e "  ${GREEN}SSL:${NC}         Disabled (configure manually)"
-    echo -e "  ${GREEN}URL:${NC}         http://$IP:$PORT"
-    echo ""
-    echo -e "  ${YELLOW}Default Credentials:${NC}"
-    echo -e "    Username: ${BLUE}admin${NC}"
-    echo -e "    Password: ${GREEN}291263${NC} (or your custom password if database already exists)"
-    echo ""
-    echo "Management Commands:"
-    echo "  sudo systemctl status $SERVICE_NAME"
-    echo "  sudo systemctl restart $SERVICE_NAME"
-    echo "  sudo systemctl stop $SERVICE_NAME"
-    echo ""
-    echo "Configuration Commands:"
-    echo "  sudo nano $CONFIG_DIR/config.json     # Edit configuration"
-    echo "  sudo $INSTALL_DIR/scripts/config-rollback.sh --list     # List backups"
-    echo "  sudo $INSTALL_DIR/scripts/config-rollback.sh            # Rollback to previous"
-    echo ""
-    echo "Backup System:"
-    echo "  Create backup:  sudo $INSTALL_DIR/scripts/backup-system.sh --dest /backup/uptime-monitor/"
-    echo "  Check status:   sudo $INSTALL_DIR/scripts/backup-system.sh --status"
-    echo "  Restore:        sudo $INSTALL_DIR/scripts/restore-system.sh --auto"
-    echo "  Schedule:       sudo $INSTALL_DIR/scripts/schedule-backup.sh --install --dest /backup/uptime-monitor/"
-    echo "  NFS Setup:      sudo $INSTALL_DIR/scripts/mount-backup.sh --type nfs --server <IP> --path /exports/backups --mount-point /mnt/nfs-backup --persist"
-    echo "  Samba Setup:    sudo $INSTALL_DIR/scripts/mount-backup.sh --type smb --server <IP> --share backups --mount-point /mnt/smb-backup --persist"
-    echo ""
-    echo "Enable SSL (when ready):"
-    echo "  1. Add your certificates to $CONFIG_DIR/ssl/"
-    echo "  2. Edit $CONFIG_DIR/config.json"
-    echo "  3. Change ssl.enabled to true"
-    echo "  4. Update server.port to 443"
-    echo "  5. Update server.domain to your domain"
-    echo "  6. Restart: sudo systemctl restart $SERVICE_NAME"
-    echo ""
-    echo "Configuration File:"
-    echo "  Location: $CONFIG_DIR/config.json"
-    echo "  Logs:     $LOG_DIR/"
-    echo "  SSL:      $CONFIG_DIR/ssl/"
-    echo "  Backups:  /backup/uptime-monitor/ (default)"
-    echo ""
+    if [ "$IS_UPDATE" = true ]; then
+        echo -e "${GREEN}=========================================="
+        echo "   Uptime Monitor - Update Successful!"
+        echo "==========================================${NC}"
+        echo ""
+        echo -e "  ${GREEN}Version:${NC}     $APP_VERSION"
+        echo -e "  ${GREEN}URL:${NC}         http://$IP:$PORT"
+        echo ""
+        echo -e "  Backup saved as:"
+        echo -e "    ${YELLOW}/tmp/sites.db.backup.$UPDATE_BACKUP_TS${NC}"
+        echo -e "    ${YELLOW}/tmp/config.json.backup.$UPDATE_BACKUP_TS${NC}"
+        echo ""
+        echo -e "  ${YELLOW}Rollback if needed:${NC}"
+        echo "    sudo systemctl stop $SERVICE_NAME $SERVICE_NAME-worker"
+        echo "    sudo cp /tmp/sites.db.backup.$UPDATE_BACKUP_TS $DATA_DIR/sites.db"
+        echo "    sudo cp /tmp/config.json.backup.$UPDATE_BACKUP_TS $CONFIG_DIR/config.json"
+        echo "    sudo systemctl start $SERVICE_NAME $SERVICE_NAME-worker"
+        echo ""
+        echo "Management Commands:"
+        echo "  sudo systemctl status $SERVICE_NAME"
+        echo "  sudo systemctl restart $SERVICE_NAME"
+        echo "  sudo systemctl logs $SERVICE_NAME -n 50"
+        echo ""
+        echo -e "${GREEN}Update completed successfully!${NC}"
+    else
+        echo -e "${GREEN}=========================================="
+        echo "   Uptime Monitor - Installation Successful!"
+        echo "==========================================${NC}"
+        echo ""
+        echo -e "  ${GREEN}Version:${NC}     $APP_VERSION"
+        echo -e "  ${GREEN}Port:${NC}        $PORT"
+        echo -e "  ${GREEN}Host:${NC}        0.0.0.0"
+        echo -e "  ${GREEN}Domain:${NC}      $IP (auto-detected)"
+        echo -e "  ${GREEN}SSL:${NC}         Disabled (configure manually)"
+        echo -e "  ${GREEN}URL:${NC}         http://$IP:$PORT"
+        echo ""
+        echo -e "  ${YELLOW}Default Credentials:${NC}"
+        echo -e "    Username: ${BLUE}admin${NC}"
+        echo -e "    Password: ${GREEN}291263${NC} (or your custom password if database already exists)"
+        echo ""
+        echo "Management Commands:"
+        echo "  sudo systemctl status $SERVICE_NAME"
+        echo "  sudo systemctl restart $SERVICE_NAME"
+        echo "  sudo systemctl stop $SERVICE_NAME"
+        echo ""
+        echo -e "${GREEN}To update in the future, simply run the same command again:${NC}"
+        echo -e "  ${BLUE}curl -fsSL https://raw.githubusercontent.com/$GITHUB_REPO/main/install.sh | sudo bash${NC}"
+        echo ""
+        echo "Configuration Commands:"
+        echo "  sudo nano $CONFIG_DIR/config.json     # Edit configuration"
+        echo "  sudo $INSTALL_DIR/scripts/config-rollback.sh --list     # List backups"
+        echo "  sudo $INSTALL_DIR/scripts/config-rollback.sh            # Rollback to previous"
+        echo ""
+        echo "Backup System:"
+        echo "  Create backup:  sudo $INSTALL_DIR/scripts/backup-system.sh --dest /backup/uptime-monitor/"
+        echo "  Check status:   sudo $INSTALL_DIR/scripts/backup-system.sh --status"
+        echo "  Restore:        sudo $INSTALL_DIR/scripts/restore-system.sh --auto"
+        echo "  Schedule:       sudo $INSTALL_DIR/scripts/schedule-backup.sh --install --dest /backup/uptime-monitor/"
+        echo "  NFS Setup:      sudo $INSTALL_DIR/scripts/mount-backup.sh --type nfs --server <IP> --path /exports/backups --mount-point /mnt/nfs-backup --persist"
+        echo "  Samba Setup:    sudo $INSTALL_DIR/scripts/mount-backup.sh --type smb --server <IP> --share backups --mount-point /mnt/smb-backup --persist"
+        echo ""
+        echo "Enable SSL (when ready):"
+        echo "  1. Add your certificates to $CONFIG_DIR/ssl/"
+        echo "  2. Edit $CONFIG_DIR/config.json"
+        echo "  3. Change ssl.enabled to true"
+        echo "  4. Update server.port to 443"
+        echo "  5. Update server.domain to your domain"
+        echo "  6. Restart: sudo systemctl restart $SERVICE_NAME"
+        echo ""
+        echo "Configuration File:"
+        echo "  Location: $CONFIG_DIR/config.json"
+        echo "  Logs:     $LOG_DIR/"
+        echo "  SSL:      $CONFIG_DIR/ssl/"
+        echo "  Backups:  /backup/uptime-monitor/ (default)"
+        echo ""
+    fi
 else
     echo -e "${RED}=========================================="
-    echo "   Installation Failed"
+    if [ "$IS_UPDATE" = true ]; then
+        echo "   Update Failed"
+    else
+        echo "   Installation Failed"
+    fi
     echo "==========================================${NC}"
     echo ""
     echo "Service failed to start. Check logs:"
     echo "  sudo journalctl -u $SERVICE_NAME -n 50"
     echo ""
+    if [ "$IS_UPDATE" = true ] && [ -n "$UPDATE_BACKUP_TS" ]; then
+        echo -e "${YELLOW}Rollback available:${NC}"
+        echo "  sudo systemctl stop $SERVICE_NAME $SERVICE_NAME-worker"
+        echo "  sudo cp /tmp/sites.db.backup.$UPDATE_BACKUP_TS $DATA_DIR/sites.db"
+        echo "  sudo cp /tmp/config.json.backup.$UPDATE_BACKUP_TS $CONFIG_DIR/config.json"
+        echo "  sudo chown $APP_USER:$APP_USER $DATA_DIR/sites.db $CONFIG_DIR/config.json"
+        echo "  sudo systemctl start $SERVICE_NAME $SERVICE_NAME-worker"
+        echo ""
+    fi
     exit 1
 fi
 

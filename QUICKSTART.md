@@ -22,10 +22,10 @@ docker run -d -p 8080:8080 -v uptime-data:/data --name uptime-monitor ghcr.io/aj
 .\install_service.bat
 ```
 
-## Update
+## Update (one command)
 
 ```bash
-sudo uptime-update
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 ```
 
 ## Documentation

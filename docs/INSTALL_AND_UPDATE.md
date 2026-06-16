@@ -22,7 +22,14 @@ Access: `http://YOUR_SERVER_IP:8080`
 
 ## Update (Production)
 
-### Recommended: Automated deploy script
+### ⭐ Recommended: One-command update (for curl-based install)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
+```
+The installer auto-detects existing installation, backups up DB + config, updates code, and restarts services.
+
+### Alternative: Automated deploy script (for Git-based install)
 
 ```bash
 sudo /opt/uptime-monitor/deploy_update.sh
@@ -32,7 +39,7 @@ sudo /opt/uptime-monitor/deploy_update.sh
 
 See **[UPDATE_PRODUCTION.md](../UPDATE_PRODUCTION.md)** for safe update with:
 - Pre-update backup system
-- Code update (Git or ZIP)
+- Code update (Git or ZIP or curl)
 - Database migration steps
 - Post-update verification (smoke tests)
 - Rollback procedure (with DB restore)
@@ -46,7 +53,10 @@ See **[UPDATE_PRODUCTION.md](../UPDATE_PRODUCTION.md)** for safe update with:
 sudo systemctl start|stop|restart|status uptime-monitor
 sudo systemctl start|stop|restart|status uptime-monitor-worker
 
-# Deploy update
+# One-command update (curl)
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
+
+# Or deploy script (git-based)
 sudo /opt/uptime-monitor/deploy_update.sh
 sudo /opt/uptime-monitor/deploy_update.sh --rollback
 

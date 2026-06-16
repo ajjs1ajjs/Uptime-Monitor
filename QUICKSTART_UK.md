@@ -69,72 +69,18 @@ docker run -d \
 
 ---
 
-## 🔄 Оновлення
-
-### Команда для оновлення (з будь-якої папки):
+## 🔄 Оновлення (одна команда)
 
 ```bash
-sudo uptime-update
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 ```
 
-### Якщо команди немає — встановіть:
-
-```bash
-sudo cat > /usr/local/bin/uptime-update << 'EOF'
-#!/bin/bash
-INSTALL_DIR="/opt/Uptime-Monitor"
-SERVICE_NAME="uptime-monitor"
-echo "╔════════════════════════════════════════╗"
-echo "║   Uptime Monitor - Update Script      ║"
-echo "╚════════════════════════════════════════╝"
-if [ "$EUID" -ne 0 ]; then echo "Error: run with sudo"; exit 1; fi
-cd "$INSTALL_DIR"
-systemctl stop "$SERVICE_NAME"
-chown -R $(whoami):$(whoami) .git/ 2>/dev/null || true
-git fetch origin
-git reset --hard origin/main
-rm -f main.py ui_templates.py page.html Uptime_Robot/page.html
-ln -sf Uptime_Robot/main.py main.py
-ln -sf Uptime_Robot/ui_templates.py ui_templates.py
-find . -path ./venv -prune -o -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-chown -R uptime-monitor:uptime-monitor main.py Uptime_Robot/main.py Uptime_Robot/ui_templates.py uptime_monitor.log ui_templates.py 2>/dev/null || true
-systemctl start "$SERVICE_NAME"
-sleep 2
-if systemctl is-active --quiet "$SERVICE_NAME"; then echo "✅ Running!"; else echo "❌ Failed!"; systemctl status "$SERVICE_NAME" --no-pager; fi
-echo "📌 Browser: Ctrl+Shift+R"
-EOF
-sudo chmod +x /usr/local/bin/uptime-update
-```
-
-### Вручну:
-
-```bash
-cd /opt/Uptime-Monitor
-
-# 1. Зупинити
-sudo systemctl stop uptime-monitor
-
-# 2. Оновити код
-git fetch origin
-git reset --hard origin/main
-
-# 3. Оновити symlink
-rm -f main.py ui_templates.py
-ln -sf Uptime_Robot/main.py main.py
-ln -sf Uptime_Robot/ui_templates.py ui_templates.py
-
-# 4. Видалити кеш
-find . -path ./venv -prune -o -name "__pycache__" -exec rm -rf {} + 2>/dev/null
-
-# 5. Виправити права
-sudo chown -R uptime-monitor:uptime-monitor main.py Uptime_Robot/main.py Uptime_Robot/ui_templates.py uptime_monitor.log ui_templates.py
-
-# 6. Запустити
-sudo systemctl start uptime-monitor
-sudo systemctl status uptime-monitor
-```
-
-**В браузері:** `Ctrl + Shift + R`
+Скрипт автоматично:
+- Виявляє існуюче встановлення
+- Робить бекап БД та конфігу
+- Оновлює код
+- Перезапускає сервіси
+- Виводить інструкцію з відкату, якщо щось пішло не так
 
 ---
 
@@ -163,10 +109,8 @@ curl http://localhost:8080/api/sites
 ### Оновлення
 
 ```bash
-# Глобальна команда
-sudo uptime-update
-
-# Або вручну (див. вище)
+# Одна команда (curl)
+curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 ```
 
 ---
