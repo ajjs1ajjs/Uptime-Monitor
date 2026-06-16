@@ -15,6 +15,11 @@ if not %errorlevel%==0 (
     exit /b 1
 )
 
+set IS_UPDATE=0
+sc query UptimeMonitor >nul 2>&1
+if not errorlevel 1 set IS_UPDATE=1
+if "%IS_UPDATE%"=="1" echo [*] Update mode detected
+
 cd /d "%~dp0"
 
 echo Step 1: Installing Python dependencies...
@@ -31,24 +36,36 @@ if errorlevel 1 (
     echo WARNING: pywin32 system install failed. Service may not work.
 )
 
-echo Step 3: Registering service...
-python main_service.py install
-if errorlevel 1 (
-    echo ERROR: Service installation failed!
-    pause
-    exit /b 1
+if "%IS_UPDATE%"=="1" (
+    echo [*] Restarting service...
+    net stop UptimeMonitor >nul 2>&1
+    net start UptimeMonitor
+) else (
+    echo Step 3: Registering service...
+    python main_service.py install
+    if errorlevel 1 (
+        echo ERROR: Service installation failed!
+        pause
+        exit /b 1
+    )
+
+    echo Step 4: Configuring auto-start...
+    sc config UptimeMonitor start= auto >nul
+
+    echo Step 5: Starting service...
+    net start UptimeMonitor
 )
 
-echo Step 4: Configuring auto-start...
-sc config UptimeMonitor start= auto >nul
-
-echo Step 5: Starting service...
-net start UptimeMonitor
-
 echo.
-echo ========================================
-echo   Installation Complete!
-echo ========================================
+if "%IS_UPDATE%"=="1" (
+    echo ========================================
+    echo   Update Complete!
+    echo ========================================
+) else (
+    echo ========================================
+    echo   Installation Complete!
+    echo ========================================
+)
 echo.
 echo Service: UptimeMonitor
 echo Access:  http://localhost:8080

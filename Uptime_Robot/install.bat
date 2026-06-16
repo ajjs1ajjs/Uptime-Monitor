@@ -15,6 +15,27 @@ if not !errorlevel!==0 (
     exit /b 1
 )
 
+REM ─── Detect if this is an update ─────────────────
+set IS_UPDATE=0
+sc query UptimeMonitor >nul 2>&1
+if not errorlevel 1 set IS_UPDATE=1
+if not exist "%USERPROFILE%\UptimeMonitor\config.json" (
+    if "%IS_UPDATE%"=="1" set IS_UPDATE=1
+) else (
+    set IS_UPDATE=1
+)
+if "%IS_UPDATE%"=="1" (
+    echo [*] Existing installation detected. Running update mode...
+    REM Backup config
+    if exist "%USERPROFILE%\UptimeMonitor\config.json" (
+        copy "%USERPROFILE%\UptimeMonitor\config.json" "%TEMP%\uptime-config.backup.%DATE:~-4,4%%DATE:~-10,2%%DATE:~-7,2%-%TIME:~0,2%%TIME:~3,2%%TIME:~6,2%.json" >nul
+        echo [v] Config backed up
+    )
+    echo [*] Stopping service...
+    net stop UptimeMonitor >nul 2>&1
+    echo.
+)
+
 set PYTHON_CMD=python
 !PYTHON_CMD! --version >nul 2>&1
 if not !errorlevel!==0 (
@@ -66,6 +87,14 @@ if not !errorlevel!==0 (
     exit /b 1
 )
 
+REM Restore config if updating
+if "%IS_UPDATE%"=="1" (
+    if exist "%TEMP%\uptime-config.backup.*.json" (
+        for %%f in ("%TEMP%\uptime-config.backup.*.json") do copy "%%f" "%USERPROFILE%\UptimeMonitor\config.json" >nul 2>&1
+        echo [v] Config restored
+    )
+)
+
 echo Installing pywin32 to system site-packages (required for Windows service)...
 !PYTHON_CMD! -m pip install --upgrade --force-reinstall --no-user pywin32 2>nul
 if not !errorlevel!==0 (
@@ -109,31 +138,58 @@ if not !errorlevel!==0 (
     exit /b 1
 )
 
-echo Installing Windows service...
-!PYTHON_CMD! main_service.py install
-if not !errorlevel!==0 (
-    echo ERROR: Service installation failed.
-    if not "%SILENT%"=="1" pause
-    exit /b 1
+if "%IS_UPDATE%"=="1" (
+    echo [*] Restarting service...
+    net start UptimeMonitor
+) else (
+    echo Installing Windows service...
+    !PYTHON_CMD! main_service.py install
+    if not !errorlevel!==0 (
+        echo ERROR: Service installation failed.
+        if not "%SILENT%"=="1" pause
+        exit /b 1
+    )
+    sc config UptimeMonitor start= auto
+    net start UptimeMonitor
 )
 
-sc config UptimeMonitor start= auto
-net start UptimeMonitor
-
 echo.
-echo ========================================
-echo   Installation complete!
-echo ========================================
-echo.
-echo Service: UptimeMonitor
-echo Port: %PORT%
-echo.
-echo To manage service:
-echo   net stop UptimeMonitor
-echo   net start UptimeMonitor
-echo   sc delete UptimeMonitor
-echo.
-echo To access: http://localhost:%PORT%
+if "%IS_UPDATE%"=="1" (
+    echo ========================================
+    echo   Update complete!
+    echo ========================================
+    echo.
+    echo Service: UptimeMonitor
+    echo Port: %PORT%
+    echo.
+    echo Backup saved to: "%TEMP%\uptime-config.backup.*.json"
+    echo.
+    echo To rollback:
+    echo   1. Stop service: net stop UptimeMonitor
+    echo   2. Restore config from the backup file listed above
+    echo   3. Start service: net start UptimeMonitor
+    echo.
+    echo To manage service:
+    echo   net stop UptimeMonitor
+    echo   net start UptimeMonitor
+    echo   sc delete UptimeMonitor
+    echo.
+    echo To access: http://localhost:%PORT%
+) else (
+    echo ========================================
+    echo   Installation complete!
+    echo ========================================
+    echo.
+    echo Service: UptimeMonitor
+    echo Port: %PORT%
+    echo.
+    echo To manage service:
+    echo   net stop UptimeMonitor
+    echo   net start UptimeMonitor
+    echo   sc delete UptimeMonitor
+    echo.
+    echo To access: http://localhost:%PORT%
+)
 echo.
 
 if not "%SILENT%"=="1" pause

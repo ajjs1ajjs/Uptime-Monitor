@@ -31,6 +31,8 @@ cd Uptime-Monitor\Uptime_Robot
 .\install.bat /y
 ```
 
+> 💡 Run the same command again to update (auto-detects existing installation, backs up config, restarts service).
+
 ### Run directly (any platform)
 
 ```bash

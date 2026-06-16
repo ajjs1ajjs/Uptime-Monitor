@@ -50,6 +50,8 @@ http://YOUR_SERVER_IP:8080
 }
 ```
 
+> 💡 Запустіть ту ж команду повторно для оновлення (автоматично виявляє існуюче встановлення, створює резервну копію конфігурації, перезапускає службу).
+
 **Option C — Python directly (no service):**
 ```powershell
 python -m Uptime_Robot.main --host 0.0.0.0 --port 8080
