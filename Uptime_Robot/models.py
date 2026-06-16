@@ -200,9 +200,13 @@ async def _seed_notify_config(conn):
             return
     tg_token = os.environ.get("TELEGRAM_BOT_TOKEN") or os.environ.get("TELEGRAM_TOKEN")
     tg_chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+    tg_thread_id = os.environ.get("TELEGRAM_MESSAGE_THREAD_ID")
     if tg_token and tg_chat_id:
+        tg_channel = {"id": "default", "name": "Основний", "token": tg_token, "chat_id": tg_chat_id}
+        if tg_thread_id:
+            tg_channel["message_thread_id"] = tg_thread_id
         settings = {
-            "telegram": {"enabled": True, "channels": [{"id": "default", "name": "Основний", "token": tg_token, "chat_id": tg_chat_id}]},
+            "telegram": {"enabled": True, "channels": [tg_channel]},
             "discord": {"enabled": False, "channels": [{"id": "default", "name": "Основний", "webhook_url": ""}]},
             "teams": {"enabled": False, "channels": [{"id": "default", "name": "Основний", "webhook_url": ""}]},
             "email": {"enabled": False, "smtp_server": "", "smtp_port": 587, "username": "", "password": "", "to_email": ""},

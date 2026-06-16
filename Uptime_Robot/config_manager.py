@@ -109,7 +109,7 @@ DEFAULT_CONFIG = {
 DEFAULT_NOTIFY_SETTINGS = {
     "telegram": {
         "enabled": False,
-        "channels": [{"id": "default", "name": "Основний", "token": "", "chat_id": ""}],
+        "channels": [{"id": "default", "name": "Основний", "token": "", "chat_id": "", "message_thread_id": ""}],
     },
     "discord": {
         "enabled": False,

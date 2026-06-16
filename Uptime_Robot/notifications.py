@@ -456,6 +456,9 @@ async def send_telegram(message: Union[str, dict], settings: dict[str, Any]):
 
         payload: dict[str, Any] = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
 
+        if settings.get("message_thread_id"):
+            payload["message_thread_id"] = int(settings["message_thread_id"])
+
         if alert_type in ("down", "still_down"):
             payload["reply_markup"] = {
                 "inline_keyboard": [
