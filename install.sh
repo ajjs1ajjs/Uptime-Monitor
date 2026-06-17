@@ -261,6 +261,7 @@ else
 fi
 
 # Copy the entire Uptime_Robot package (keeps __init__.py, subpackages, relative imports working)
+rm -rf "$INSTALL_DIR/Uptime_Robot"
 cp -r "$SRC_DIR" "$INSTALL_DIR/Uptime_Robot/"
 
 # Copy root-level files (README, pyproject.toml, Dockerfile, docker-compose.yml, etc.)
@@ -272,14 +273,17 @@ if [ -f "$PROJECT_ROOT/docker-compose.yml" ]; then cp "$PROJECT_ROOT/docker-comp
 # Copy templates and static
 for d in templates static; do
     if [ -d "$SRC_DIR/$d" ]; then
+        rm -rf "$INSTALL_DIR/$d"
         cp -r "$SRC_DIR/$d" "$INSTALL_DIR/"
     elif [ -d "$PROJECT_ROOT/$d" ]; then
+        rm -rf "$INSTALL_DIR/$d"
         cp -r "$PROJECT_ROOT/$d" "$INSTALL_DIR/"
     fi
 done
 
 # Copy scripts to top-level (references like $INSTALL_DIR/scripts/backup.sh)
 if [ -d "$SRC_DIR/scripts" ]; then
+    rm -rf "$INSTALL_DIR/scripts"
     cp -r "$SRC_DIR/scripts" "$INSTALL_DIR/"
     chmod +x "$INSTALL_DIR/scripts/"*.sh 2>/dev/null || true
     chmod +x "$INSTALL_DIR/scripts/"*.py 2>/dev/null || true
