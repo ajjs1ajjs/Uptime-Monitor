@@ -1,5 +1,6 @@
 import os
 import sys
+import threading
 from typing import Optional
 
 try:
@@ -13,6 +14,7 @@ from .logger import logger
 MASTER_KEY_FILE = "master.key"
 ENC_PREFIX = "__ENC__"
 _FERNET_INSTANCE = None
+_FERNET_LOCK = threading.Lock()
 _SENSITIVE_KEYS = {
     "email_password",
     "password",
@@ -101,18 +103,22 @@ def get_fernet() -> Optional[object]:
     if Fernet is None:
         return None
 
-    key = load_master_key()
-    if not key:
-        key = generate_master_key()
-        if not key:
-            return None
+    with _FERNET_LOCK:
+        if _FERNET_INSTANCE is not None:
+            return _FERNET_INSTANCE
 
-    try:
-        _FERNET_INSTANCE = Fernet(key.encode())
-        return _FERNET_INSTANCE
-    except Exception as e:
-        logger.error("Failed to initialize Fernet: %s", e)
-        return None
+        key = load_master_key()
+        if not key:
+            key = generate_master_key()
+            if not key:
+                return None
+
+        try:
+            _FERNET_INSTANCE = Fernet(key.encode())
+            return _FERNET_INSTANCE
+        except Exception as e:
+            logger.error("Failed to initialize Fernet: %s", e)
+            return None
 
 
 def is_sensitive_key(key: str) -> bool:

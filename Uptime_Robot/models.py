@@ -21,7 +21,8 @@ async def _create_tables(conn):
         status TEXT DEFAULT 'unknown', status_code INTEGER, response_time REAL,
         error_message TEXT, monitor_type TEXT DEFAULT 'http',
         failed_attempts INTEGER DEFAULT 0, success_attempts INTEGER DEFAULT 0,
-        last_down_alert TEXT, first_failure_at TEXT, keyword TEXT DEFAULT NULL
+        last_down_alert TEXT, first_failure_at TEXT, keyword TEXT DEFAULT NULL,
+        tags TEXT DEFAULT '[]'
     )""")
     await conn.execute("""CREATE TABLE IF NOT EXISTS status_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER, status TEXT,
@@ -67,6 +68,10 @@ async def _create_tables(conn):
         token TEXT NOT NULL, created_at TEXT DEFAULT (datetime('now'))
     )""")
     await conn.execute("CREATE INDEX IF NOT EXISTS idx_csrf_tokens_session ON csrf_tokens(session_id)")
+    await conn.execute("""CREATE TABLE IF NOT EXISTS sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, session_id TEXT UNIQUE,
+        created_at TEXT, expires_at TEXT, FOREIGN KEY(user_id) REFERENCES users(id)
+    )""")
 
 
 async def _run_migrations(conn):
@@ -676,14 +681,15 @@ async def get_backups(db_path: str) -> list:
 
 
 async def check_db_rate_limit(
-    endpoint: str, ip: str, max_attempts: int = 5, window_seconds: int = 900
+    endpoint: str, ip: str, max_attempts: int = 5, window_seconds: int = 900,
+    db_path: str = None
 ) -> bool:
     """Returns True if within limit, False if rate limited."""
     import time
 
     now = time.time()
     # Clean expired entries first
-    async with get_db_connection() as conn:
+    async with get_db_connection(db_path) as conn:
         await conn.execute("DELETE FROM rate_limits WHERE reset_at < ?", (now,))
 
         # Atomic upsert: create if not exists, increment if exists and within window

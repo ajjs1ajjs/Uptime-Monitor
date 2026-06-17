@@ -27,9 +27,13 @@ jobs:
             --exclude='*.db' \
             --exclude='*.log' \
             --exclude='UptimeMonitor_EXE' \
-            main.py main_service.py auth_module.py database.py logger.py \
-            models.py notifications.py monitoring.py ssl_checker.py \
-            templates/ static/ requirements.txt
+            __init__.py __main__.py main.py main_service.py worker.py \
+            auth_module.py auth_cli.py database.py logger.py \
+            models.py notifications.py ssl_checker.py \
+            config_manager.py state.py crypto_utils.py csrf.py \
+            dependencies.py metrics_store.py reporting.py \
+            monitoring/ routers/ wss/ scripts/ \
+            templates/ static/ default_sites.json requirements.txt
       
       - name: Create Release
         uses: softprops/action-gh-release@v1

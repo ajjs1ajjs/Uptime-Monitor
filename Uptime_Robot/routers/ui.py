@@ -13,6 +13,7 @@ from ..dependencies import get_current_user, require_admin
 from ..logger import logger
 from ..state import (
     BRAND_ACCENT_COLOR,
+    DB_PATH,
     DISPLAY_ADDRESS,
     FOOTER_TEXT,
     LOGO_URL,
@@ -266,7 +267,7 @@ async def public_status_page(request: Request):
     from ..models import check_db_rate_limit
 
     client_ip = request.client.host if request.client else "unknown"
-    if not await check_db_rate_limit("public_status", client_ip, 30, 60):
+    if not await check_db_rate_limit("public_status", client_ip, 30, 60, DB_PATH):
         return HTMLResponse("Too Many Requests", status_code=429)
     async with get_db_connection() as conn:
         async with conn.execute(

@@ -23,7 +23,7 @@ def _rate_limit_dependency(endpoint: str, max_attempts: int, window_seconds: int
 
     async def limiter(request: Request):
         client_ip = request.client.host if request.client else "unknown"
-        ok = await models.check_db_rate_limit(endpoint, client_ip, max_attempts, window_seconds)
+        ok = await models.check_db_rate_limit(endpoint, client_ip, max_attempts, window_seconds, DB_PATH)
         if not ok:
             raise HTTPException(
                 status_code=429,
@@ -51,7 +51,7 @@ async def login_page(request: Request, error: str = None, user: dict = Depends(g
 @router.post("/login")
 async def login(request: Request, username: str = Form(...), password: str = Form(...)):
     client_ip = request.client.host if request.client else "unknown"
-    if not await models.check_db_rate_limit("login", client_ip, 5, 900):
+    if not await models.check_db_rate_limit("login", client_ip, 5, 900, DB_PATH):
         return RedirectResponse(
             url="/login?error=Too many login attempts. Try again later.", status_code=429
         )

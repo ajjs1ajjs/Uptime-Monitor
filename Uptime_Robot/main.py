@@ -9,10 +9,11 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from . import auth_module, config_manager, metrics_store, models, monitoring
+from . import __version__, auth_module, config_manager, metrics_store, models, monitoring
 from . import state as app_state
 from .database import close_db, get_db_connection
 from .logger import logger
+from .models import check_db_rate_limit
 from .routers import api, auth, ui
 
 IS_WINDOWS = sys.platform == "win32"
@@ -195,8 +196,13 @@ async def server_error_handler(request: Request, exc):
 
 
 @app.get("/health")
-async def health_check():
+async def health_check(request: Request):
     """Health check endpoint for Docker and monitoring."""
+
+    client_ip = request.client.host if request.client else "unknown"
+    if not await check_db_rate_limit("health", client_ip, 30, 60, DB_PATH):
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"status": "rate_limited"}, status_code=429)
 
     db_ok = False
     try:
@@ -219,14 +225,22 @@ async def health_check():
             "database": "ok" if db_ok else "error",
             "monitor_thread": "ok" if monitor_ok else "stale",
         },
-        "version": "2.1.0",
+        "version": __version__,
     }
 
 
 @app.get("/metrics")
-async def prometheus_metrics():
+async def prometheus_metrics(request: Request):
     """Prometheus metrics endpoint (no external dependencies)."""
     from .database import get_db_connection
+
+    client_ip = request.client.host if request.client else "unknown"
+    if not await check_db_rate_limit("metrics", client_ip, 30, 60, DB_PATH):
+        return Response(
+            content="# rate limited\n",
+            media_type="text/plain; charset=utf-8",
+            status_code=429,
+        )
 
     store = metrics_store.get_metrics()
     metrics = []
@@ -287,7 +301,7 @@ async def prometheus_metrics():
     metrics.append(
         f"uptime_monitor_monitor_heartbeat_seconds {metrics_store.get_heartbeat_age():.1f}"
     )
-    metrics.append(f'uptime_monitor_info{{version="2.1.0",python="{sys.version}"}} 1')
+    metrics.append(f'uptime_monitor_info{{version="{__version__}",python="{sys.version}"}} 1')
 
     return Response(
         content="\n".join(metrics) + "\n",

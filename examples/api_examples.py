@@ -62,7 +62,7 @@ class UptimeMonitorClient:
         response = self.session.get(f"{self.base_url}/api/sites")
 
         if response.status_code == 200:
-            sites = response.json().get("sites", [])
+            sites = response.json()
             print(f"✅ Found {len(sites)} sites:")
             for site in sites:
                 status_icon = "🟢" if site.get("status") == "up" else "🔴"
@@ -136,8 +136,7 @@ class UptimeMonitorClient:
         )
 
         if response.status_code == 200:
-            data = response.json()
-            history = data.get("history", [])
+            history = response.json()
             print(f"✅ Got {len(history)} records")
 
             # Show last 5 entries
@@ -146,10 +145,11 @@ class UptimeMonitorClient:
                 time = entry["checked_at"][:16] if entry.get("checked_at") else "?"
                 print(f"   {status_icon} {time} - {entry['status']}")
 
-            return data
+            return history
         else:
             print(f"❌ Failed: {response.status_code}")
             return None
+
 
     def get_incidents(self):
         """Get downtime incidents"""
@@ -159,17 +159,17 @@ class UptimeMonitorClient:
 
         if response.status_code == 200:
             data = response.json()
-            incidents = data.get("incidents", [])
+            incidents = response.json()
             print(f"✅ Found {len(incidents)} incidents")
-            return data
+            return incidents
         else:
             print(f"❌ Failed: {response.status_code}")
             return None
 
+
     # ========================================================================
     # SSL Certificates
     # ========================================================================
-
     def get_ssl_certificates(self):
         """Get all SSL certificates"""
         print("\n🔒 Getting SSL certificates...")
@@ -177,8 +177,7 @@ class UptimeMonitorClient:
         response = self.session.get(f"{self.base_url}/api/ssl-certificates")
 
         if response.status_code == 200:
-            data = response.json()
-            certs = data.get("certificates", [])
+            certs = response.json()
             print(f"✅ Found {len(certs)} certificates:")
 
             for cert in certs:
@@ -194,7 +193,7 @@ class UptimeMonitorClient:
 
                 print(f"   {icon} {cert['hostname']} - {days} days left")
 
-            return data
+            return certs
         else:
             print(f"❌ Failed: {response.status_code}")
             return None
@@ -223,8 +222,7 @@ class UptimeMonitorClient:
         response = self.session.get(f"{self.base_url}/api/stats/response-time")
 
         if response.status_code == 200:
-            data = response.json()
-            stats = data.get("stats", [])
+            stats = response.json()
             print(f"✅ Got stats for {len(stats)} sites:")
 
             for stat in stats:
@@ -232,7 +230,7 @@ class UptimeMonitorClient:
                     f"   {stat['site_name']}: avg={stat['avg_time']:.1f}ms, min={stat['min_time']:.1f}ms, max={stat['max_time']:.1f}ms"
                 )
 
-            return data
+            return stats
         else:
             print(f"❌ Failed: {response.status_code}")
             return None
