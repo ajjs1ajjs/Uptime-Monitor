@@ -1,36 +1,36 @@
-# Uptime Monitor — Швидкий старт
+﻿# Uptime Monitor вЂ” РЁРІРёРґРєРёР№ СЃС‚Р°СЂС‚
 
-## 📦 Встановлення (Linux)
+## рџ“¦ Р’СЃС‚Р°РЅРѕРІР»РµРЅРЅСЏ (Linux)
 
-### Спосіб 1: Git (рекомендовано)
+### РЎРїРѕСЃС–Р± 1: Git (СЂРµРєРѕРјРµРЅРґРѕРІР°РЅРѕ)
 
 ```bash
-# 1. Клонуйте репозиторій
+# 1. РљР»РѕРЅСѓР№С‚Рµ СЂРµРїРѕР·РёС‚РѕСЂС–Р№
 cd /opt
 sudo git clone https://github.com/ajjs1ajjs/Uptime-Monitor.git
 cd Uptime-Monitor
 
-# 2. Створіть користувача
+# 2. РЎС‚РІРѕСЂС–С‚СЊ РєРѕСЂРёСЃС‚СѓРІР°С‡Р°
 sudo useradd -r -s /bin/false uptime-monitor
 
-# 3. Встановіть залежності
+# 3. Р’СЃС‚Р°РЅРѕРІС–С‚СЊ Р·Р°Р»РµР¶РЅРѕСЃС‚С–
 sudo apt update && sudo apt install -y python3 python3-pip python3-venv
 sudo -u uptime-monitor python3 -m venv venv
 sudo -u uptime-monitor venv/bin/pip install -r Uptime_Robot/requirements.txt
 
-# 4. Створіть лог-файл
+# 4. РЎС‚РІРѕСЂС–С‚СЊ Р»РѕРі-С„Р°Р№Р»
 sudo touch uptime_monitor.log
 sudo chown uptime-monitor:uptime-monitor uptime_monitor.log
 
-# 5. Створіть symlink
+# 5. РЎС‚РІРѕСЂС–С‚СЊ symlink
 sudo ln -sf Uptime_Robot/main.py main.py
 sudo ln -sf Uptime_Robot/ui_templates.py ui_templates.py
 
-# 6. Налаштуйте systemd
+# 6. РќР°Р»Р°С€С‚СѓР№С‚Рµ systemd
 sudo nano /etc/systemd/system/uptime-monitor.service
 ```
 
-**Вміст сервісу:**
+**Р’РјС–СЃС‚ СЃРµСЂРІС–СЃСѓ:**
 ```ini
 [Unit]
 Description=Uptime Monitor Service
@@ -50,14 +50,14 @@ WantedBy=multi-user.target
 ```
 
 ```bash
-# 7. Запустіть
+# 7. Р—Р°РїСѓСЃС‚С–С‚СЊ
 sudo systemctl daemon-reload
 sudo systemctl enable uptime-monitor
 sudo systemctl start uptime-monitor
 sudo systemctl status uptime-monitor
 ```
 
-### Спосіб 2: Docker
+### РЎРїРѕСЃС–Р± 2: Docker
 
 ```bash
 docker run -d \
@@ -69,119 +69,119 @@ docker run -d \
 
 ---
 
-## 🔄 Оновлення (одна команда)
+## рџ”„ РћРЅРѕРІР»РµРЅРЅСЏ (РѕРґРЅР° РєРѕРјР°РЅРґР°)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 ```
 
-Скрипт автоматично:
-- Виявляє існуюче встановлення
-- Робить бекап БД та конфігу
-- Оновлює код
-- Перезапускає сервіси
-- Виводить інструкцію з відкату, якщо щось пішло не так
+РЎРєСЂРёРїС‚ Р°РІС‚РѕРјР°С‚РёС‡РЅРѕ:
+- Р’РёСЏРІР»СЏС” С–СЃРЅСѓСЋС‡Рµ РІСЃС‚Р°РЅРѕРІР»РµРЅРЅСЏ
+- Р РѕР±РёС‚СЊ Р±РµРєР°Рї Р‘Р” С‚Р° РєРѕРЅС„С–РіСѓ
+- РћРЅРѕРІР»СЋС” РєРѕРґ
+- РџРµСЂРµР·Р°РїСѓСЃРєР°С” СЃРµСЂРІС–СЃРё
+- Р’РёРІРѕРґРёС‚СЊ С–РЅСЃС‚СЂСѓРєС†С–СЋ Р· РІС–РґРєР°С‚Сѓ, СЏРєС‰Рѕ С‰РѕСЃСЊ РїС–С€Р»Рѕ РЅРµ С‚Р°Рє
 
 ---
 
-## 🛠️ Команди
+## рџ› пёЏ РљРѕРјР°РЅРґРё
 
-### Керування сервісом
+### РљРµСЂСѓРІР°РЅРЅСЏ СЃРµСЂРІС–СЃРѕРј
 
 ```bash
-# Статус
+# РЎС‚Р°С‚СѓСЃ
 sudo systemctl status uptime-monitor
 
-# Старт/Стоп/Рестарт
+# РЎС‚Р°СЂС‚/РЎС‚РѕРї/Р РµСЃС‚Р°СЂС‚
 sudo systemctl start uptime-monitor
 sudo systemctl stop uptime-monitor
 sudo systemctl restart uptime-monitor
 
-# Логи
+# Р›РѕРіРё
 sudo journalctl -u uptime-monitor -f
 tail -f /opt/Uptime-Monitor/uptime_monitor.log
 
-# Перевірка API
+# РџРµСЂРµРІС–СЂРєР° API
 curl http://localhost:8080/api/server-time
 curl http://localhost:8080/api/sites
 ```
 
-### Оновлення
+### РћРЅРѕРІР»РµРЅРЅСЏ
 
 ```bash
-# Одна команда (curl)
+# РћРґРЅР° РєРѕРјР°РЅРґР° (curl)
 curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 ```
 
 ---
 
-## 📁 Структура
+## рџ“Ѓ РЎС‚СЂСѓРєС‚СѓСЂР°
 
 ```
 /opt/Uptime-Monitor/
-├── main.py                    → symlink → Uptime_Robot/main.py
-├── ui_templates.py            → symlink → Uptime_Robot/ui_templates.py
-├── uptime_monitor.log         # Логи
-├── Uptime_Robot/
-│   ├── main.py               # API та маршрути
-│   ├── ui_templates.py       # HTML шаблони
-│   ├── monitoring.py         # Моніторинг
-│   └── ...
-├── venv/                     # Віртуальне середовище
-└── docs/                     # Документація
+в”њв”Ђв”Ђ main.py                    в†’ symlink в†’ Uptime_Robot/main.py
+в”њв”Ђв”Ђ ui_templates.py            в†’ symlink в†’ Uptime_Robot/ui_templates.py
+в”њв”Ђв”Ђ uptime_monitor.log         # Р›РѕРіРё
+в”њв”Ђв”Ђ Uptime_Robot/
+в”‚   в”њв”Ђв”Ђ main.py               # API С‚Р° РјР°СЂС€СЂСѓС‚Рё
+в”‚   в”њв”Ђв”Ђ ui_templates.py       # HTML С€Р°Р±Р»РѕРЅРё
+в”‚   в”њв”Ђв”Ђ monitoring.py         # РњРѕРЅС–С‚РѕСЂРёРЅРі
+в”‚   в””в”Ђв”Ђ ...
+в”њв”Ђв”Ђ venv/                     # Р’С–СЂС‚СѓР°Р»СЊРЅРµ СЃРµСЂРµРґРѕРІРёС‰Рµ
+в””в”Ђв”Ђ docs/                     # Р”РѕРєСѓРјРµРЅС‚Р°С†С–СЏ
 ```
 
 ---
 
-## 🌐 Доступ
+## рџЊђ Р”РѕСЃС‚СѓРї
 
 ```
 http://YOUR_SERVER_IP:8080/
 
 Login: admin
-Password: 291263
+Password: auto-generated
 
-⚠️ Змініть пароль після першого входу!
+вљ пёЏ Р—РјС–РЅС–С‚СЊ РїР°СЂРѕР»СЊ РїС–СЃР»СЏ РїРµСЂС€РѕРіРѕ РІС…РѕРґСѓ!
 ```
 
 ---
 
-## 📚 Документація
+## рџ“љ Р”РѕРєСѓРјРµРЅС‚Р°С†С–СЏ
 
-- [INSTALL_AND_UPDATE.md](docs/INSTALL_AND_UPDATE.md) — Повна інструкція
-- [README.md](README.md) — Загальна інформація
-- [docs/](docs/) — Інші документи
+- [INSTALL_AND_UPDATE.md](docs/INSTALL_AND_UPDATE.md) вЂ” РџРѕРІРЅР° С–РЅСЃС‚СЂСѓРєС†С–СЏ
+- [README.md](README.md) вЂ” Р—Р°РіР°Р»СЊРЅР° С–РЅС„РѕСЂРјР°С†С–СЏ
+- [docs/](docs/) вЂ” Р†РЅС€С– РґРѕРєСѓРјРµРЅС‚Рё
 
 ---
 
-## 🆘 Проблеми?
+## рџ† РџСЂРѕР±Р»РµРјРё?
 
-### Сервіс не запускається
+### РЎРµСЂРІС–СЃ РЅРµ Р·Р°РїСѓСЃРєР°С”С‚СЊСЃСЏ
 
 ```bash
-# Перевірте логи
+# РџРµСЂРµРІС–СЂС‚Рµ Р»РѕРіРё
 sudo journalctl -u uptime-monitor -n 50 --no-pager
 
-# Спробуйте вручну
+# РЎРїСЂРѕР±СѓР№С‚Рµ РІСЂСѓС‡РЅСѓ
 cd /opt/Uptime-Monitor
 sudo -u uptime-monitor venv/bin/python main.py
 ```
 
-### Помилка "Permission denied"
+### РџРѕРјРёР»РєР° "Permission denied"
 
 ```bash
 sudo chown -R uptime-monitor:uptime-monitor /opt/Uptime-Monitor
 sudo systemctl restart uptime-monitor
 ```
 
-### Браузер показує стару версію
+### Р‘СЂР°СѓР·РµСЂ РїРѕРєР°Р·СѓС” СЃС‚Р°СЂСѓ РІРµСЂСЃС–СЋ
 
 ```
-Ctrl + Shift + R  (очистка кешу)
-Або Ctrl + Shift + N (режим інкогніто)
+Ctrl + Shift + R  (РѕС‡РёСЃС‚РєР° РєРµС€Сѓ)
+РђР±Рѕ Ctrl + Shift + N (СЂРµР¶РёРј С–РЅРєРѕРіРЅС–С‚Рѕ)
 ```
 
 ---
 
 **GitHub:** https://github.com/ajjs1ajjs/Uptime-Monitor  
-**Останнє оновлення:** 2026-03-17
+**РћСЃС‚Р°РЅРЅС” РѕРЅРѕРІР»РµРЅРЅСЏ:** 2026-03-17

@@ -1,10 +1,10 @@
-# Installation and Update Guide
+﻿# Installation and Update Guide
 
 **For complete installation instructions, see:**
 
-- **[INSTALL.md](../INSTALL.md)** — Full installation guide (Ukrainian)
-- **[QUICKSTART_UK.md](../QUICKSTART_UK.md)** — Quick start (5 minutes)
-- **[UPDATE_PRODUCTION.md](../UPDATE_PRODUCTION.md)** — Production update guide (with backup & rollback)
+- **[INSTALL.md](../INSTALL.md)** вЂ” Full installation guide (Ukrainian)
+- **[QUICKSTART_UK.md](../QUICKSTART_UK.md)** вЂ” Quick start (5 minutes)
+- **[UPDATE_PRODUCTION.md](../UPDATE_PRODUCTION.md)** вЂ” Production update guide (with backup & rollback)
 
 ---
 
@@ -16,13 +16,13 @@ curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/insta
 
 Access: `http://YOUR_SERVER_IP:8080`
 
-> **Security:** Default credentials are `admin` / `291263`.
+> **Security:** Default credentials are `admin` / `auto-generated`.
 
 ---
 
 ## Update (Production)
 
-### ⭐ Recommended: One-command update (for curl-based install)
+### в­ђ Recommended: One-command update (for curl-based install)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
@@ -85,13 +85,13 @@ New config options in `/etc/uptime-monitor/config.json`:
 }
 ```
 
-- `cors.allow_origins` — Restrict to specific origins (e.g., `["https://myapp.com"]`)
-- `alert_policy.verify_ssl` — Set to `false` if monitoring sites with self-signed certificates
+- `cors.allow_origins` вЂ” Restrict to specific origins (e.g., `["https://myapp.com"]`)
+- `alert_policy.verify_ssl` вЂ” Set to `false` if monitoring sites with self-signed certificates
 
 ---
 
 ## Troubleshooting
 
-- **[docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md)** — General issues
-- **[docs/BACKUP.md](BACKUP.md)** — Backup problems
-- **[NOTIFICATION_TROUBLESHOOTING_UK.md](../NOTIFICATION_TROUBLESHOOTING_UK.md)** — Notification issues
+- **[docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md)** вЂ” General issues
+- **[docs/BACKUP.md](BACKUP.md)** вЂ” Backup problems
+- **[NOTIFICATION_TROUBLESHOOTING_UK.md](../NOTIFICATION_TROUBLESHOOTING_UK.md)** вЂ” Notification issues

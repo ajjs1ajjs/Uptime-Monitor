@@ -1,4 +1,4 @@
-# Uptime Monitor
+﻿# Uptime Monitor
 
 [![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
@@ -11,7 +11,7 @@
 
 ---
 
-## 🚀 Quick Start
+## рџљЂ Quick Start
 
 ### Install (Linux)
 
@@ -19,7 +19,7 @@
 curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 ```
 
-### Install (Windows — Service)
+### Install (Windows вЂ” Service)
 
 ```powershell
 # Run as Administrator in Uptime_Robot folder
@@ -31,7 +31,7 @@ cd Uptime-Monitor\Uptime_Robot
 .\install.bat /y
 ```
 
-> 💡 Run the same command again to update (auto-detects existing installation, backs up config, restarts service).
+> рџ’Ў Run the same command again to update (auto-detects existing installation, backs up config, restarts service).
 
 ### Run directly (any platform)
 
@@ -39,28 +39,28 @@ cd Uptime-Monitor\Uptime_Robot
 python -m Uptime_Robot.main --host 0.0.0.0 --port 8080
 ```
 
-> **Security (v2.0.0+):** Default credentials are `admin` / `291263`.
+> **Security (v2.0.0+):** Default credentials are `admin` / `auto-generated`.
 
 ---
 
-## 📚 Documentation
+## рџ“љ Documentation
 
 | Document | Language | Description |
 |----------|----------|-------------|
-| **[UPDATE_PRODUCTION.md](UPDATE_PRODUCTION.md)** | 🇺🇦 UA | Production update with backup & rollback |
-| **[README_UK.md](README_UK.md)** | 🇺🇦 UA | Main documentation (Ukrainian) |
-| **[INSTALL.md](INSTALL.md)** | 🇺🇦 UA | Installation guide |
-| **[QUICKSTART_UK.md](QUICKSTART_UK.md)** | 🇺🇦 UA | Quick start (5 minutes) |
-| **[docs/API.md](docs/API.md)** | 🇬🇧 EN | API reference |
-| **[docs/COMMANDS.md](docs/COMMANDS.md)** | 🇺🇦 UA | Commands reference |
-| **[docs/BACKUP.md](docs/BACKUP.md)** | 🇺🇦 UA | Backup system guide |
-| **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** | 🇺🇦 UA | Troubleshooting |
-| **[NOTIFICATION_TROUBLESHOOTING_UK.md](NOTIFICATION_TROUBLESHOOTING_UK.md)** | 🇺🇦 UA | Notification diagnostics |
-| **[MIGRATION_GUIDE_UK.md](MIGRATION_GUIDE_UK.md)** | 🇺🇦 UA | Migration from other systems |
+| **[UPDATE_PRODUCTION.md](UPDATE_PRODUCTION.md)** | рџ‡єрџ‡¦ UA | Production update with backup & rollback |
+| **[README_UK.md](README_UK.md)** | рџ‡єрџ‡¦ UA | Main documentation (Ukrainian) |
+| **[INSTALL.md](INSTALL.md)** | рџ‡єрџ‡¦ UA | Installation guide |
+| **[QUICKSTART_UK.md](QUICKSTART_UK.md)** | рџ‡єрџ‡¦ UA | Quick start (5 minutes) |
+| **[docs/API.md](docs/API.md)** | рџ‡¬рџ‡§ EN | API reference |
+| **[docs/COMMANDS.md](docs/COMMANDS.md)** | рџ‡єрџ‡¦ UA | Commands reference |
+| **[docs/BACKUP.md](docs/BACKUP.md)** | рџ‡єрџ‡¦ UA | Backup system guide |
+| **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** | рџ‡єрџ‡¦ UA | Troubleshooting |
+| **[NOTIFICATION_TROUBLESHOOTING_UK.md](NOTIFICATION_TROUBLESHOOTING_UK.md)** | рџ‡єрџ‡¦ UA | Notification diagnostics |
+| **[MIGRATION_GUIDE_UK.md](MIGRATION_GUIDE_UK.md)** | рџ‡єрџ‡¦ UA | Migration from other systems |
 
 ---
 
-## ✨ Features
+## вњЁ Features
 
 | Category | Features |
 |----------|----------|
@@ -76,39 +76,39 @@ python -m Uptime_Robot.main --host 0.0.0.0 --port 8080
 
 ---
 
-## 🔒 Security (v2.0.0)
+## рџ”’ Security (v2.0.0)
 
 Starting from v2.0.0, the project includes enterprise-grade security:
 
-- **Rate Limiting** — 5 login attempts per 15 minutes per IP
-- **Password Policy** — Minimum 12 characters, requires uppercase + lowercase + digit
-- **Default Credentials** — Admin: `admin` / `291263` (change after first login)
-- **Encrypted Secrets** — Email passwords and tokens encrypted with Fernet at rest
-- **Configurable CORS** — Restrict origins via `cors.allow_origins` in `config.json`
-- **SSL Verification** — Configurable `verify_ssl` in `alert_policy`
-- **Security Headers** — X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, HSTS
+- **Rate Limiting** вЂ” 5 login attempts per 15 minutes per IP
+- **Password Policy** вЂ” Minimum 12 characters, requires uppercase + lowercase + digit
+- **Default Credentials** вЂ” Admin: `admin` / `auto-generated` (change after first login)
+- **Encrypted Secrets** вЂ” Email passwords and tokens encrypted with Fernet at rest
+- **Configurable CORS** вЂ” Restrict origins via `cors.allow_origins` in `config.json`
+- **SSL Verification** вЂ” Configurable `verify_ssl` in `alert_policy`
+- **Security Headers** вЂ” X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, HSTS
 
 ---
 
-## 📊 Dashboard
+## рџ“Љ Dashboard
 
-- **Real-time monitoring** — Check every 60 seconds (configurable per site)
-- **SSL tracking** — Alerts 14 days before expiry, configurable cooldown
-- **Backup system** — Automatic with verification and restore
-- **Multi-channel alerts** — Never miss downtime
-- **Public status page** — Share with customers
-- **REST API** — Full automation support
+- **Real-time monitoring** вЂ” Check every 60 seconds (configurable per site)
+- **SSL tracking** вЂ” Alerts 14 days before expiry, configurable cooldown
+- **Backup system** вЂ” Automatic with verification and restore
+- **Multi-channel alerts** вЂ” Never miss downtime
+- **Public status page** вЂ” Share with customers
+- **REST API** вЂ” Full automation support
 
 ---
 
-## ⚙️ Default Settings
+## вљ™пёЏ Default Settings
 
 | Parameter | Value |
 |-----------|-------|
 | **Port** | 8080 |
 | **Check Interval** | 60 seconds |
 | **SSL Check** | Every 6 hours |
-| **SSL Alert** | ≤14 days before expiry |
+| **SSL Alert** | в‰¤14 days before expiry |
 | **Down Threshold** | 1 failure |
 | **Up Threshold** | 1 success |
 | **Still Down Repeat** | Every 15 minutes |
@@ -119,7 +119,7 @@ Starting from v2.0.0, the project includes enterprise-grade security:
 
 ---
 
-## 🛠️ Technology Stack
+## рџ› пёЏ Technology Stack
 
 - **Backend**: Python 3.10+, FastAPI, Uvicorn, Jinja2
 - **Database**: SQLite (aiosqlite)
@@ -132,7 +132,7 @@ Starting from v2.0.0, the project includes enterprise-grade security:
 
 ---
 
-## 📦 Installation Methods
+## рџ“¦ Installation Methods
 
 | Method | Platform | Command |
 |--------|----------|---------|
@@ -145,7 +145,7 @@ Starting from v2.0.0, the project includes enterprise-grade security:
 
 ---
 
-## 🔧 Basic Commands
+## рџ”§ Basic Commands
 
 ### Linux (systemd)
 
@@ -197,18 +197,18 @@ powershell -ExecutionPolicy Bypass -File create_task_simple.ps1
 
 ---
 
-## 🔔 Notifications
+## рџ”” Notifications
 
-- 📧 **Email** — SMTP with TLS
-- 📱 **Telegram** — Bot API with HTML formatting
-- 💬 **Slack** — Webhooks
-- 🎮 **Discord** — Webhooks with rich embeds
-- 🏢 **Microsoft Teams** — Message Cards
-- 📞 **SMS** — Twilio integration
+- рџ“§ **Email** вЂ” SMTP with TLS
+- рџ“± **Telegram** вЂ” Bot API with HTML formatting
+- рџ’¬ **Slack** вЂ” Webhooks
+- рџЋ® **Discord** вЂ” Webhooks with rich embeds
+- рџЏў **Microsoft Teams** вЂ” Message Cards
+- рџ“ћ **SMS** вЂ” Twilio integration
 
 ---
 
-## 🤝 Contributing
+## рџ¤ќ Contributing
 
 1. Fork the repository
 2. Create feature branch (`git checkout -b feature/amazing`)
@@ -218,17 +218,17 @@ powershell -ExecutionPolicy Bypass -File create_task_simple.ps1
 
 ---
 
-## 📝 License
+## рџ“ќ License
 
-MIT License — see [LICENSE](LICENSE) file.
+MIT License вЂ” see [LICENSE](LICENSE) file.
 
 ---
 
-## 👥 Support
+## рџ‘Ґ Support
 
 - **Issues**: https://github.com/ajjs1ajjs/Uptime-Monitor/issues
 - **Discussions**: https://github.com/ajjs1ajjs/Uptime-Monitor/discussions
 
 ---
 
-**⭐ Star this repo if you find it useful!**
+**в­ђ Star this repo if you find it useful!**

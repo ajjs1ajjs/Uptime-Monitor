@@ -1,4 +1,4 @@
-# Uptime Monitor - Посібник із встановлення
+﻿# Uptime Monitor - Посібник із встановлення
 
 ## 🚀 Швидкий старт (5 хвилин)
 
@@ -12,7 +12,7 @@ curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/insta
 ### 2. Доступ до веб-інтерфейсу
 - **URL**: http://{SERVER_IP}:8080 (IP-адреса визначається автоматично)
 - **Вхід**: admin
-- **Пароль**: 291263
+- **Пароль**: auto-generated
 
 ### 3. Створіть першу резервну копію ⚠️ ВАЖЛИВО
 ```bash
@@ -368,7 +368,7 @@ docker run -d -p 8080:8080 -v uptime-data:/var/lib/uptime-monitor ghcr.io/ajjs1a
 ## Облікові дані за замовчуванням
 
 - **Ім'я користувача:** `admin`
-- **Пароль:** `291263`
+- **Пароль:** `auto-generated`
 
 ## Команди керування
 
@@ -1330,7 +1330,7 @@ sudo systemctl status uptime-monitor
 
 # 4. Відкрити у браузері
 http://YOUR_SERVER_IP:8080
-# Login: admin / Password: 291263
+# Login: admin / Password: auto-generated
 ```
 
 ---

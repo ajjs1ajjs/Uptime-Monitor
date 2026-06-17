@@ -146,11 +146,16 @@ async def init_auth_tables(db_path):
             if need_encrypt:
                 from .crypto_utils import encrypt_value
                 try:
+                    async with conn.execute("SELECT password_hash FROM users WHERE username = 'admin'") as pw:
+                        pw_row = await pw.fetchone()
                     existing_pw = "291263"
-                    encrypted = encrypt_value(existing_pw) or ""
-                    if encrypted:
-                        await conn.execute("UPDATE users SET password_encrypted = ? WHERE username = 'admin'", (encrypted,))
-                        _save_credentials_file(existing_pw)
+                    if pw_row and not verify_password(existing_pw, pw_row["password_hash"]):
+                        existing_pw = ""
+                    if existing_pw:
+                        encrypted = encrypt_value(existing_pw) or ""
+                        if encrypted:
+                            await conn.execute("UPDATE users SET password_encrypted = ? WHERE username = 'admin'", (encrypted,))
+                            _save_credentials_file(existing_pw)
                 except Exception:
                     pass
 

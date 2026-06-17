@@ -1,4 +1,4 @@
-# Uptime Monitor — Quick Start Guide
+﻿# Uptime Monitor вЂ” Quick Start Guide
 
 ## Quick Installation (Linux)
 
@@ -7,7 +7,7 @@ curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/insta
 ```
 
 Access: `http://YOUR_SERVER_IP:8080`
-Login: `admin` / Password: `291263`
+Login: `admin` / Password: `auto-generated`
 
 ## Docker
 
