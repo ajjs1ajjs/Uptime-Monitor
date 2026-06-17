@@ -228,3 +228,5 @@ qc
 # -----------------------------------------------------------------------------
 !Uptime_Robot/config.json
 !Uptime_Robot/sites.db
+
+credentials.txt
