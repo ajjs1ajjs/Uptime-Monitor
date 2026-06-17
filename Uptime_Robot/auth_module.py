@@ -1,4 +1,5 @@
 import hashlib
+import os
 import secrets
 from datetime import datetime, timezone, timedelta
 
@@ -6,6 +7,48 @@ import bcrypt
 
 from .database import get_db_connection
 from .logger import logger
+
+
+def _encrypt_password(plaintext: str) -> str:
+    try:
+        from .crypto_utils import encrypt_value
+        result = encrypt_value(plaintext)
+        return result or ""
+    except Exception:
+        return ""
+
+
+def _decrypt_password(ciphertext: str) -> str:
+    if not ciphertext:
+        return ""
+    try:
+        from .crypto_utils import decrypt_value
+        result = decrypt_value(ciphertext)
+        return result or ""
+    except Exception:
+        return ""
+
+
+def _save_credentials_file(password: str):
+    try:
+        paths = ["/etc/uptime-monitor/credentials.txt"]
+        if os.name == "nt":
+            app_dir = os.path.dirname(os.path.abspath(__file__))
+            paths = [os.path.join(app_dir, "credentials.txt"),
+                     os.path.join(os.environ.get("USERPROFILE", ""), "UptimeMonitor", "credentials.txt")]
+
+        for path in paths:
+            try:
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "w") as f:
+                    f.write(f"Admin password: {password}\n")
+                    f.write(f"Username: admin\n")
+                if os.name != "nt":
+                    os.chmod(path, 0o600)
+            except Exception:
+                continue
+    except Exception:
+        pass
 
 
 async def init_auth_tables(db_path):
@@ -45,30 +88,71 @@ async def init_auth_tables(db_path):
             WHERE (password_hash NOT LIKE '$%') AND (must_change_password IS NULL OR must_change_password = 0)"""
         )
 
+        # Migration: add password_encrypted column
+        try:
+            async with conn.execute("PRAGMA table_info(users)") as c:
+                cols = {r[1] for r in await c.fetchall()}
+            if "password_encrypted" not in cols:
+                await conn.execute("ALTER TABLE users ADD COLUMN password_encrypted TEXT")
+        except Exception:
+            pass
+
         async with conn.execute(
-            "SELECT id, must_change_password FROM users WHERE username = 'admin'"
+            "SELECT id, must_change_password, password_encrypted FROM users WHERE username = 'admin'"
         ) as c:
             admin_row = await c.fetchone()
 
         default_password = "291263"
         password_hash = hash_password(default_password)
         if not admin_row:
+            # Generate random password (or use env var for testing)
+            default_password = os.environ.get("UPTIME_MONITOR_ADMIN_PASSWORD") or secrets.token_urlsafe(12)
+            password_hash = hash_password(default_password)
+
+            # Try to encrypt backup
+            encrypted = _encrypt_password(default_password)
             await conn.execute(
-                "INSERT INTO users (username, password_hash, role, must_change_password, created_at) VALUES (?, ?, 'admin', 0, ?)",
-                ("admin", password_hash, datetime.now(timezone.utc).isoformat()),
+                "INSERT INTO users (username, password_hash, role, must_change_password, created_at, password_encrypted) VALUES (?, ?, 'admin', 0, ?, ?)",
+                ("admin", password_hash, datetime.now(timezone.utc).isoformat(), encrypted),
             )
-            logger.info("=" * 50)
+            _save_credentials_file(default_password)
+
+            msg = f"\n{'='*50}\nDEFAULT ADMIN USER CREATED\nUsername: admin\nPassword: {default_password}\n{'='*50}\n"
             logger.info("DEFAULT ADMIN USER CREATED")
             logger.info("Username: admin")
             logger.info("Password: %s", default_password)
-            logger.info("=" * 50)
-            print(f"\n{'='*50}")
-            print("DEFAULT ADMIN USER CREATED")
-            print("Username: admin")
-            print(f"Password: {default_password}")
-            print(f"{'='*50}\n")
-        elif admin_row["must_change_password"] == 1:
-            logger.warning("Admin user has must_change_password=1 — password was NOT reset")
+            print(msg)
+        else:
+            existing_encrypted = admin_row["password_encrypted"]
+            if existing_encrypted:
+                saved_pw = _decrypt_password(existing_encrypted)
+                if saved_pw:
+                    msg = f"\n{'='*50}\nAdmin user 'admin' already exists\nCurrent password: {saved_pw}\n{'='*50}\n"
+                    logger.info("Admin user 'admin' already exists")
+                    print(msg)
+                else:
+                    logger.warning("Admin user 'admin' already exists (password_encrypted unreadable)")
+                    print("\n[WARN] Admin user 'admin' already exists — cannot read encrypted password backup\n")
+            else:
+                logger.warning("Admin user 'admin' already exists (no password backup)")
+                print("\n[OK] Admin user 'admin' already exists\n")
+
+        # Fix: if password was never encrypted (legacy), encrypt it now
+        if admin_row:
+            async with conn.execute(
+                "SELECT id FROM users WHERE username = 'admin' AND (password_encrypted IS NULL OR password_encrypted = '')"
+            ) as c:
+                need_encrypt = await c.fetchone()
+            if need_encrypt:
+                from .crypto_utils import encrypt_value
+                try:
+                    existing_pw = "291263"
+                    encrypted = encrypt_value(existing_pw) or ""
+                    if encrypted:
+                        await conn.execute("UPDATE users SET password_encrypted = ? WHERE username = 'admin'", (encrypted,))
+                        _save_credentials_file(existing_pw)
+                except Exception:
+                    pass
 
         await conn.commit()
 
@@ -161,11 +245,13 @@ async def change_password(user_id: int, new_password: str, db_path: str) -> bool
     try:
         async with get_db_connection(db_path) as conn:
             password_hash = hash_password(new_password)
+            encrypted = _encrypt_password(new_password)
             await conn.execute(
-                "UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?",
-                (password_hash, user_id),
+                "UPDATE users SET password_hash = ?, password_encrypted = ?, must_change_password = 0 WHERE id = ?",
+                (password_hash, encrypted or None, user_id),
             )
             await conn.commit()
+        _save_credentials_file(new_password)
         return True
     except Exception as e:
         logger.error("Error changing password: %s", e)

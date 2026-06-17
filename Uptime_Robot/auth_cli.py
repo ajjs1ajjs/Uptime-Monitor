@@ -3,11 +3,67 @@
 
 import argparse
 import os
+import secrets
 import sqlite3
 import sys
 from datetime import datetime
 
 import bcrypt
+
+
+def _init_crypto():
+    try:
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+        from Uptime_Robot.crypto_utils import encrypt_value as _enc, decrypt_value as _dec
+        return _enc, _dec
+    except Exception:
+        return None, None
+
+
+def _encrypt_password(plaintext: str) -> str:
+    enc, _ = _init_crypto()
+    if enc and plaintext:
+        try:
+            return enc(plaintext) or ""
+        except Exception:
+            pass
+    return ""
+
+
+def _decrypt_password(ciphertext: str) -> str:
+    _, dec = _init_crypto()
+    if dec and ciphertext:
+        try:
+            return dec(ciphertext) or ""
+        except Exception:
+            pass
+    return ""
+
+
+def _save_credentials_file(password: str):
+    try:
+        paths = []
+        if os.name == "nt":
+            app_dir = os.path.dirname(os.path.abspath(__file__))
+            paths.append(os.path.join(app_dir, "credentials.txt"))
+            up = os.environ.get("USERPROFILE", "")
+            if up:
+                paths.append(os.path.join(up, "UptimeMonitor", "credentials.txt"))
+        else:
+            paths.append("/etc/uptime-monitor/credentials.txt")
+
+        for path in paths:
+            try:
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "w") as f:
+                    f.write(f"Admin password: {password}\n")
+                    f.write("Username: admin\n")
+                if os.name != "nt":
+                    os.chmod(path, 0o600)
+            except Exception:
+                continue
+    except Exception:
+        pass
 
 
 def get_db_path():
@@ -64,34 +120,54 @@ def init_auth(db_path):
         c.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'admin'")
         c.execute("UPDATE users SET role = 'admin' WHERE is_admin = 1")
         c.execute("UPDATE users SET role = 'viewer' WHERE is_admin = 0 OR is_admin IS NULL")
+    if "password_encrypted" not in columns:
+        c.execute("ALTER TABLE users ADD COLUMN password_encrypted TEXT")
 
-    c.execute("SELECT id FROM users WHERE username = 'admin'")
-    if not c.fetchone():
-        default_password = "291263"
+    c.execute("SELECT id, password_encrypted FROM users WHERE username = 'admin'")
+    admin_row = c.fetchone()
+    if not admin_row:
+        default_password = secrets.token_urlsafe(12)
         password_hash = hash_password(default_password)
+        encrypted = _encrypt_password(default_password)
         c.execute(
-            "INSERT INTO users (username, password_hash, role, must_change_password, created_at) VALUES (?, ?, 'admin', 0, datetime('now'))",
-            ("admin", password_hash),
+            "INSERT INTO users (username, password_hash, role, must_change_password, created_at, password_encrypted) VALUES (?, ?, 'admin', 0, datetime('now'), ?)",
+            ("admin", password_hash, encrypted or None),
         )
-        print("[OK] Created default user: admin")
-        print(f"[SECURITY] Default password: {default_password}")
+        _save_credentials_file(default_password)
+        print("\n" + "=" * 50)
+        print("DEFAULT ADMIN USER CREATED")
+        print("Username: admin")
+        print(f"Password: {default_password}")
+        print("=" * 50 + "\n")
     else:
-        print("[OK] User 'admin' already exists")
+        existing_encrypted = admin_row[1]
+        if existing_encrypted:
+            saved_pw = _decrypt_password(existing_encrypted)
+            if saved_pw:
+                print(f"\n{'='*50}\nAdmin user 'admin' already exists\nCurrent password: {saved_pw}\n{'='*50}\n")
+            else:
+                print("\n[OK] User 'admin' already exists\n")
+        else:
+            print("\n[OK] User 'admin' already exists\n")
 
     conn.commit()
     conn.close()
-    print(f"[OK] Database initialized at {db_path}")
 
 
-def reset_password(db_path, username, password, force_change=True):
+def reset_password(db_path, username, password=None, force_change=True):
     conn = sqlite3.connect(db_path)
     c = conn.cursor()
 
+    if not password:
+        password = secrets.token_urlsafe(12)
+        print(f"[INFO] Generated new random password for '{username}'")
+
     password_hash = hash_password(password)
+    encrypted = _encrypt_password(password)
     must_change = 1 if force_change else 0
     c.execute(
-        "UPDATE users SET password_hash = ?, must_change_password = ? WHERE username = ?",
-        (password_hash, must_change, username),
+        "UPDATE users SET password_hash = ?, password_encrypted = ?, must_change_password = ? WHERE username = ?",
+        (password_hash, encrypted or None, must_change, username),
     )
 
     if c.rowcount == 0:
@@ -101,6 +177,7 @@ def reset_password(db_path, username, password, force_change=True):
 
     conn.commit()
     conn.close()
+    _save_credentials_file(password)
     print(f"[OK] Password reset for user '{username}' to '{password}'")
 
 
@@ -114,9 +191,10 @@ def create_user(db_path, username, password, role):
 
     try:
         password_hash = hash_password(password)
+        encrypted = _encrypt_password(password)
         c.execute(
-            "INSERT INTO users (username, password_hash, role, created_at) VALUES (?, ?, ?, ?)",
-            (username, password_hash, role, datetime.now().isoformat()),
+            "INSERT INTO users (username, password_hash, role, created_at, password_encrypted) VALUES (?, ?, ?, ?, ?)",
+            (username, password_hash, role, datetime.now().isoformat(), encrypted or None),
         )
         conn.commit()
         print(f"[OK] User '{username}' created with role '{role}'")
@@ -130,6 +208,79 @@ def create_user(db_path, username, password, role):
         sys.exit(1)
 
     conn.close()
+
+
+def show_password(db_path, username="admin"):
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+    c.execute("SELECT password_encrypted FROM users WHERE username = ?", (username,))
+    row = c.fetchone()
+    conn.close()
+
+    if not row:
+        print(f"[ERROR] User '{username}' not found")
+        sys.exit(1)
+
+    encrypted = row[0]
+    if not encrypted:
+        print(f"[ERROR] No password backup found for '{username}'")
+        print("[HINT] Use 'reset-password' to set a new password")
+        sys.exit(1)
+
+    password = _decrypt_password(encrypted)
+    if not password:
+        print(f"[ERROR] Cannot decrypt password backup for '{username}'")
+        print("[HINT] Use 'reset-password' to set a new password")
+        sys.exit(1)
+
+    print(f"\n{'='*50}")
+    print(f"Username: {username}")
+    print(f"Password: {password}")
+    print(f"{'='*50}\n")
+
+
+def restore_password(db_path, username="admin"):
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+    c.execute("SELECT password_encrypted FROM users WHERE username = ?", (username,))
+    row = c.fetchone()
+    conn.close()
+
+    if not row:
+        print(f"[ERROR] User '{username}' not found")
+        sys.exit(1)
+
+    encrypted = row[0]
+    if not encrypted:
+        print(f"[ERROR] No password backup found for '{username}'")
+        print("[HINT] Use 'reset-password' to set a new password")
+        sys.exit(1)
+
+    password = _decrypt_password(encrypted)
+    if not password:
+        print(f"[ERROR] Cannot decrypt password backup for '{username}'")
+        print("[HINT] Use 'reset-password' to set a new password")
+        sys.exit(1)
+
+    password_hash = hash_password(password)
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+    c.execute(
+        "UPDATE users SET password_hash = ?, password_encrypted = ?, must_change_password = 0 WHERE username = ?",
+        (password_hash, encrypted, username),
+    )
+    if c.rowcount == 0:
+        print(f"[ERROR] User '{username}' not found")
+        conn.close()
+        sys.exit(1)
+    conn.commit()
+    conn.close()
+
+    _save_credentials_file(password)
+    print(f"\n{'='*50}")
+    print(f"[OK] Password restored for '{username}'")
+    print(f"Password: {password}")
+    print(f"{'='*50}\n")
 
 
 def update_user_role(db_path, username, role):
@@ -208,9 +359,9 @@ if __name__ == "__main__":
 
     subparsers.add_parser("init", help="Initialize database and create default user")
 
-    reset_parser = subparsers.add_parser("reset-password", help="Reset user password")
+    reset_parser = subparsers.add_parser("reset-password", help="Reset user password (generates random if --password omitted)")
     reset_parser.add_argument("--user", default="admin", help="Username")
-    reset_parser.add_argument("--password", default="admin", help="New password")
+    reset_parser.add_argument("--password", default=None, help="New password (omit to generate random)")
     reset_parser.add_argument(
         "--no-force-change",
         action="store_true",
@@ -218,6 +369,12 @@ if __name__ == "__main__":
     )
 
     subparsers.add_parser("list-users", help="List all users")
+
+    show_parser = subparsers.add_parser("show-password", help="Show current password")
+    show_parser.add_argument("--user", default="admin", help="Username")
+
+    restore_parser = subparsers.add_parser("restore-password", help="Restore password from encrypted backup")
+    restore_parser.add_argument("--user", default="admin", help="Username")
 
     # Create user command
     create_parser = subparsers.add_parser("create-user", help="Create a new user")
@@ -249,6 +406,10 @@ if __name__ == "__main__":
         reset_password(db_path, args.user, args.password, not args.no_force_change)
     elif args.command == "list-users":
         list_users(db_path)
+    elif args.command == "show-password":
+        show_password(db_path, args.user)
+    elif args.command == "restore-password":
+        restore_password(db_path, args.user)
     elif args.command == "create-user":
         create_user(db_path, args.username, args.password, args.role)
     elif args.command == "set-role":

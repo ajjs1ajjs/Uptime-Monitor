@@ -17,6 +17,8 @@ def test_db():
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
 
+    os.environ["UPTIME_MONITOR_ADMIN_PASSWORD"] = "291263"
+
     from Uptime_Robot import auth_module
     from Uptime_Robot.models import init_database
     import asyncio

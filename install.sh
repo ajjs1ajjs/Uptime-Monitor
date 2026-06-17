@@ -384,9 +384,12 @@ async def main():
 asyncio.run(main())
 " 2>&1 || true)
 
-# Print initialization output if it created a user, or if there was an error
+# Print initialization output
 if echo "$INIT_OUT" | grep -q "DEFAULT ADMIN USER CREATED"; then
     echo -e "${GREEN}Database initialized successfully:${NC}"
+    echo "$INIT_OUT"
+elif echo "$INIT_OUT" | grep -qi "Current password:"; then
+    echo -e "${GREEN}Database initialized. Admin user already exists:${NC}"
     echo "$INIT_OUT"
 elif echo "$INIT_OUT" | grep -qi "error"; then
     echo -e "${RED}Warning during database initialization:${NC}"
@@ -395,8 +398,8 @@ else
     echo -e "${GREEN}Database initialized. User 'admin' already exists.${NC}"
 fi
 
-# Extract the password if it was just created
-ADMIN_PASSWORD=$(echo "$INIT_OUT" | grep 'Password:' | awk '{print $NF}' | tr -d '\r\n ' || true)
+# Extract the password if available
+ADMIN_PASSWORD=$(echo "$INIT_OUT" | grep 'Password:' | head -1 | sed 's/.*Password: //' | tr -d '\r\n ' || true)
 
 
 # Create systemd services
@@ -510,6 +513,12 @@ if systemctl is-active --quiet $SERVICE_NAME; then
         echo -e "  ${GREEN}Version:${NC}     $APP_VERSION"
         echo -e "  ${GREEN}URL:${NC}         http://$IP:$PORT"
         echo ""
+        if [ -n "$ADMIN_PASSWORD" ] && [ "${ADMIN_PASSWORD}" != "Password:" ]; then
+            echo -e "  ${YELLOW}Admin Credentials:${NC}"
+            echo -e "    Username: ${BLUE}admin${NC}"
+            echo -e "    Password: ${GREEN}$ADMIN_PASSWORD${NC}"
+            echo ""
+        fi
         echo -e "  Backup saved as:"
         echo -e "    ${YELLOW}/tmp/sites.db.backup.$UPDATE_BACKUP_TS${NC}"
         echo -e "    ${YELLOW}/tmp/config.json.backup.$UPDATE_BACKUP_TS${NC}"
@@ -525,6 +534,11 @@ if systemctl is-active --quiet $SERVICE_NAME; then
         echo "  sudo systemctl restart $SERVICE_NAME"
         echo "  sudo systemctl logs $SERVICE_NAME -n 50"
         echo ""
+        echo "  Password Commands:"
+        echo "    $INSTALL_DIR/venv/bin/python -m Uptime_Robot.auth_cli show-password        # Show current password"
+        echo "    $INSTALL_DIR/venv/bin/python -m Uptime_Robot.auth_cli reset-password       # Reset to random password"
+        echo "    $INSTALL_DIR/venv/bin/python -m Uptime_Robot.auth_cli restore-password     # Restore from backup"
+        echo ""
         echo -e "${GREEN}Update completed successfully!${NC}"
     else
         echo -e "${GREEN}=========================================="
@@ -538,14 +552,23 @@ if systemctl is-active --quiet $SERVICE_NAME; then
         echo -e "  ${GREEN}SSL:${NC}         Disabled (configure manually)"
         echo -e "  ${GREEN}URL:${NC}         http://$IP:$PORT"
         echo ""
-        echo -e "  ${YELLOW}Default Credentials:${NC}"
-        echo -e "    Username: ${BLUE}admin${NC}"
-        echo -e "    Password: ${GREEN}291263${NC} (or your custom password if database already exists)"
-        echo ""
+        if [ -n "$ADMIN_PASSWORD" ] && [ "${ADMIN_PASSWORD}" != "Password:" ]; then
+            echo -e "  ${YELLOW}Admin Credentials:${NC}"
+            echo -e "    Username: ${BLUE}admin${NC}"
+            echo -e "    Password: ${GREEN}$ADMIN_PASSWORD${NC}"
+            echo ""
+        fi
         echo "Management Commands:"
         echo "  sudo systemctl status $SERVICE_NAME"
         echo "  sudo systemctl restart $SERVICE_NAME"
         echo "  sudo systemctl stop $SERVICE_NAME"
+        echo ""
+        echo "  Password Commands:"
+        echo "    $INSTALL_DIR/venv/bin/python -m Uptime_Robot.auth_cli show-password        # Show current password"
+        echo "    $INSTALL_DIR/venv/bin/python -m Uptime_Robot.auth_cli reset-password       # Reset to random password"
+        echo "    $INSTALL_DIR/venv/bin/python -m Uptime_Robot.auth_cli restore-password     # Restore from backup"
+        echo ""
+        echo -e "${GREEN}Password saved to: ${YELLOW}/etc/uptime-monitor/credentials.txt${NC}"
         echo ""
         echo -e "${GREEN}To update in the future, simply run the same command again:${NC}"
         echo -e "  ${BLUE}curl -fsSL https://raw.githubusercontent.com/$GITHUB_REPO/main/install.sh | sudo bash${NC}"

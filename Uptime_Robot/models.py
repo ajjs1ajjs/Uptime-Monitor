@@ -95,6 +95,8 @@ async def _run_migrations(conn):
                 await conn.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'admin'")
                 await conn.execute("UPDATE users SET role = 'admin' WHERE is_admin = 1")
                 await conn.execute("UPDATE users SET role = 'viewer' WHERE is_admin = 0 OR is_admin IS NULL")
+            if "password_encrypted" not in cols:
+                await conn.execute("ALTER TABLE users ADD COLUMN password_encrypted TEXT")
 
     async with conn.execute("PRAGMA table_info(sites)") as c:
         site_cols = {r[1] for r in await c.fetchall()}
