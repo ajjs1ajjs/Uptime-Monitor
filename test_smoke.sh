@@ -1,14 +1,14 @@
-﻿#!/bin/bash
-# Smoke test вЂ” РїРµСЂРµРІС–СЂСЏС” РІСЃС– РѕСЃРЅРѕРІРЅС– СЃС†РµРЅР°СЂС–С— Uptime Monitor
-# Р—Р°РїСѓСЃРєР°С‚Рё РЅР° СЃРµСЂРІРµСЂС– СЏРє: bash test_smoke.sh
+#!/bin/bash
+# Smoke test — перевіряє всі основні сценарії Uptime Monitor
+# Запускати на сервері як: bash test_smoke.sh
 
 BASE="http://localhost:8080"
 COOKIE_JAR="/tmp/uptime_test_cookies.txt"
 PASS=0
 FAIL=0
 
-ok()   { PASS=$((PASS+1)); echo "  вњ… $1"; }
-fail() { FAIL=$((FAIL+1)); echo "  вќЊ $1"; }
+ok()   { PASS=$((PASS+1)); echo "  ✅ $1"; }
+fail() { FAIL=$((FAIL+1)); echo "  ❌ $1"; }
 
 echo "=== 1. Health check ==="
 code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/health")
@@ -54,7 +54,7 @@ code=$(curl -s -o /dev/null -w "%{http_code}" -b "$COOKIE_JAR" "$BASE/api/report
 
 echo "=== 10. CSRF token endpoint (search in dashboard HTML) ==="
 csrf=$(curl -s -b "$COOKIE_JAR" "$BASE/" | grep -oP 'name="_csrf_token" value="\K[^"]+' | head -1)
-[ -n "$csrf" ] && ok "CSRF token found in page" || echo "  вљ пёЏ  CSRF token not found (may be OK if not on dashboard)"
+[ -n "$csrf" ] && ok "CSRF token found in page" || echo "  ⚠️  CSRF token not found (may be OK if not on dashboard)"
 
 echo "=== 11. SSL certificates API ==="
 cert=$(curl -s -b "$COOKIE_JAR" "$BASE/api/ssl-certificates")
@@ -88,13 +88,13 @@ code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/static/app.css")
 echo "=== 15. CSRF validation test (POST without token to non-API) ==="
 code=$(curl -s -o /dev/null -w "%{http_code}" -b "$COOKIE_JAR" \
   -X POST "$BASE/" -d "test=1")
-[ "$code" = "403" ] && ok "CSRF block 403 (expected)" || echo "  вљ пёЏ  CSRF returned $code (may be OK if redirect)"
+[ "$code" = "403" ] && ok "CSRF block 403 (expected)" || echo "  ⚠️  CSRF returned $code (may be OK if redirect)"
 
 echo "=== 16. Rate limit check (rapid requests to /status) ==="
 for i in $(seq 1 35); do curl -s -o /dev/null "$BASE/status" & done 2>/dev/null
 wait
 code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/status")
-[ "$code" = "429" ] && ok "Rate limit triggered after 35 requests (429)" || echo "  вљ пёЏ  Status returned $code (rate limit may need more requests)"
+[ "$code" = "429" ] && ok "Rate limit triggered after 35 requests (429)" || echo "  ⚠️  Status returned $code (rate limit may need more requests)"
 
 echo ""
 echo "===== RESULTS: $PASS passed, $FAIL failed ====="

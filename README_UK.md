@@ -1,42 +1,42 @@
-﻿# Uptime Monitor
+# Uptime Monitor
 
-[![Р’РµСЂСЃС–СЏ](https://img.shields.io/badge/РІРµСЂСЃС–СЏ-2.1.0-blue.svg)](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
+[![Версія](https://img.shields.io/badge/версія-2.1.0-blue.svg)](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![РџР»Р°С‚С„РѕСЂРјР°](https://img.shields.io/badge/РїР»Р°С‚С„РѕСЂРјР°-Linux%20%7C%20Windows-lightgrey.svg)]()
+[![Платформа](https://img.shields.io/badge/платформа-Linux%20%7C%20Windows-lightgrey.svg)]()
 
-**РњРѕРЅС–С‚РѕСЂРёРЅРі РґРѕСЃС‚СѓРїРЅРѕСЃС‚С– Р· Р°РІС‚РѕРјР°С‚РёС‡РЅРёРј СЂРµР·РµСЂРІРЅРёРј РєРѕРїС–СЋРІР°РЅРЅСЏРј, SSL СЃРµСЂС‚РёС„С–РєР°С‚Р°РјРё С‚Р° СЃРїРѕРІС–С‰РµРЅРЅСЏРјРё.**
+**Моніторинг доступності з автоматичним резервним копіюванням, SSL сертифікатами та сповіщеннями.**
 
 <p align="center">
   <img src="https://img.shields.io/badge/uptime-24/7-green" alt="24/7 Uptime">
-  <img src="https://img.shields.io/badge/SSL-РјРѕРЅС–С‚РѕСЂРёРЅРі-orange" alt="SSL Monitoring">
-  <img src="https://img.shields.io/badge/СЃРїРѕРІС–С‰РµРЅРЅСЏ-Telegram%20%7C%20Email%20%7C%20Teams-blue" alt="РЎРїРѕРІС–С‰РµРЅРЅСЏ">
+  <img src="https://img.shields.io/badge/SSL-моніторинг-orange" alt="SSL Monitoring">
+  <img src="https://img.shields.io/badge/сповіщення-Telegram%20%7C%20Email%20%7C%20Teams-blue" alt="Сповіщення">
 </p>
 
 ---
 
-## рџљЂ РЁРІРёРґРєРёР№ СЃС‚Р°СЂС‚
+## 🚀 Швидкий старт
 
-### Р’СЃС‚Р°РЅРѕРІР»РµРЅРЅСЏ (Linux)
+### Встановлення (Linux)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 
-# Р”РѕСЃС‚СѓРї РґРѕ РїР°РЅРµР»С–
+# Доступ до панелі
 http://YOUR_SERVER_IP:8080
-# Р›РѕРіС–РЅ: admin / РџР°СЂРѕР»СЊ: auto-generated
+# Логін: admin / Пароль: auto-generated
 ```
 
 ### Windows
 
-**Option A вЂ” Windows Service (recommended):**
+**Option A — Windows Service (recommended):**
 ```powershell
 # Run as Administrator in Uptime_Robot folder
 .\install_service.bat
 # Access: http://localhost:8080
 ```
 
-**Option B вЂ” PowerShell quick install:**
+**Option B — PowerShell quick install:**
 ```powershell
 # Run as Administrator
 & {
@@ -50,9 +50,9 @@ http://YOUR_SERVER_IP:8080
 }
 ```
 
-> рџ’Ў Р—Р°РїСѓСЃС‚С–С‚СЊ С‚Сѓ Р¶ РєРѕРјР°РЅРґСѓ РїРѕРІС‚РѕСЂРЅРѕ РґР»СЏ РѕРЅРѕРІР»РµРЅРЅСЏ (Р°РІС‚РѕРјР°С‚РёС‡РЅРѕ РІРёСЏРІР»СЏС” С–СЃРЅСѓСЋС‡Рµ РІСЃС‚Р°РЅРѕРІР»РµРЅРЅСЏ, СЃС‚РІРѕСЂСЋС” СЂРµР·РµСЂРІРЅСѓ РєРѕРїС–СЋ РєРѕРЅС„С–РіСѓСЂР°С†С–С—, РїРµСЂРµР·Р°РїСѓСЃРєР°С” СЃР»СѓР¶Р±Сѓ).
+> 💡 Запустіть ту ж команду повторно для оновлення (автоматично виявляє існуюче встановлення, створює резервну копію конфігурації, перезапускає службу).
 
-**Option C вЂ” Python directly (no service):**
+**Option C — Python directly (no service):**
 ```powershell
 python -m Uptime_Robot.main --host 0.0.0.0 --port 8080
 # Access: http://localhost:8080
@@ -65,76 +65,76 @@ python -m Uptime_Robot.main --host 0.0.0.0 --port 8080
 
 ---
 
-## рџ“љ Р”РѕРєСѓРјРµРЅС‚Р°С†С–СЏ
+## 📚 Документація
 
-| Р”РѕРєСѓРјРµРЅС‚ | РћРїРёСЃ |
+| Документ | Опис |
 |----------|------|
-| **[INSTALL.md](INSTALL.md)** | РџРѕРІРЅР° С–РЅСЃС‚СЂСѓРєС†С–СЏ Р· РІСЃС‚Р°РЅРѕРІР»РµРЅРЅСЏ |
-| **[QUICKSTART_UK.md](QUICKSTART_UK.md)** | РЁРІРёРґРєРёР№ СЃС‚Р°СЂС‚ Р·Р° 5 С…РІРёР»РёРЅ |
-| **[docs/API.md](docs/API.md)** | API РґРѕРєСѓРјРµРЅС‚Р°С†С–СЏ |
-| **[docs/BACKUP.md](docs/BACKUP.md)** | РЎРёСЃС‚РµРјР° СЂРµР·РµСЂРІРЅРѕРіРѕ РєРѕРїС–СЋРІР°РЅРЅСЏ |
-| **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** | РЈСЃСѓРЅРµРЅРЅСЏ РЅРµСЃРїСЂР°РІРЅРѕСЃС‚РµР№ |
-| **[docs/COMMANDS.md](docs/COMMANDS.md)** | Р”РѕРІС–РґРЅРёРє РєРѕРјР°РЅРґ |
-| **[UPDATE_PRODUCTION.md](UPDATE_PRODUCTION.md)** | РћРЅРѕРІР»РµРЅРЅСЏ Production |
-| **[NOTIFICATION_TROUBLESHOOTING_UK.md](NOTIFICATION_TROUBLESHOOTING_UK.md)** | Р”С–Р°РіРЅРѕСЃС‚РёРєР° СЃРїРѕРІС–С‰РµРЅСЊ |
-| **[MIGRATION_GUIDE_UK.md](MIGRATION_GUIDE_UK.md)** | РњС–РіСЂР°С†С–СЏ Р· С–РЅС€РёС… СЃРёСЃС‚РµРј |
+| **[INSTALL.md](INSTALL.md)** | Повна інструкція з встановлення |
+| **[QUICKSTART_UK.md](QUICKSTART_UK.md)** | Швидкий старт за 5 хвилин |
+| **[docs/API.md](docs/API.md)** | API документація |
+| **[docs/BACKUP.md](docs/BACKUP.md)** | Система резервного копіювання |
+| **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** | Усунення несправностей |
+| **[docs/COMMANDS.md](docs/COMMANDS.md)** | Довідник команд |
+| **[UPDATE_PRODUCTION.md](UPDATE_PRODUCTION.md)** | Оновлення Production |
+| **[NOTIFICATION_TROUBLESHOOTING_UK.md](NOTIFICATION_TROUBLESHOOTING_UK.md)** | Діагностика сповіщень |
+| **[MIGRATION_GUIDE_UK.md](MIGRATION_GUIDE_UK.md)** | Міграція з інших систем |
 
 ---
 
-## рџЊџ РњРѕР¶Р»РёРІРѕСЃС‚С–
+## 🌟 Можливості
 
-### РњРѕРЅС–С‚РѕСЂРёРЅРі
-- вњ… HTTP/HTTPS РїРµСЂРµРІС–СЂРєРё
-- вњ… SSL СЃРµСЂС‚РёС„С–РєР°С‚Рё (С‚РµСЂРјС–РЅ РґС–С—)
-- вњ… Р§Р°СЃ РІС–РґРїРѕРІС–РґС–
-- вњ… Р†РЅС‚РµСЂРІР°Р» РїРµСЂРµРІС–СЂРєРё: 60 СЃРµРєСѓРЅРґ
+### Моніторинг
+- ✅ HTTP/HTTPS перевірки
+- ✅ SSL сертифікати (термін дії)
+- ✅ Час відповіді
+- ✅ Інтервал перевірки: 60 секунд
 
-### РЎРїРѕРІС–С‰РµРЅРЅСЏ
-- рџ“± Telegram
-- рџ“§ Email (SMTP)
-- рџ’¬ Slack
-- рџЋ® Discord
-- рџЏў Microsoft Teams
-- рџ“ћ SMS (Twilio)
+### Сповіщення
+- 📱 Telegram
+- 📧 Email (SMTP)
+- 💬 Slack
+- 🎮 Discord
+- 🏢 Microsoft Teams
+- 📞 SMS (Twilio)
 
-### Р РµР·РµСЂРІРЅРµ РєРѕРїС–СЋРІР°РЅРЅСЏ
-- рџ”„ РђРІС‚РѕРјР°С‚РёС‡РЅС– Р±РµРєР°РїРё (С‰РѕРґРЅСЏ/С‰РѕС‚РёР¶РЅСЏ/С‰РѕРјС–СЃСЏС†СЏ)
-- рџ’ѕ NFS/Samba РїС–РґС‚СЂРёРјРєР°
-- рџ”§ Р’С–РґРЅРѕРІР»РµРЅРЅСЏ РѕРґРЅС–С”СЋ РєРѕРјР°РЅРґРѕСЋ
-- рџ“¦ Р—Р±РµСЂРµР¶РµРЅРЅСЏ: Р‘Р”, РєРѕРЅС„С–РіСѓСЂР°С†С–С—, SSL, Р»РѕРіРё
+### Резервне копіювання
+- 🔄 Автоматичні бекапи (щодня/щотижня/щомісяця)
+- 💾 NFS/Samba підтримка
+- 🔧 Відновлення однією командою
+- 📦 Збереження: БД, конфігурації, SSL, логи
 
-### Р‘РµР·РїРµРєР°
-- рџ”’ HTTPS/SSL РїС–РґС‚СЂРёРјРєР°
-- рџ‘Ґ Р РѕР»С– РєРѕСЂРёСЃС‚СѓРІР°С‡С–РІ (admin/viewer)
-- рџ”ђ РЈРїСЂР°РІР»С–РЅРЅСЏ СЃРµСЃС–СЏРјРё
-- рџ›ЎпёЏ HSTS Р·Р°РіРѕР»РѕРІРєРё
-
----
-
-## рџ“Љ Р¤СѓРЅРєС†С–РѕРЅР°Р»
-
-- **Р’РµР±-РїР°РЅРµР»СЊ** вЂ” СЂРµР°Р»СЊРЅРёР№ С‡Р°СЃ, REST API
-- **РџСѓР±Р»С–С‡РЅР° СЃС‚РѕСЂС–РЅРєР° СЃС‚Р°С‚СѓСЃСѓ** вЂ” РґР»СЏ РєР»С–С”РЅС‚С–РІ
-- **Р†СЃС‚РѕСЂС–СЏ СЃС‚Р°С‚СѓСЃС–РІ** вЂ” 30 РґРЅС–РІ
-- **Uptime СЃС‚Р°С‚РёСЃС‚РёРєР°** вЂ” РІС–РґСЃРѕС‚РєРё РґРѕСЃС‚СѓРїРЅРѕСЃС‚С–
-- **SSL РґР°С€Р±РѕСЂРґ** вЂ” С‚РµСЂРјС–РЅ РґС–С— СЃРµСЂС‚РёС„С–РєР°С‚С–РІ
+### Безпека
+- 🔒 HTTPS/SSL підтримка
+- 👥 Ролі користувачів (admin/viewer)
+- 🔐 Управління сесіями
+- 🛡️ HSTS заголовки
 
 ---
 
-## вљ™пёЏ РќР°Р»Р°С€С‚СѓРІР°РЅРЅСЏ Р·Р° Р·Р°РјРѕРІС‡СѓРІР°РЅРЅСЏРј
+## 📊 Функціонал
 
-| РџР°СЂР°РјРµС‚СЂ | Р—РЅР°С‡РµРЅРЅСЏ |
+- **Веб-панель** — реальний час, REST API
+- **Публічна сторінка статусу** — для клієнтів
+- **Історія статусів** — 30 днів
+- **Uptime статистика** — відсотки доступності
+- **SSL дашборд** — термін дії сертифікатів
+
+---
+
+## ⚙️ Налаштування за замовчуванням
+
+| Параметр | Значення |
 |-----------|-------|
-| **РџРѕСЂС‚** | 8080 |
-| **Р†РЅС‚РµСЂРІР°Р» РїРµСЂРµРІС–СЂРєРё** | 60 СЃРµРєСѓРЅРґ |
-| **SSL РїРµСЂРµРІС–СЂРєР°** | РљРѕР¶РЅС– 6 РіРѕРґРёРЅ |
-| **SSL СЃРїРѕРІС–С‰РµРЅРЅСЏ** | в‰¤14 РґРЅС–РІ РґРѕ Р·Р°РєС–РЅС‡РµРЅРЅСЏ |
-| **Down РїРѕСЂС–Рі** | 1 РЅРµРІРґР°С‡Р° |
-| **Up РїРѕСЂС–Рі** | 1 СѓСЃРїС–С… |
+| **Порт** | 8080 |
+| **Інтервал перевірки** | 60 секунд |
+| **SSL перевірка** | Кожні 6 годин |
+| **SSL сповіщення** | ≤14 днів до закінчення |
+| **Down поріг** | 1 невдача |
+| **Up поріг** | 1 успіх |
 
 ---
 
-## рџ› пёЏ РўРµС…РЅРѕР»РѕРіС–С—
+## 🛠️ Технології
 
 - **Backend**: Python 3.9+, FastAPI
 - **Database**: SQLite
@@ -144,60 +144,60 @@ python -m Uptime_Robot.main --host 0.0.0.0 --port 8080
 
 ---
 
-## рџ“¦ РњРµС‚РѕРґРё РІСЃС‚Р°РЅРѕРІР»РµРЅРЅСЏ
+## 📦 Методи встановлення
 
-| РњРµС‚РѕРґ | РџР»Р°С‚С„РѕСЂРјР° | РљРѕРјР°РЅРґР° |
+| Метод | Платформа | Команда |
 |--------|----------|---------|
 | **Git** | Linux | `git clone && cd Uptime-Monitor` |
 | **Curl** | Linux | `curl ... \| sudo bash` |
-| **Docker** | Р‘СѓРґСЊ-СЏРєР° | `docker run -p 8080:8080 ...` |
-| **MSI** | Windows | Р—Р°РІР°РЅС‚Р°Р¶РёС‚Рё Р· Releases |
+| **Docker** | Будь-яка | `docker run -p 8080:8080 ...` |
+| **MSI** | Windows | Завантажити з Releases |
 | **APT** | Debian/Ubuntu | `apt install uptime-monitor` |
 
 ---
 
-## рџ”§ РћСЃРЅРѕРІРЅС– РєРѕРјР°РЅРґРё
+## 🔧 Основні команди
 
 ```bash
-# РЈРїСЂР°РІР»С–РЅРЅСЏ СЃР»СѓР¶Р±Р°РјРё
+# Управління службами
 sudo systemctl start|stop|restart|status uptime-monitor
 sudo systemctl start|stop|restart|status uptime-monitor-worker
 
-# Р РµР·РµСЂРІРЅРµ РєРѕРїС–СЋРІР°РЅРЅСЏ
+# Резервне копіювання
 sudo /opt/uptime-monitor/scripts/backup-system.sh --dest /backup/
 
-# Р’С–РґРЅРѕРІР»РµРЅРЅСЏ
+# Відновлення
 sudo /opt/uptime-monitor/scripts/restore-system.sh --from /backup/...
 
-# РџРµСЂРµРіР»СЏРґ Р»РѕРіС–РІ
+# Перегляд логів
 sudo journalctl -u uptime-monitor -f
 sudo journalctl -u uptime-monitor-worker -f
 
-# Р”С–Р°РіРЅРѕСЃС‚РёРєР°
+# Діагностика
 sudo /opt/uptime-monitor/check-notifications.sh
 ```
 
 ---
 
-## рџ”Њ API РџСЂРёРєР»Р°РґРё
+## 🔌 API Приклади
 
 ### Python
 
 ```python
 import requests
 
-# Р›РѕРіС–РЅ
+# Логін
 session = requests.Session()
 session.post('http://localhost:8080/login',
              data={'username': 'admin', 'password': 'admin'})
 
-# РћС‚СЂРёРјР°С‚Рё СЃР°Р№С‚Рё
+# Отримати сайти
 resp = session.get('http://localhost:8080/api/sites')
 sites = resp.json()
 
-# Р”РѕРґР°С‚Рё СЃР°Р№С‚
+# Додати сайт
 session.post('http://localhost:8080/api/sites', json={
-    'name': 'РњС–Р№ РЎР°Р№С‚',
+    'name': 'Мій Сайт',
     'url': 'https://mysite.com',
     'check_interval': 60
 })
@@ -206,80 +206,80 @@ session.post('http://localhost:8080/api/sites', json={
 ### cURL
 
 ```bash
-# Р›РѕРіС–РЅ
+# Логін
 curl -X POST http://localhost:8080/login \
   -d "username=admin&password=admin" -c cookies.txt
 
-# РћС‚СЂРёРјР°С‚Рё СЃР°Р№С‚Рё
+# Отримати сайти
 curl -X GET http://localhost:8080/api/sites -b cookies.txt
 ```
 
-Р‘С–Р»СЊС€Рµ РїСЂРёРєР»Р°РґС–РІ: [examples/api_examples.py](examples/api_examples.py)
+Більше прикладів: [examples/api_examples.py](examples/api_examples.py)
 
 ---
 
-## рџ† РЈСЃСѓРЅРµРЅРЅСЏ РЅРµСЃРїСЂР°РІРЅРѕСЃС‚РµР№
+## 🆘 Усунення несправностей
 
-### РЎР»СѓР¶Р±Р° РЅРµ Р·Р°РїСѓСЃРєР°С”С‚СЊСЃСЏ
+### Служба не запускається
 
 ```bash
-# РџРµСЂРµРІС–СЂРёС‚Рё СЃС‚Р°С‚СѓСЃ
+# Перевірити статус
 sudo systemctl status uptime-monitor
 
-# РџРµСЂРµРіР»СЏРЅСѓС‚Рё Р»РѕРіРё
+# Переглянути логи
 sudo journalctl -u uptime-monitor -n 50
 
-# РџРµСЂРµР·Р°РїСѓСЃС‚РёС‚Рё
+# Перезапустити
 sudo systemctl restart uptime-monitor
 ```
 
-### РЎРїРѕРІС–С‰РµРЅРЅСЏ РЅРµ РїСЂР°С†СЋСЋС‚СЊ
+### Сповіщення не працюють
 
 ```bash
-# Р—Р°РїСѓСЃС‚РёС‚Рё РґС–Р°РіРЅРѕСЃС‚РёРєСѓ
+# Запустити діагностику
 sudo /opt/uptime-monitor/check-notifications.sh
 
-# РџРµСЂРµРІС–СЂРёС‚Рё РЅР°Р»Р°С€С‚СѓРІР°РЅРЅСЏ РІ Р‘Р”
+# Перевірити налаштування в БД
 sudo sqlite3 /var/lib/uptime-monitor/sites.db \
   "SELECT config FROM notify_config WHERE id = 1;" | python3 -m json.tool
 ```
 
-### РџСЂРѕР±Р»РµРјРё Р· Р±РµРєР°РїРѕРј
+### Проблеми з бекапом
 
-Р”РёРІС–С‚СЊСЃСЏ: [docs/BACKUP.md](docs/BACKUP.md)
+Дивіться: [docs/BACKUP.md](docs/BACKUP.md)
 
 ---
 
-## рџ“€ РџРѕСЂС–РІРЅСЏРЅРЅСЏ
+## 📈 Порівняння
 
-| Р¤СѓРЅРєС†С–СЏ | Uptime Monitor | Uptime.com | Pingdom |
+| Функція | Uptime Monitor | Uptime.com | Pingdom |
 |---------|---------------|------------|---------|
-| **Self-hosted** | вњ… РўР°Рє | вќЊ РќС– | вќЊ РќС– |
-| **Р‘РµР·РєРѕС€С‚РѕРІРЅРѕ** | вњ… Open-source | вќЊ РџР»Р°С‚РЅРѕ | вќЊ РџР»Р°С‚РЅРѕ |
-| **Р‘РµРєР°РїРё** | вњ… Р’Р±СѓРґРѕРІР°РЅС– | вљ пёЏ РћР±РјРµР¶РµРЅРѕ | вљ пёЏ РћР±РјРµР¶РµРЅРѕ |
-| **SSL РјРѕРЅС–С‚РѕСЂРёРЅРі** | вњ… РўР°Рє | вњ… РўР°Рє | вњ… РўР°Рє |
-| **РЎРїРѕРІС–С‰РµРЅСЊ** | вњ… 6+ РєР°РЅР°Р»С–РІ | вњ… РўР°Рє | вњ… РўР°Рє |
-| **РљР°СЃС‚РѕРјС–Р·Р°С†С–СЏ** | вњ… РџРѕРІРЅР° | вќЊ РћР±РјРµР¶РµРЅРѕ | вќЊ РћР±РјРµР¶РµРЅРѕ |
+| **Self-hosted** | ✅ Так | ❌ Ні | ❌ Ні |
+| **Безкоштовно** | ✅ Open-source | ❌ Платно | ❌ Платно |
+| **Бекапи** | ✅ Вбудовані | ⚠️ Обмежено | ⚠️ Обмежено |
+| **SSL моніторинг** | ✅ Так | ✅ Так | ✅ Так |
+| **Сповіщень** | ✅ 6+ каналів | ✅ Так | ✅ Так |
+| **Кастомізація** | ✅ Повна | ❌ Обмежено | ❌ Обмежено |
 
 ---
 
-## рџ¤ќ Р’РЅРµСЃРѕРє Сѓ РїСЂРѕРµРєС‚
+## 🤝 Внесок у проект
 
-1. Fork СЂРµРїРѕР·РёС‚РѕСЂС–Р№
-2. РЎС‚РІРѕСЂС–С‚СЊ РіС–Р»РєСѓ (`git checkout -b feature/amazing`)
-3. Р—СЂРѕР±С–С‚СЊ РєРѕРјС–С‚ (`git commit -m 'Р”РѕРґР°РЅРѕ amazing С„СѓРЅРєС†С–СЋ'`)
+1. Fork репозиторій
+2. Створіть гілку (`git checkout -b feature/amazing`)
+3. Зробіть коміт (`git commit -m 'Додано amazing функцію'`)
 4. Push (`git push origin feature/amazing`)
-5. Р’С–РґРєСЂРёР№С‚Рµ Pull Request
+5. Відкрийте Pull Request
 
 ---
 
-## рџ“ќ Р›С–С†РµРЅР·С–СЏ
+## 📝 Ліцензія
 
-MIT License вЂ” РґРёРІС–С‚СЊСЃСЏ С„Р°Р№Р» [LICENSE](LICENSE).
+MIT License — дивіться файл [LICENSE](LICENSE).
 
 ---
 
-## рџ‘Ґ РџС–РґС‚СЂРёРјРєР°
+## 👥 Підтримка
 
 - **Issues**: https://github.com/ajjs1ajjs/Uptime-Monitor/issues
 - **Discussions**: https://github.com/ajjs1ajjs/Uptime-Monitor/discussions
@@ -287,25 +287,25 @@ MIT License вЂ” РґРёРІС–С‚СЊСЃСЏ С„Р°Р№Р» [LICEN
 
 ---
 
-## рџЋЇ Roadmap
+## 🎯 Roadmap
 
 ### v2.1.0 (Q2 2026)
-- [ ] WebSocket РѕРЅРѕРІР»РµРЅРЅСЏ РІ СЂРµР°Р»СЊРЅРѕРјСѓ С‡Р°СЃС–
-- [ ] РўРµРјРЅР°/РЎРІС–С‚Р»Р° С‚РµРјР°
-- [ ] Р•РєСЃРїРѕСЂС‚ Р·РІС–С‚С–РІ (CSV/PDF)
+- [ ] WebSocket оновлення в реальному часі
+- [ ] Темна/Світла тема
+- [ ] Експорт звітів (CSV/PDF)
 
 ### v2.2.0 (Q3 2026)
-- [ ] РўРµС…РЅС–С‡РЅС– РІС–РєРЅР° РѕР±СЃР»СѓРіРѕРІСѓРІР°РЅРЅСЏ
-- [ ] Р‘Р°РіР°С‚РѕРјРѕРІРЅС–СЃС‚СЊ (i18n)
-- [ ] РђСѓРґРёС‚ Р»РѕРіС–РІ
+- [ ] Технічні вікна обслуговування
+- [ ] Багатомовність (i18n)
+- [ ] Аудит логів
 
 ### v3.0.0 (Q4 2026)
-- [ ] PostgreSQL РїС–РґС‚СЂРёРјРєР°
-- [ ] РљР»Р°СЃС‚РµСЂРёР·Р°С†С–СЏ/HA
-- [ ] РњРѕР±С–Р»СЊРЅРёР№ РґРѕРґР°С‚РѕРє
+- [ ] PostgreSQL підтримка
+- [ ] Кластеризація/HA
+- [ ] Мобільний додаток
 
 ---
 
-**в­ђ Р”РѕРґР°Р№С‚Рµ Р·С–СЂРєСѓ СЏРєС‰Рѕ РїСЂРѕРµРєС‚ РєРѕСЂРёСЃРЅРёР№!**
+**⭐ Додайте зірку якщо проект корисний!**
 
-**рџ“ў РџРёС‚Р°РЅРЅСЏ? Р’С–РґРєСЂРёР№С‚Рµ issue Р°Р±Рѕ РїСЂРёС”РґРЅСѓР№С‚РµСЃСЊ РґРѕ РѕР±РіРѕРІРѕСЂРµРЅРЅСЏ!**
+**📢 Питання? Відкрийте issue або приєднуйтесь до обговорення!**

@@ -1,4 +1,4 @@
-﻿# Uptime Monitor вЂ” Quick Start Guide
+# Uptime Monitor — Quick Start Guide
 
 ## Quick Installation (Linux)
 

@@ -1,4 +1,4 @@
-﻿# Uptime Monitor API Documentation
+# Uptime Monitor API Documentation
 
 Complete API reference for Uptime Monitor v2.1.0.
 
@@ -36,7 +36,7 @@ username=admin&password=<your_password>
 ```
 
 > **Note (v2.0.0):** Default credentials are `admin` / `auto-generated`.
-> **Rate Limit:** 5 failed attempts per 15 minutes per IP. After exceeding вЂ” 429 Too Many Requests.
+> **Rate Limit:** 5 failed attempts per 15 minutes per IP. After exceeding — 429 Too Many Requests.
 
 **Response:**
 ```
