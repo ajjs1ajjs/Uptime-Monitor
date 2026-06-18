@@ -378,20 +378,33 @@ sudo systemctl restart uptime-monitor
 sudo ./venv/bin/python /opt/uptime-monitor/auth_cli.py list-users
 ```
 
-### Перший вхід (v2.0.0+)
+### Перший вхід
 - Логін: `admin`
-- Пароль: генерується випадково при першому запуску
+- Пароль: генерується випадково при першому запуску й показується **один раз** у консолі (stdout).
+- Також зберігається у файлі `/etc/uptime-monitor/credentials.txt` (права `600`).
+
+> ⚠️ З міркувань безпеки пароль **більше не пишеться в journald/логи**. Якщо ви
+> його не зберегли — скористайтесь командою `show-password` нижче.
+
 ```bash
-# Знайти пароль в логах
-sudo journalctl -u uptime-monitor | grep "DEFAULT ADMIN"
+# Показати поточний пароль адміна (дешифрує збережену копію)
+cd /opt/uptime-monitor
+sudo ./venv/bin/python -m Uptime_Robot.auth_cli show-password
+
+# Або переглянути файл з обліковими даними
+sudo cat /etc/uptime-monitor/credentials.txt
 ```
 - Система ВИМАГАТИМЕ змінити пароль при першому вході!
 
-### Якщо забули пароль (v2.0.0+)
+### Якщо забули пароль
 ```bash
-# Скинути через CLI
 cd /opt/uptime-monitor
-sudo ./venv/bin/python auth_cli.py reset-password --user admin --password НОВИЙ_ПАРОЛЬ
+
+# Варіант А: показати поточний пароль
+sudo ./venv/bin/python -m Uptime_Robot.auth_cli show-password
+
+# Варіант Б: скинути на новий
+sudo ./venv/bin/python -m Uptime_Robot.auth_cli reset-password --user admin --password НОВИЙ_ПАРОЛЬ
 sudo systemctl restart uptime-monitor
 ```
 

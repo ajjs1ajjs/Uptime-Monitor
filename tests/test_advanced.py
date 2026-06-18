@@ -760,3 +760,85 @@ class TestMoreEdgeCases:
             message = {"alert_type": "down", "site_name": "Test Site", "url": "http://test"}
             await send_webhook(message, settings)
             mock_session.post.assert_called_once_with("http://my-webhook.internal/endpoint", json=message)
+
+
+class TestConcurrentDbAccess:
+    """Per-connection DB model: many concurrent writers/readers must not corrupt
+    state or raise (validates the connection-per-context change)."""
+
+    @pytest.mark.asyncio
+    async def test_concurrent_status_history_writes(self, test_db):
+        import asyncio
+
+        from Uptime_Robot.models import add_site, add_status_history, get_site_stats
+
+        site_id = await add_site(test_db, "Conc Site", "http://example.com", monitor_type="http")
+
+        async def writer(i):
+            await add_status_history(test_db, site_id, "up", 200, float(i), None)
+
+        await asyncio.gather(*(writer(i) for i in range(40)))
+        stats = await get_site_stats(test_db, site_id)
+        assert stats["total_checks"] == 40
+        assert stats["up_count"] == 40
+
+    @pytest.mark.asyncio
+    async def test_concurrent_rate_limit_checks(self, test_db):
+        import asyncio
+
+        from Uptime_Robot.models import check_db_rate_limit
+
+        results = await asyncio.gather(
+            *(check_db_rate_limit("conc", "1.2.3.4", 100, 60, test_db) for _ in range(30))
+        )
+        # No exceptions, all within the generous limit.
+        assert all(results)
+
+
+class TestIncidentHelpers:
+    """Pure helpers extracted from get_incidents."""
+
+    def test_format_incident_duration(self):
+        from Uptime_Robot.routers.api import _format_incident_duration
+        assert _format_incident_duration(
+            "2026-01-01T00:00:00+00:00", "2026-01-01T01:30:00+00:00"
+        ) == "1год 30хв"
+        assert _format_incident_duration(
+            "2026-01-01T00:00:00+00:00", "2026-01-01T00:05:00+00:00"
+        ) == "5хв"
+        assert _format_incident_duration("bad", "also-bad") is None
+
+    def test_compute_down_times_and_build(self):
+        from Uptime_Robot.routers.api import _build_incidents, _compute_down_times
+        # newest-first history: a 10-min down incident that recovered
+        history_by_site = {
+            1: [
+                {"status": "up", "checked_at": "2026-01-01T00:20:00+00:00"},
+                {"status": "down", "checked_at": "2026-01-01T00:10:00+00:00"},
+                {"status": "down", "checked_at": "2026-01-01T00:00:00+00:00"},
+            ]
+        }
+        down_times = _compute_down_times(history_by_site)
+        assert any(k.startswith("1_down_") for k in down_times)
+        results = [
+            {
+                "id": 5, "site_id": 1, "site_name": "S", "site_url": "http://s",
+                "status": "down", "status_code": 500, "response_time": None,
+                "error_message": "err", "checked_at": "2026-01-01T00:10:00+00:00",
+            }
+        ]
+        incidents = _build_incidents(results, down_times)
+        assert len(incidents) == 1
+        assert incidents[0]["site_id"] == 1
+        assert incidents[0]["duration"] is not None
+
+    def test_build_incidents_dedupes(self):
+        from Uptime_Robot.routers.api import _build_incidents
+        r = {
+            "id": 1, "site_id": 2, "site_name": "X", "site_url": "u",
+            "status": "down", "status_code": None, "response_time": None,
+            "error_message": None, "checked_at": "2026-01-01T00:00:00+00:00",
+        }
+        incidents = _build_incidents([r, dict(r)], {})
+        assert len(incidents) == 1
+        assert incidents[0]["duration"] == "в процесі"

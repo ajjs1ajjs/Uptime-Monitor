@@ -49,9 +49,15 @@ openssl x509 -in /etc/uptime-monitor/ssl/cert.pem -enddate -noout
 
 ## Password Issues
 
-### Reset Admin Password
+### Recover / Reset Admin Password
+The generated password is shown once at install and saved to
+`/etc/uptime-monitor/credentials.txt`; it is **not** written to the journal.
 ```bash
-sudo journalctl -u uptime-monitor | grep "DEFAULT ADMIN"
+# Reveal the current admin password
+sudo /opt/uptime-monitor/venv/bin/python -m Uptime_Robot.auth_cli show-password
+
+# Or set a new one (min 12 chars, upper+lower+digit)
+sudo /opt/uptime-monitor/venv/bin/python -m Uptime_Robot.auth_cli reset-password --user admin --password NEW_PASSWORD
 ```
 
 ### Change Password

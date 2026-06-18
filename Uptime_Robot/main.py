@@ -21,7 +21,11 @@ IS_WINDOWS = sys.platform == "win32"
 if IS_WINDOWS:
     pass
 
-# Global state and constants from state.py
+# Global state and constants from state.py.
+# NOTE: CONFIG is a startup snapshot. The HTTPS-redirect/HSTS middleware reads
+# from it on purpose: uvicorn binds the TLS listener at startup, so SSL-related
+# settings only take effect after a restart — redirecting based on live config
+# could send clients to an https port that isn't listening.
 CONFIG = app_state.CONFIG
 DB_PATH = app_state.DB_PATH
 CHECK_INTERVAL = app_state.CHECK_INTERVAL

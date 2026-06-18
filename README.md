@@ -1,13 +1,15 @@
 # Uptime Monitor
 
 [![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
-[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
+[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-lightgrey.svg)]()
 [![CI/CD](https://github.com/ajjs1ajjs/Uptime-Monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/ajjs1ajjs/Uptime-Monitor/actions)
-[![Tests](https://img.shields.io/badge/tests-200%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-229%20passed-brightgreen.svg)]()
 
-**Enterprise uptime monitoring with automatic backups, SSL certificates tracking, and multi-channel notifications.**
+**Enterprise uptime monitoring with automatic backups, SSL certificate tracking, and multi-channel notifications.**
+
+A self-hosted alternative to UptimeRobot: HTTP/SSL/Port/Ping checks, a real-time dashboard, a public status page, 10+ alert channels, and a REST API — on Linux, Windows, or Docker.
 
 ---
 
@@ -76,9 +78,9 @@ python -m Uptime_Robot.main --host 0.0.0.0 --port 8080
 
 ---
 
-## 🔒 Security (v2.0.0)
+## 🔒 Security
 
-Starting from v2.0.0, the project includes enterprise-grade security:
+Enterprise-grade security, hardened across the 2.x line:
 
 - **Rate Limiting** — 5 login attempts per 15 minutes per IP
 - **Password Policy** — Minimum 12 characters, requires uppercase + lowercase + digit
@@ -98,7 +100,7 @@ See [Security details](Uptime_Robot/README_SECURITY.md) and [Admin/password guid
 ## 📊 Dashboard
 
 - **Real-time monitoring** — Check every 60 seconds (configurable per site)
-- **SSL tracking** — Alerts 14 days before expiry, configurable cooldown
+- **SSL tracking** — Alerts up to 30 days before expiry, configurable cooldown
 - **Backup system** — Automatic with verification and restore
 - **Multi-channel alerts** — Never miss downtime
 - **Public status page** — Share with customers
@@ -113,12 +115,12 @@ See [Security details](Uptime_Robot/README_SECURITY.md) and [Admin/password guid
 | **Port** | 8080 |
 | **Check Interval** | 60 seconds |
 | **SSL Check** | Every 6 hours |
-| **SSL Alert** | ≤14 days before expiry |
-| **Down Threshold** | 1 failure |
-| **Up Threshold** | 1 success |
-| **Still Down Repeat** | Every 15 minutes |
+| **SSL Alert** | ≤30 days before expiry (30/14/7/5/3/1) |
+| **Grace Period** | 0s (alert on first failure) |
+| **Up Threshold** | 2 successes |
+| **Still Down Repeat** | Every 10 minutes |
 | **SSL Verify** | Enabled (configurable) |
-| **CORS Origins** | `["*"]` (configurable) |
+| **CORS Origins** | `["http://localhost:8080"]` (configurable) |
 | **Rate Limit** | 5 attempts / 15 min per IP |
 | **Password Policy** | 12+ chars, upper+lower+digit |
 
@@ -126,14 +128,14 @@ See [Security details](Uptime_Robot/README_SECURITY.md) and [Admin/password guid
 
 ## 🛠️ Technology Stack
 
-- **Backend**: Python 3.10+, FastAPI, Uvicorn, Jinja2
+- **Backend**: Python 3.9+, FastAPI, Uvicorn, Jinja2
 - **Database**: SQLite (aiosqlite)
 - **Frontend**: HTML/CSS/JS with Jinja2 templates, Chart.js, HTMX
 - **Security**: bcrypt, Fernet (cryptography), API keys with SHA-256 hashing
 - **Monitoring**: aiohttp (async), asyncio
 - **Notifications**: SMTP, Telegram Bot API, Discord/Teams/Slack Webhooks, Pushover, Gotify, ntfy
 - **Infrastructure**: Docker Compose, Prometheus metrics, WebSocket live updates
-- **Testing**: pytest 200+ tests, pytest-asyncio, coverage ~40%
+- **Testing**: pytest (229 tests), pytest-asyncio, coverage ~52%
 
 ---
 
@@ -204,12 +206,16 @@ powershell -ExecutionPolicy Bypass -File create_task_simple.ps1
 
 ## 🔔 Notifications
 
-- 📧 **Email** — SMTP with TLS
-- 📱 **Telegram** — Bot API with HTML formatting
+- 📧 **Email** — SMTP with STARTTLS
+- 📱 **Telegram** — Bot API with HTML formatting and inline acknowledge/silence buttons
 - 💬 **Slack** — Webhooks
 - 🎮 **Discord** — Webhooks with rich embeds
 - 🏢 **Microsoft Teams** — Message Cards
 - 📞 **SMS** — Twilio integration
+- 🔗 **Webhook** — Custom JSON POST to any endpoint
+- 🔔 **Pushover / Gotify / ntfy** — Self-hostable push notifications
+
+Per-site channel selection, multiple channels per provider, and a full delivery history are supported.
 
 ---
 

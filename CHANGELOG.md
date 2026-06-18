@@ -42,8 +42,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Performance** — eliminated N+1 query patterns in the public status page and SLA
-  report (bulk aggregation in a single query instead of per-site queries).
+- **Database connections** — `get_db_connection()` now opens a dedicated connection
+  per `with` block instead of sharing one process-wide connection across all
+  concurrent coroutines (safe WAL pattern; matches the existing hot write path).
+- **Performance** — eliminated N+1 query patterns in the public status page, SLA
+  report, and incidents endpoint (bulk aggregation in a single query instead of
+  per-site queries).
+- **Refactor** — extracted pure helpers (`_compute_down_times`, `_build_incidents`,
+  `_format_incident_duration`) from `get_incidents` and covered them with unit tests.
+- Documented intentional design choices: API-key fixed salt (deterministic lookup
+  over high-entropy keys), and the startup config snapshot for SSL/HSTS (TLS binds
+  at startup → requires restart).
 
 ---
 
