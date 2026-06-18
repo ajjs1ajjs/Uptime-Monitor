@@ -51,6 +51,7 @@ async def initialize_app_async():
     # Init CSRF table
     try:
         from .csrf import init_csrf_table
+
         await init_csrf_table()
     except Exception as e:
         logger.error("CSRF init failed: %s", e)
@@ -134,7 +135,9 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["Content-Security-Policy"] =         "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; img-src 'self' data:; font-src 'self' data:; connect-src 'self' ws: https://cdn.jsdelivr.net;"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; img-src 'self' data:; font-src 'self' data:; connect-src 'self' ws: https://cdn.jsdelivr.net;"
+    )
     return response
 
 
@@ -142,6 +145,7 @@ async def add_security_headers(request: Request, call_next):
 @app.middleware("http")
 async def access_log(request: Request, call_next):
     import time
+
     path = request.url.path
     if path.startswith(("/static/", "/health", "/metrics", "/favicon")):
         return await call_next(request)
@@ -186,12 +190,14 @@ HTML_500 = """<!DOCTYPE html><html lang="uk"><head><meta charset="UTF-8"><meta n
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc):
     from fastapi.responses import HTMLResponse
+
     return HTMLResponse(HTML_404, status_code=404)
 
 
 @app.exception_handler(500)
 async def server_error_handler(request: Request, exc):
     from fastapi.responses import HTMLResponse
+
     return HTMLResponse(HTML_500, status_code=500)
 
 
@@ -202,6 +208,7 @@ async def health_check(request: Request):
     client_ip = request.client.host if request.client else "unknown"
     if not await check_db_rate_limit("health", client_ip, 30, 60, DB_PATH):
         from fastapi.responses import JSONResponse
+
         return JSONResponse({"status": "rate_limited"}, status_code=429)
 
     db_ok = False
@@ -366,7 +373,9 @@ def main():
 
     # Start background monitoring only if explicitly enabled with --monitor
     if args.enable_monitor:
-        logger.warning("Embedded monitoring enabled via --monitor (consider using worker service instead)")
+        logger.warning(
+            "Embedded monitoring enabled via --monitor (consider using worker service instead)"
+        )
         import threading
 
         def run_monitor():

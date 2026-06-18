@@ -1,10 +1,10 @@
 """Tests for monitoring module pure functions"""
+from datetime import timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from Uptime_Robot.monitoring import get_alert_policy, normalize_ssl_url
-
 
 SENSITIVE_KEYS = {
     "request_timeout_seconds", "grace_period_seconds", "up_success_threshold",
@@ -112,9 +112,10 @@ class TestNormalizeAndValidateURL:
         assert "8.8.8.8" in url
 
     def test_private_ip_rejected(self):
-        from Uptime_Robot.routers.api import _normalize_and_validate_url
-        from fastapi import HTTPException
         import pytest
+        from fastapi import HTTPException
+
+        from Uptime_Robot.routers.api import _normalize_and_validate_url
 
         with pytest.raises(HTTPException) as exc:
             _normalize_and_validate_url("192.168.1.1", "http")
@@ -124,11 +125,12 @@ class TestNormalizeAndValidateURL:
 class TestCheckDNS:
     @pytest.mark.asyncio
     async def test_dns_check_success(self):
-        from Uptime_Robot.monitoring import _check_dns
         from datetime import datetime
+
+        from Uptime_Robot.monitoring import _check_dns
         with patch("asyncio.get_event_loop") as mock_loop:
             mock_loop.return_value.getaddrinfo = AsyncMock(return_value=[("family", "type", "proto", "canonname", "sockaddr")])
-            status, code, rt, err = await _check_dns("http://example.com", datetime.now())
+            status, code, rt, err = await _check_dns("http://example.com", datetime.now(timezone.utc))
             assert status == "up"
             assert code == 0
             assert err is None
@@ -136,11 +138,12 @@ class TestCheckDNS:
 
     @pytest.mark.asyncio
     async def test_dns_check_failure(self):
-        from Uptime_Robot.monitoring import _check_dns
         from datetime import datetime
+
+        from Uptime_Robot.monitoring import _check_dns
         with patch("asyncio.get_event_loop") as mock_loop:
             mock_loop.return_value.getaddrinfo = AsyncMock(side_effect=Exception("Name or service not known"))
-            status, code, rt, err = await _check_dns("http://nonexistent-domain-xyz.com", datetime.now())
+            status, code, rt, err = await _check_dns("http://nonexistent-domain-xyz.com", datetime.now(timezone.utc))
             assert status == "down"
             assert code == 1
             assert "DNS resolution failed" in err
@@ -150,8 +153,9 @@ class TestCheckDNS:
 class TestCheckHttpRegex:
     @pytest.mark.asyncio
     async def test_regex_match_success(self):
-        from Uptime_Robot.monitoring import _check_http
         from datetime import datetime
+
+        from Uptime_Robot.monitoring import _check_http
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.text.return_value = "<html><body>Welcome to My Uptime Monitor page!</body></html>"
@@ -166,15 +170,16 @@ class TestCheckHttpRegex:
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             policy = {"request_timeout_seconds": 5, "treat_4xx_as_down": True, "verify_ssl": True}
-            status, code, rt, err = await _check_http("http://example.com", datetime.now(), policy, "regex:Welcome to.*page!")
+            status, code, rt, err = await _check_http("http://example.com", datetime.now(timezone.utc), policy, "regex:Welcome to.*page!")
             assert status == "up"
             assert code == 200
             assert err is None
 
     @pytest.mark.asyncio
     async def test_regex_match_failure(self):
-        from Uptime_Robot.monitoring import _check_http
         from datetime import datetime
+
+        from Uptime_Robot.monitoring import _check_http
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.text.return_value = "<html><body>Welcome to My Uptime Monitor page!</body></html>"
@@ -189,15 +194,16 @@ class TestCheckHttpRegex:
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             policy = {"request_timeout_seconds": 5, "treat_4xx_as_down": True, "verify_ssl": True}
-            status, code, rt, err = await _check_http("http://example.com", datetime.now(), policy, "regex:Welcome to.*dashboard!")
+            status, code, rt, err = await _check_http("http://example.com", datetime.now(timezone.utc), policy, "regex:Welcome to.*dashboard!")
             assert status == "down"
             assert code == 200
             assert err == "Regex pattern not matched"
 
     @pytest.mark.asyncio
     async def test_regex_invalid_pattern(self):
-        from Uptime_Robot.monitoring import _check_http
         from datetime import datetime
+
+        from Uptime_Robot.monitoring import _check_http
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_response.text.return_value = "<html><body>Some page</body></html>"
@@ -212,7 +218,7 @@ class TestCheckHttpRegex:
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
             policy = {"request_timeout_seconds": 5, "treat_4xx_as_down": True, "verify_ssl": True}
-            status, code, rt, err = await _check_http("http://example.com", datetime.now(), policy, "regex:[invalid-regex-(")
+            status, code, rt, err = await _check_http("http://example.com", datetime.now(timezone.utc), policy, "regex:[invalid-regex-(")
             assert status == "down"
             assert code == 200
             assert "Invalid regex pattern" in err
@@ -221,9 +227,10 @@ class TestCheckHttpRegex:
 class TestDailyMaintenanceMidnight:
     @pytest.mark.asyncio
     async def test_daily_maintenance_midnight_crossing(self):
-        from Uptime_Robot.monitoring.maintenance import is_under_maintenance
         from datetime import datetime, timedelta
-        
+
+        from Uptime_Robot.monitoring.maintenance import is_under_maintenance
+
         # Test window: start 23:00, duration 120 mins (23:00 - 01:00)
         # Evaluated at 00:30 (next day) -> should return True
         mock_row = {
@@ -234,11 +241,11 @@ class TestDailyMaintenanceMidnight:
             "is_active": 1
         }
         
-        eval_time = datetime(2026, 6, 4, 0, 30, 0)
-        
+        eval_time = datetime(2026, 6, 4, 0, 30, 0, tzinfo=timezone.utc)
+
         class MockDateTime:
             @classmethod
-            def now(cls):
+            def now(cls, tz=None):
                 return eval_time
             @classmethod
             def fromisoformat(cls, s):
@@ -264,7 +271,7 @@ class TestSSLCheckerAsync:
     @pytest.mark.asyncio
     async def test_check_ssl_certificate_nonblocking(self):
         from Uptime_Robot.ssl_checker import check_ssl_certificate
-        
+
         # Patch the underlying sync checker
         mock_info = {
             "hostname": "example.com",

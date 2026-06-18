@@ -184,9 +184,7 @@ async def get_sites(user: dict = Depends(require_viewer_or_higher)):
             sid = site["id"]
             last_status = last_status_map.get(sid, "unknown")
             total, up_count = stats_map.get(sid, (0, 0))
-            uptime = (
-                (up_count / total * 100) if total > 0 else 0
-            )
+            uptime = (up_count / total * 100) if total > 0 else 0
             result.append(
                 {
                     **site,
@@ -492,17 +490,19 @@ async def get_incidents(user: dict = Depends(require_viewer_or_higher)):
         for row in extra_raw:
             site_id = row["site_id"]
             if not any(r["site_id"] == site_id for r in results):
-                results.append({
-                    "id": None,
-                    "site_id": site_id,
-                    "site_name": row["site_name"],
-                    "site_url": row["site_url"],
-                    "status": row["status"],
-                    "status_code": row["status_code"],
-                    "response_time": None,
-                    "error_message": None,
-                    "checked_at": row["checked_at"] or datetime.now(timezone.utc).isoformat(),
-                })
+                results.append(
+                    {
+                        "id": None,
+                        "site_id": site_id,
+                        "site_name": row["site_name"],
+                        "site_url": row["site_url"],
+                        "status": row["status"],
+                        "status_code": row["status_code"],
+                        "response_time": None,
+                        "error_message": None,
+                        "checked_at": row["checked_at"] or datetime.now(timezone.utc).isoformat(),
+                    }
+                )
 
         down_times = {}
         for site_id in {r["site_id"] for r in results}:
@@ -912,7 +912,9 @@ async def export_sla_pdf(days: int = 30, user: dict = Depends(require_viewer_or_
 
     pdf_bytes = await render_sla_pdf(days)
     if not pdf_bytes:
-        raise HTTPException(status_code=500, detail="PDF generation failed (weasyprint not available)")
+        raise HTTPException(
+            status_code=500, detail="PDF generation failed (weasyprint not available)"
+        )
 
     from fastapi.responses import Response
 

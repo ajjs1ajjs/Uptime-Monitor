@@ -2,10 +2,12 @@ import asyncio
 import os
 import sqlite3
 import tempfile
+
 import pytest
 
-from Uptime_Robot.models import init_database
 from Uptime_Robot.database import get_db_connection
+from Uptime_Robot.models import init_database
+
 
 @pytest.fixture
 def temp_db():
@@ -100,16 +102,26 @@ async def test_seeding_telegram_notifications(temp_db, monkeypatch):
     monkeypatch.setenv("TELEGRAM_CHAT_ID", "-1001234567")
     
     await init_database(temp_db)
-    
+
+    from Uptime_Robot.models import load_notify_settings
+
     async with get_db_connection(temp_db) as conn:
         async with conn.execute("SELECT config FROM notify_config WHERE id = 1") as c:
             row = await c.fetchone()
             assert row is not None
             config = json.loads(row["config"])
             assert config["telegram"]["enabled"] is True
-            assert config["telegram"]["channels"][0]["token"] == "12345:fake_token"
+            # Secret must be encrypted at rest, not stored as plaintext
+            stored_token = config["telegram"]["channels"][0]["token"]
+            assert stored_token != "12345:fake_token"
+            assert stored_token.startswith("__ENC__")
             assert config["telegram"]["channels"][0]["chat_id"] == "-1001234567"
-            
+
+    # load_notify_settings must transparently decrypt the token back
+    settings = await load_notify_settings(temp_db)
+    assert settings["telegram"]["channels"][0]["token"] == "12345:fake_token"
+
+    async with get_db_connection(temp_db) as conn:
         # Also check that seeded sites have "telegram" in notify_methods
         async with conn.execute("SELECT notify_methods FROM sites LIMIT 1") as c:
             row = await c.fetchone()

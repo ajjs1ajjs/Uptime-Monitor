@@ -26,6 +26,12 @@ async def is_under_maintenance(site_id: int) -> bool:
                 end_str = row["end_time"].replace("Z", "")
                 start = datetime.fromisoformat(start_str)
                 end = datetime.fromisoformat(end_str)
+                # Legacy windows may be stored without a tz offset; treat naive
+                # timestamps as UTC so they can be compared with the aware "now".
+                if start.tzinfo is None:
+                    start = start.replace(tzinfo=timezone.utc)
+                if end.tzinfo is None:
+                    end = end.replace(tzinfo=timezone.utc)
                 if start <= current_time <= end:
                     return True
             except Exception:

@@ -1,4 +1,5 @@
 """CSRF protection using session-bound tokens."""
+
 import secrets
 
 from fastapi import HTTPException, Request
@@ -21,7 +22,9 @@ async def init_csrf_table():
                 token TEXT NOT NULL,
                 created_at TEXT DEFAULT (datetime('now'))
             )""")
-            await conn.execute("CREATE INDEX IF NOT EXISTS idx_csrf_tokens_session ON csrf_tokens(session_id)")
+            await conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_csrf_tokens_session ON csrf_tokens(session_id)"
+            )
             await conn.commit()
             logger.info("CSRF tables initialized")
     except Exception as e:
@@ -95,7 +98,7 @@ async def csrf_middleware(request: Request, call_next):
             if request.method == "POST":
                 try:
                     form = await request.form()
-                    csrf_token = form.get("_csrf_token", "")
+                    csrf_token = str(form.get("_csrf_token", ""))
                 except RuntimeError:
                     logger.warning("CSRF: request body already consumed for %s", path)
             else:

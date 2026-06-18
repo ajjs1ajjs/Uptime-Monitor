@@ -1,7 +1,7 @@
 import hashlib
 import os
 import secrets
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 import bcrypt
 
@@ -12,6 +12,7 @@ from .logger import logger
 def _encrypt_password(plaintext: str) -> str:
     try:
         from .crypto_utils import encrypt_value
+
         result = encrypt_value(plaintext)
         return result or ""
     except Exception:
@@ -23,6 +24,7 @@ def _decrypt_password(ciphertext: str) -> str:
         return ""
     try:
         from .crypto_utils import decrypt_value
+
         result = decrypt_value(ciphertext)
         return result or ""
     except Exception:
@@ -34,15 +36,17 @@ def _save_credentials_file(password: str):
         paths = ["/etc/uptime-monitor/credentials.txt"]
         if os.name == "nt":
             app_dir = os.path.dirname(os.path.abspath(__file__))
-            paths = [os.path.join(app_dir, "credentials.txt"),
-                     os.path.join(os.environ.get("USERPROFILE", ""), "UptimeMonitor", "credentials.txt")]
+            paths = [
+                os.path.join(app_dir, "credentials.txt"),
+                os.path.join(os.environ.get("USERPROFILE", ""), "UptimeMonitor", "credentials.txt"),
+            ]
 
         for path in paths:
             try:
                 os.makedirs(os.path.dirname(path), exist_ok=True)
                 with open(path, "w") as f:
                     f.write(f"Admin password: {password}\n")
-                    f.write(f"Username: admin\n")
+                    f.write("Username: admin\n")
                 if os.name != "nt":
                     os.chmod(path, 0o600)
             except Exception:
@@ -102,11 +106,11 @@ async def init_auth_tables(db_path):
         ) as c:
             admin_row = await c.fetchone()
 
-        default_password = "291263"
-        password_hash = hash_password(default_password)
         if not admin_row:
             # Generate random password (or use env var for testing)
-            default_password = os.environ.get("UPTIME_MONITOR_ADMIN_PASSWORD") or secrets.token_urlsafe(12)
+            default_password = os.environ.get(
+                "UPTIME_MONITOR_ADMIN_PASSWORD"
+            ) or secrets.token_urlsafe(12)
             password_hash = hash_password(default_password)
 
             # Try to encrypt backup
@@ -131,33 +135,19 @@ async def init_auth_tables(db_path):
                     logger.info("Admin user 'admin' already exists")
                     print(msg)
                 else:
-                    logger.warning("Admin user 'admin' already exists (password_encrypted unreadable)")
-                    print("\n[WARN] Admin user 'admin' already exists — cannot read encrypted password backup\n")
+                    logger.warning(
+                        "Admin user 'admin' already exists (password_encrypted unreadable)"
+                    )
+                    print(
+                        "\n[WARN] Admin user 'admin' already exists — cannot read encrypted password backup\n"
+                    )
             else:
                 logger.warning("Admin user 'admin' already exists (no password backup)")
                 print("\n[OK] Admin user 'admin' already exists\n")
 
-        # Fix: if password was never encrypted (legacy), encrypt it now
-        if admin_row:
-            async with conn.execute(
-                "SELECT id FROM users WHERE username = 'admin' AND (password_encrypted IS NULL OR password_encrypted = '')"
-            ) as c:
-                need_encrypt = await c.fetchone()
-            if need_encrypt:
-                from .crypto_utils import encrypt_value
-                try:
-                    async with conn.execute("SELECT password_hash FROM users WHERE username = 'admin'") as pw:
-                        pw_row = await pw.fetchone()
-                    existing_pw = "291263"
-                    if pw_row and not verify_password(existing_pw, pw_row["password_hash"]):
-                        existing_pw = ""
-                    if existing_pw:
-                        encrypted = encrypt_value(existing_pw) or ""
-                        if encrypted:
-                            await conn.execute("UPDATE users SET password_encrypted = ? WHERE username = 'admin'", (encrypted,))
-                            _save_credentials_file(existing_pw)
-                except Exception:
-                    pass
+        # Note: legacy admin passwords cannot be recovered into the encrypted
+        # backup because only the bcrypt hash is stored. Such accounts will
+        # report "no password backup" until the admin changes the password.
 
         await conn.commit()
 
@@ -377,7 +367,7 @@ API_KEY_PREFIX = "um_"
 
 
 def _hash_api_key(key: str) -> str:
-    salt = hashlib.sha256("uptime-monitor-api-key-salt".encode()).digest()
+    salt = hashlib.sha256(b"uptime-monitor-api-key-salt").digest()
     return hashlib.pbkdf2_hmac("sha256", key.encode(), salt, 100000).hex()
 
 

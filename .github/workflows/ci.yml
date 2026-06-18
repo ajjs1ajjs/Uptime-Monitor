@@ -52,7 +52,7 @@ jobs:
 
       - name: Install linters
         run: |
-          pip install black ruff flake8 mypy bandit
+          pip install black==26.5.1 ruff==0.15.14 flake8==7.3.0 isort==8.0.1 mypy==2.1.0 bandit==1.9.4
 
       - name: Run Black
         run: black --check Uptime_Robot/

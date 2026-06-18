@@ -131,7 +131,12 @@ def encrypt_value(plaintext: str) -> str:
         return plaintext
     f = get_fernet()
     if f is None:
-        logger.warning("encrypt_value: Fernet unavailable, storing plaintext! Generate master key first.")
+        logger.error(
+            "encrypt_value: encryption unavailable — secret is being stored in PLAINTEXT. "
+            "Ensure the 'cryptography' package is installed and a master key is writable "
+            "(set UPTIME_MONITOR_MASTER_KEY or allow %s to be created).",
+            _get_master_key_path(),
+        )
         return plaintext
     try:
         return f.encrypt(plaintext.encode()).decode()
@@ -167,12 +172,61 @@ def encrypt_config_sensitive(config: dict) -> dict:
     return config
 
 
+# Field names (in notify settings / channels) whose string values are secrets.
+_NOTIFY_SECRET_FIELDS = {
+    "token",
+    "auth_token",
+    "webhook_url",
+    "password",
+    "api_key",
+    "secret",
+    "account_sid",
+}
+
+
+def _enc_field(value):
+    if not isinstance(value, str) or not value or value.startswith(ENC_PREFIX):
+        return value
+    return ENC_PREFIX + encrypt_value(value)
+
+
+def _dec_field(value):
+    if isinstance(value, str) and value.startswith(ENC_PREFIX):
+        return decrypt_value(value[len(ENC_PREFIX) :])
+    return value
+
+
+def _transform_secrets(obj, transform):
+    """Recursively transform known secret fields in a notify-settings structure."""
+    if isinstance(obj, dict):
+        result = {}
+        for k, v in obj.items():
+            if k in _NOTIFY_SECRET_FIELDS and isinstance(v, str):
+                result[k] = transform(v)
+            else:
+                result[k] = _transform_secrets(v, transform)
+        return result
+    if isinstance(obj, list):
+        return [_transform_secrets(i, transform) for i in obj]
+    return obj
+
+
+def encrypt_notify_secrets(settings: dict) -> dict:
+    """Encrypt all sensitive fields (tokens, webhook URLs, passwords) before persisting."""
+    return _transform_secrets(settings, _enc_field)
+
+
+def decrypt_notify_secrets(settings: dict) -> dict:
+    """Decrypt sensitive fields after loading. Plaintext (legacy) values pass through unchanged."""
+    return _transform_secrets(settings, _dec_field)
+
+
 def decrypt_config_sensitive(config: dict) -> dict:
     config = config.copy()
     notifications = config.get("notifications", {})
     pwd = notifications.get("email_password", "")
     if pwd.startswith(ENC_PREFIX):
-        notifications["email_password"] = decrypt_value(pwd[len(ENC_PREFIX):])
+        notifications["email_password"] = decrypt_value(pwd[len(ENC_PREFIX) :])
     config["notifications"] = notifications
 
     return config

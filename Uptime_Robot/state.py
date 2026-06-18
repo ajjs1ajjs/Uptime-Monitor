@@ -1,4 +1,5 @@
 """Global application state."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -29,7 +30,7 @@ _initialized: bool = False
 
 def init_state() -> None:
     """Reinitialize state (used by tests to reset)."""
-    global _initialized, CONFIG, DB_PATH, APP_DIR, NOTIFY_SETTINGS, CHECK_INTERVAL
+    global _initialized, DB_PATH, APP_DIR, CHECK_INTERVAL
     config_manager.init_paths()
     cfg = config_manager.load_config()
     CONFIG.clear()

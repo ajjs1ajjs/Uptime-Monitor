@@ -4,12 +4,11 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from Uptime_Robot.notifications import (
-    format_telegram_message,
     format_discord_message,
     format_teams_message,
+    format_telegram_message,
     send_notification,
 )
-
 
 SAMPLE_DATA = {
     "site_name": "Test Site",

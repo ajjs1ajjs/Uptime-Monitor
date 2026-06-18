@@ -19,9 +19,10 @@ def test_db():
 
     os.environ["UPTIME_MONITOR_ADMIN_PASSWORD"] = "291263"
 
+    import asyncio
+
     from Uptime_Robot import auth_module
     from Uptime_Robot.models import init_database
-    import asyncio
 
     async def _setup():
         await init_database(db_path)
@@ -29,8 +30,9 @@ def test_db():
 
     asyncio.run(_setup())
     yield db_path
-    from Uptime_Robot.database import close_db
     import asyncio
+
+    from Uptime_Robot.database import close_db
     try:
         asyncio.run(close_db())
     except Exception:
@@ -70,6 +72,7 @@ def client(patch_db_path):
 @pytest.fixture(autouse=True)
 def clear_rate_limits(patch_db_path):
     import sqlite3
+
     from Uptime_Robot.state import DB_PATH
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -245,12 +248,13 @@ class TestUserCRUD:
         assert r.status_code == 200
 
     def test_create_user_weak_password(self, client, admin_headers):
+        # Weak passwords must be rejected by the password strength policy.
         r = client.post("/api/users", json={
             "username": "weakuser",
             "password": "short",
             "role": "viewer",
         }, headers=admin_headers)
-        assert r.status_code == 200
+        assert r.status_code == 400
 
     def test_create_duplicate_user(self, client, admin_headers):
         r = client.post("/api/users", json={
@@ -371,6 +375,7 @@ class TestApiKeyAuth:
 
         # Direct DB check: verify is_active was set to 0
         import sqlite3
+
         from Uptime_Robot.state import DB_PATH as CURRENT_DB
         conn = sqlite3.connect(CURRENT_DB)
         row = conn.execute("SELECT is_active FROM api_keys WHERE key_id = ?", (key_id,)).fetchone()

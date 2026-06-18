@@ -56,7 +56,9 @@ async def _create_tables(conn):
         id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint TEXT NOT NULL, ip TEXT NOT NULL,
         attempt_count INTEGER DEFAULT 1, reset_at REAL NOT NULL, UNIQUE(endpoint, ip)
     )""")
-    await conn.execute("""CREATE INDEX IF NOT EXISTS idx_rate_limits_lookup ON rate_limits(endpoint, ip)""")
+    await conn.execute(
+        """CREATE INDEX IF NOT EXISTS idx_rate_limits_lookup ON rate_limits(endpoint, ip)"""
+    )
     await conn.execute("""CREATE TABLE IF NOT EXISTS maintenance_windows (
         id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, site_id INTEGER,
         rule_type TEXT DEFAULT 'one_off', start_time TEXT, end_time TEXT,
@@ -67,7 +69,9 @@ async def _create_tables(conn):
         id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL,
         token TEXT NOT NULL, created_at TEXT DEFAULT (datetime('now'))
     )""")
-    await conn.execute("CREATE INDEX IF NOT EXISTS idx_csrf_tokens_session ON csrf_tokens(session_id)")
+    await conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_csrf_tokens_session ON csrf_tokens(session_id)"
+    )
     await conn.execute("""CREATE TABLE IF NOT EXISTS sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, session_id TEXT UNIQUE,
         created_at TEXT, expires_at TEXT, FOREIGN KEY(user_id) REFERENCES users(id)
@@ -81,36 +85,68 @@ async def _run_migrations(conn):
     if "last_notified" not in ssl_columns:
         await conn.execute("ALTER TABLE ssl_certificates ADD COLUMN last_notified TEXT")
     if "ssl_notified_thresholds" not in ssl_columns:
-        await conn.execute("ALTER TABLE ssl_certificates ADD COLUMN ssl_notified_thresholds TEXT DEFAULT '[]'")
+        await conn.execute(
+            "ALTER TABLE ssl_certificates ADD COLUMN ssl_notified_thresholds TEXT DEFAULT '[]'"
+        )
     await conn.execute("""DELETE FROM ssl_certificates WHERE id NOT IN (
         SELECT MAX(id) FROM ssl_certificates GROUP BY site_id
     )""")
-    await conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_ssl_certificates_site_id_unique ON ssl_certificates(site_id)")
+    await conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_ssl_certificates_site_id_unique ON ssl_certificates(site_id)"
+    )
 
-    async with conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'") as c:
+    async with conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
+    ) as c:
         if await c.fetchone():
             async with conn.execute("PRAGMA table_info(users)") as c:
                 cols = {r[1] for r in await c.fetchall()}
             if "role" not in cols:
                 await conn.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'admin'")
                 await conn.execute("UPDATE users SET role = 'admin' WHERE is_admin = 1")
-                await conn.execute("UPDATE users SET role = 'viewer' WHERE is_admin = 0 OR is_admin IS NULL")
+                await conn.execute(
+                    "UPDATE users SET role = 'viewer' WHERE is_admin = 0 OR is_admin IS NULL"
+                )
             if "password_encrypted" not in cols:
                 await conn.execute("ALTER TABLE users ADD COLUMN password_encrypted TEXT")
 
     async with conn.execute("PRAGMA table_info(sites)") as c:
         site_cols = {r[1] for r in await c.fetchall()}
-    for col in ("failed_attempts", "success_attempts", "last_down_alert", "first_failure_at", "keyword", "tags"):
+    for col in (
+        "failed_attempts",
+        "success_attempts",
+        "last_down_alert",
+        "first_failure_at",
+        "keyword",
+        "tags",
+    ):
         if col not in site_cols:
-            col_type = "TEXT DEFAULT '[]'" if col == "tags" else "TEXT DEFAULT NULL" if col in ("last_down_alert", "keyword", "first_failure_at") else "INTEGER DEFAULT 0"
-            if col in ("failed_attempts", "success_attempts", "last_down_alert", "first_failure_at", "keyword", "tags"):
+            col_type = (
+                "TEXT DEFAULT '[]'"
+                if col == "tags"
+                else (
+                    "TEXT DEFAULT NULL"
+                    if col in ("last_down_alert", "keyword", "first_failure_at")
+                    else "INTEGER DEFAULT 0"
+                )
+            )
+            if col in (
+                "failed_attempts",
+                "success_attempts",
+                "last_down_alert",
+                "first_failure_at",
+                "keyword",
+                "tags",
+            ):
                 await conn.execute(f"ALTER TABLE sites ADD COLUMN {col} {col_type}")
 
     async with conn.execute("PRAGMA table_info(app_settings)") as c:
         settings_cols = {r[1] for r in await c.fetchall()}
     for col, col_type in [
-        ("site_title", "TEXT DEFAULT 'Uptime Monitor'"), ("logo_url", "TEXT DEFAULT ''"),
-        ("footer_text", "TEXT DEFAULT ''"), ("primary_color", "TEXT DEFAULT '#00ff88'"),
+        ("site_title", "TEXT DEFAULT 'Uptime Monitor'"),
+        ("logo_url", "TEXT DEFAULT ''"),
+        ("footer_text", "TEXT DEFAULT ''"),
+        ("primary_color", "TEXT DEFAULT '#00ff88'"),
         ("brand_accent_color", "TEXT DEFAULT '#06b6d4'"),
     ]:
         if col not in settings_cols:
@@ -126,9 +162,10 @@ async def _run_migrations(conn):
 
 async def _seed_sites(conn):
     """Заповнює таблицю сайтів початковими даними, якщо вона порожня."""
+    import re
     import sys
     import urllib.parse
-    import re
+
     async with conn.execute("SELECT COUNT(*) FROM sites") as c:
         row = await c.fetchone()
         if row[0] > 0:
@@ -149,6 +186,7 @@ async def _seed_sites(conn):
                     default_sites.extend(data)
     except Exception as e:
         from .logger import logger
+
         logger.error("Failed to load default_sites.json: %s", e)
 
     for env_name in ("UPTIME_MONITOR_URL", "UPTIME_MONITOR_URLS"):
@@ -161,12 +199,15 @@ async def _seed_sites(conn):
                     if isinstance(item, dict) and "url" in item:
                         default_sites.append(item)
                     elif isinstance(item, str):
-                        default_sites.append({"name": urllib.parse.urlparse(item).netloc or item, "url": item})
+                        default_sites.append(
+                            {"name": urllib.parse.urlparse(item).netloc or item, "url": item}
+                        )
             except Exception as e:
                 from .logger import logger
+
                 logger.error("Failed to parse %s: %s", env_name, e)
         else:
-            for u in re.split(r'[,\n;]+', val):
+            for u in re.split(r"[,\n;]+", val):
                 u = u.strip()
                 if u:
                     default_sites.append({"name": urllib.parse.urlparse(u).netloc or u, "url": u})
@@ -185,18 +226,26 @@ async def _seed_sites(conn):
             await conn.execute(
                 """INSERT OR IGNORE INTO sites (name, url, check_interval, notify_methods, monitor_type, keyword, tags, is_active)
                    VALUES (?, ?, ?, ?, ?, ?, ?, 1)""",
-                (ds.get("name") or urllib.parse.urlparse(url).netloc or url,
-                 url, ds.get("check_interval", 60), json.dumps(methods),
-                 ds.get("monitor_type", "http"), ds.get("keyword"), json.dumps(ds.get("tags", []))),
+                (
+                    ds.get("name") or urllib.parse.urlparse(url).netloc or url,
+                    url,
+                    ds.get("check_interval", 60),
+                    json.dumps(methods),
+                    ds.get("monitor_type", "http"),
+                    ds.get("keyword"),
+                    json.dumps(ds.get("tags", [])),
+                ),
             )
         except Exception as e:
             from .logger import logger
+
             logger.error("Failed to seed %s: %s", url, e)
 
 
 async def _seed_notify_config(conn):
     """Заповнює notify_config, якщо порожня."""
     import sys
+
     is_testing = "pytest" in sys.modules or os.environ.get("TESTING")
     force_seed = os.environ.get("FORCE_DB_SEED") == "True"
     if is_testing and not force_seed:
@@ -214,12 +263,30 @@ async def _seed_notify_config(conn):
             tg_channel["message_thread_id"] = tg_thread_id
         settings = {
             "telegram": {"enabled": True, "channels": [tg_channel]},
-            "discord": {"enabled": False, "channels": [{"id": "default", "name": "Основний", "webhook_url": ""}]},
-            "teams": {"enabled": False, "channels": [{"id": "default", "name": "Основний", "webhook_url": ""}]},
-            "email": {"enabled": False, "smtp_server": "", "smtp_port": 587, "username": "", "password": "", "to_email": ""},
+            "discord": {
+                "enabled": False,
+                "channels": [{"id": "default", "name": "Основний", "webhook_url": ""}],
+            },
+            "teams": {
+                "enabled": False,
+                "channels": [{"id": "default", "name": "Основний", "webhook_url": ""}],
+            },
+            "email": {
+                "enabled": False,
+                "smtp_server": "",
+                "smtp_port": 587,
+                "username": "",
+                "password": "",
+                "to_email": "",
+            },
             "webhook": {"enabled": False, "channels": []},
         }
-        await conn.execute("INSERT OR REPLACE INTO notify_config (id, config) VALUES (1, ?)", (json.dumps(settings),))
+        from .crypto_utils import encrypt_notify_secrets
+
+        await conn.execute(
+            "INSERT OR REPLACE INTO notify_config (id, config) VALUES (1, ?)",
+            (json.dumps(encrypt_notify_secrets(settings)),),
+        )
     elif not is_testing:
         await conn.execute("INSERT OR IGNORE INTO notify_config (id, config) VALUES (1, '{}')")
 
@@ -229,13 +296,17 @@ async def _cleanup_old_data(conn):
     from .logger import logger
 
     # status_history — старше 30 днів
-    async with conn.execute("DELETE FROM status_history WHERE checked_at < datetime('now', '-30 days')") as c:
+    async with conn.execute(
+        "DELETE FROM status_history WHERE checked_at < datetime('now', '-30 days')"
+    ) as c:
         deleted = c.rowcount
         if deleted:
             logger.info("Cleaned %d old status_history rows", deleted)
 
     # notification_history — старше 90 днів
-    async with conn.execute("DELETE FROM notification_history WHERE sent_at < datetime('now', '-90 days')") as c:
+    async with conn.execute(
+        "DELETE FROM notification_history WHERE sent_at < datetime('now', '-90 days')"
+    ) as c:
         deleted = c.rowcount
         if deleted:
             logger.info("Cleaned %d old notification_history rows", deleted)
@@ -248,7 +319,9 @@ async def _cleanup_old_data(conn):
             logger.info("Cleaned %d old rate_limit rows", deleted)
 
     # csrf_tokens — старше 24 годин
-    async with conn.execute("DELETE FROM csrf_tokens WHERE created_at < datetime('now', '-1 day')") as c:
+    async with conn.execute(
+        "DELETE FROM csrf_tokens WHERE created_at < datetime('now', '-1 day')"
+    ) as c:
         deleted = c.rowcount
         if deleted:
             logger.info("Cleaned %d old csrf_token rows", deleted)
@@ -350,10 +423,10 @@ async def update_site(db_path: str, site_id: int, **kwargs):
 
     params.append(site_id)
 
+    # Column names come from a fixed allow-list above; values are bound params.
+    sql = f"UPDATE sites SET {', '.join(updates)} WHERE id = ?"  # nosec B608
     async with get_db_connection(db_path) as conn:
-        await conn.execute(
-            f"UPDATE sites SET {', '.join(updates)} WHERE id = ?", params
-        )  # nosec B608
+        await conn.execute(sql, params)
         await conn.commit()
 
 
@@ -433,23 +506,28 @@ async def get_site_stats(db_path: str, site_id: int) -> dict[str, Any]:
 
 
 async def save_notify_settings(db_path: str, settings: dict[str, Any]):
-    """Зберігає налаштування сповіщень"""
+    """Зберігає налаштування сповіщень (секрети шифруються at-rest)"""
+    from .crypto_utils import encrypt_notify_secrets
+
+    encrypted = encrypt_notify_secrets(settings)
     async with get_db_connection(db_path) as conn:
         await conn.execute(
             "INSERT OR REPLACE INTO notify_config (id, config) VALUES (1, ?)",
-            (json.dumps(settings),),
+            (json.dumps(encrypted),),
         )
         await conn.commit()
 
 
 async def load_notify_settings(db_path: str) -> dict[str, Any]:
-    """Завантажує налаштування сповіщень"""
+    """Завантажує налаштування сповіщень (секрети розшифровуються)"""
+    from .crypto_utils import decrypt_notify_secrets
+
     async with get_db_connection(db_path) as conn:
         async with conn.execute("SELECT config FROM notify_config WHERE id = 1") as c:
             row = await c.fetchone()
 
     if row:
-        return json.loads(row["config"])
+        return decrypt_notify_secrets(json.loads(row["config"]))
     return {}
 
 
@@ -683,8 +761,7 @@ async def get_backups(db_path: str) -> list:
 
 
 async def check_db_rate_limit(
-    endpoint: str, ip: str, max_attempts: int = 5, window_seconds: int = 900,
-    db_path: str = None
+    endpoint: str, ip: str, max_attempts: int = 5, window_seconds: int = 900, db_path: str = None
 ) -> bool:
     """Returns True if within limit, False if rate limited."""
     import time

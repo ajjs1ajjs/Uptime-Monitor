@@ -583,7 +583,11 @@ async def send_email(message: Union[str, dict], settings: dict[str, Any]):
                 server.login(str(username), str(password))
                 server.send_message(msg)
 
-        await asyncio.to_thread(_send)
+        # Hard ceiling so a hung/blocked SMTP server can never stall the
+        # monitoring loop indefinitely (socket timeout covers individual ops).
+        await asyncio.wait_for(asyncio.to_thread(_send), timeout=45)
+    except asyncio.TimeoutError:
+        logger.error("Email error: SMTP send timed out")
     except Exception as e:
         logger.error("Email error: %s", e)
 

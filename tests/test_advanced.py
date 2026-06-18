@@ -17,8 +17,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 def test_db():
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
-    from Uptime_Robot.models import init_database
     import asyncio
+
+    from Uptime_Robot.models import init_database
     asyncio.run(init_database(db_path))
     yield db_path
     try:
@@ -35,6 +36,7 @@ def patch_db_path(test_db):
         patch("Uptime_Robot.main.DB_PATH", test_db),
         patch("Uptime_Robot.routers.api.DB_PATH", test_db),
         patch("Uptime_Robot.routers.auth.DB_PATH", test_db),
+        patch("Uptime_Robot.routers.ui.DB_PATH", test_db),
         patch("Uptime_Robot.dependencies.DB_PATH", test_db),
     ]
     for p in patches:
@@ -46,8 +48,9 @@ def patch_db_path(test_db):
 
 @pytest.fixture
 def sample_site(test_db):
-    from Uptime_Robot.database import get_db_connection
     import asyncio
+
+    from Uptime_Robot.database import get_db_connection
 
     async def _setup():
         async with get_db_connection(test_db) as conn:
@@ -65,8 +68,9 @@ def sample_site(test_db):
 
 @pytest.fixture
 def sample_history(test_db, sample_site):
-    from Uptime_Robot.database import get_db_connection
     import asyncio
+
+    from Uptime_Robot.database import get_db_connection
 
     async def _setup():
         async with get_db_connection(test_db) as conn:
@@ -88,7 +92,7 @@ def sample_history(test_db, sample_site):
 class TestNotificationHistory:
     @pytest.mark.asyncio
     async def test_log_notification(self, test_db, sample_site):
-        from Uptime_Robot.models import log_notification, get_notification_history
+        from Uptime_Robot.models import get_notification_history, log_notification
         await log_notification(test_db, sample_site, "Test Site", "telegram", "sent", "Test msg")
         history = await get_notification_history(test_db)
         assert len(history) == 1
@@ -98,7 +102,7 @@ class TestNotificationHistory:
 
     @pytest.mark.asyncio
     async def test_log_notification_truncates_preview(self, test_db, sample_site):
-        from Uptime_Robot.models import log_notification, get_notification_history
+        from Uptime_Robot.models import get_notification_history, log_notification
         long_msg = "x" * 500
         await log_notification(test_db, sample_site, "S", "discord", "sent", long_msg)
         history = await get_notification_history(test_db)
@@ -112,7 +116,7 @@ class TestNotificationHistory:
 
     @pytest.mark.asyncio
     async def test_get_notification_history_limit(self, test_db, sample_site):
-        from Uptime_Robot.models import log_notification, get_notification_history
+        from Uptime_Robot.models import get_notification_history, log_notification
         for i in range(20):
             await log_notification(test_db, sample_site, "S", "telegram", "sent", f"msg{i}")
         history = await get_notification_history(test_db, limit=5)
@@ -120,7 +124,7 @@ class TestNotificationHistory:
 
     @pytest.mark.asyncio
     async def test_log_notification_multiple_methods(self, test_db, sample_site):
-        from Uptime_Robot.models import log_notification, get_notification_history
+        from Uptime_Robot.models import get_notification_history, log_notification
         await log_notification(test_db, sample_site, "S", "telegram", "sent", "t")
         await log_notification(test_db, sample_site, "S", "discord", "failed", "d")
         history = await get_notification_history(test_db)
@@ -130,14 +134,14 @@ class TestNotificationHistory:
 
     @pytest.mark.asyncio
     async def test_log_notification_site_name_none(self, test_db):
-        from Uptime_Robot.models import log_notification, get_notification_history
+        from Uptime_Robot.models import get_notification_history, log_notification
         await log_notification(test_db, 0, None, "webhook", "sent", "")
         history = await get_notification_history(test_db)
         assert history[0]["site_name"] is None
 
     @pytest.mark.asyncio
     async def test_notification_history_order(self, test_db, sample_site):
-        from Uptime_Robot.models import log_notification, get_notification_history
+        from Uptime_Robot.models import get_notification_history, log_notification
         await log_notification(test_db, sample_site, "S", "telegram", "sent", "first")
         await log_notification(test_db, sample_site, "S", "discord", "sent", "second")
         history = await get_notification_history(test_db)
@@ -155,7 +159,7 @@ class TestNotificationHistory:
 
     @pytest.mark.asyncio
     async def test_log_notification_no_crash_on_bad_site_id(self, test_db):
-        from Uptime_Robot.models import log_notification, get_notification_history
+        from Uptime_Robot.models import get_notification_history, log_notification
         await log_notification(test_db, 99999, "Ghost", "telegram", "sent", "bad_id")
         history = await get_notification_history(test_db)
         assert len(history) == 1
@@ -282,8 +286,9 @@ class TestHealthcheck:
         with patch("Uptime_Robot.state.DB_PATH", test_db), \
              patch("Uptime_Robot.main.DB_PATH", test_db), \
              patch("Uptime_Robot.config_manager.DB_PATH", test_db):
-            from Uptime_Robot.main import app
             from fastapi.testclient import TestClient
+
+            from Uptime_Robot.main import app
             client = TestClient(app)
             resp = client.get("/health")
             assert resp.status_code == 200
@@ -306,8 +311,9 @@ class TestHealthcheck:
 class TestStatusPageData:
     @pytest.mark.asyncio
     async def test_uptime_percentage_calculation(self, test_db, sample_history):
-        from Uptime_Robot.routers.ui import public_status_page
         from fastapi import Request
+
+        from Uptime_Robot.routers.ui import public_status_page
         with patch("Uptime_Robot.routers.ui.SITE_TITLE", "Test"), \
              patch("Uptime_Robot.routers.ui.LOGO_URL", ""), \
              patch("Uptime_Robot.routers.ui.FOOTER_TEXT", ""), \
@@ -316,12 +322,14 @@ class TestStatusPageData:
              patch("Uptime_Robot.routers.ui.DISPLAY_ADDRESS", ""):
             mock_req = MagicMock(spec=Request)
             mock_req.base_url = "http://test"
+            mock_req.client.host = "127.0.0.1"
             resp = await public_status_page(mock_req)
             assert "text/html" in resp.headers.get("content-type", "")
 
     def test_status_page_sorts_down_first(self, test_db):
-        from Uptime_Robot.database import get_db_connection
         import asyncio
+
+        from Uptime_Robot.database import get_db_connection
         async def _setup():
             async with get_db_connection(test_db) as conn:
                 for name, status in [("Site A", "up"), ("Site B", "down"), ("Site C", "up"), ("Site D", "slow")]:
@@ -376,7 +384,7 @@ class TestNotificationHistoryAPI:
 class TestModels:
     @pytest.mark.asyncio
     async def test_log_audit_event(self, test_db):
-        from Uptime_Robot.models import log_audit_event, get_audit_log
+        from Uptime_Robot.models import get_audit_log, log_audit_event
         await log_audit_event(test_db, 1, "admin", "test_action", "site", "1", "details")
         log = await get_audit_log(test_db)
         assert len(log) == 1
@@ -390,7 +398,7 @@ class TestModels:
 
     @pytest.mark.asyncio
     async def test_get_audit_log_limit(self, test_db):
-        from Uptime_Robot.models import log_audit_event, get_audit_log
+        from Uptime_Robot.models import get_audit_log, log_audit_event
         for i in range(10):
             await log_audit_event(test_db, 1, "u", f"a{i}", None, None, None)
         log = await get_audit_log(test_db, limit=3)
@@ -457,8 +465,8 @@ class TestModels:
 
     @pytest.mark.asyncio
     async def test_backup_file_size_nonzero(self, test_db, sample_site):
-        from Uptime_Robot.models import create_backup
         from Uptime_Robot.database import get_db_connection
+        from Uptime_Robot.models import create_backup
         async with get_db_connection(test_db) as conn:
             for i in range(50):
                 await conn.execute(
@@ -493,9 +501,10 @@ class TestMoreEdgeCases:
 
     @pytest.mark.asyncio
     async def test_backup_preserves_audit_log(self, test_db):
-        from Uptime_Robot.models import log_audit_event, create_backup
-        from Uptime_Robot.database import get_db_connection
         import aiosqlite
+
+        from Uptime_Robot.database import get_db_connection
+        from Uptime_Robot.models import create_backup, log_audit_event
         await log_audit_event(test_db, 1, "admin", "pre_backup_action")
         backup_dir = tempfile.mkdtemp()
         backup_path = os.path.join(backup_dir, "audit.db")
@@ -510,14 +519,14 @@ class TestMoreEdgeCases:
 
     @pytest.mark.asyncio
     async def test_log_notification_unicode(self, test_db, sample_site):
-        from Uptime_Robot.models import log_notification, get_notification_history
+        from Uptime_Robot.models import get_notification_history, log_notification
         await log_notification(test_db, sample_site, "S", "telegram", "sent", "Привіт 🌍")
         h = await get_notification_history(test_db)
         assert "Привіт" in h[0]["message_preview"]
 
     @pytest.mark.asyncio
     async def test_log_notification_special_chars(self, test_db, sample_site):
-        from Uptime_Robot.models import log_notification, get_notification_history
+        from Uptime_Robot.models import get_notification_history, log_notification
         msg = "<test&quote>"
         await log_notification(test_db, sample_site, "S", "email", "sent", msg)
         h = await get_notification_history(test_db)
@@ -557,14 +566,14 @@ class TestMoreEdgeCases:
 
     @pytest.mark.asyncio
     async def test_log_audit_no_user_id(self, test_db):
-        from Uptime_Robot.models import log_audit_event, get_audit_log
+        from Uptime_Robot.models import get_audit_log, log_audit_event
         await log_audit_event(test_db, 0, "system", "auto_cleanup")
         log = await get_audit_log(test_db)
         assert log[0]["user_id"] == 0
 
     @pytest.mark.asyncio
     async def test_log_audit_target_types(self, test_db):
-        from Uptime_Robot.models import log_audit_event, get_audit_log
+        from Uptime_Robot.models import get_audit_log, log_audit_event
         for t in ["site", "user", "backup", "config", None]:
             await log_audit_event(test_db, 1, "admin", "action", t)
         log = await get_audit_log(test_db)
@@ -604,8 +613,9 @@ class TestMoreEdgeCases:
 
     @pytest.mark.asyncio
     async def test_backup_valid_sqlite(self, test_db, sample_site):
-        from Uptime_Robot.models import create_backup
         import aiosqlite
+
+        from Uptime_Robot.models import create_backup
         backup_dir = tempfile.mkdtemp()
         bp = os.path.join(backup_dir, "v.db")
         await create_backup(test_db, bp)
@@ -637,14 +647,14 @@ class TestMoreEdgeCases:
 
     @pytest.mark.asyncio
     async def test_notification_history_empty_preview(self, test_db, sample_site):
-        from Uptime_Robot.models import log_notification, get_notification_history
+        from Uptime_Robot.models import get_notification_history, log_notification
         await log_notification(test_db, sample_site, "S", "webhook", "sent", None)
         h = await get_notification_history(test_db)
         assert h[0]["message_preview"] == ""
 
     @pytest.mark.asyncio
     async def test_notification_history_method_names(self, test_db, sample_site):
-        from Uptime_Robot.models import log_notification, get_notification_history
+        from Uptime_Robot.models import get_notification_history, log_notification
         for m in ["telegram", "discord", "teams", "email", "slack", "sms", "webhook", "pushover", "gotify", "ntfy"]:
             await log_notification(test_db, sample_site, "S", m, "sent", "")
         h = await get_notification_history(test_db)
@@ -678,7 +688,7 @@ class TestMoreEdgeCases:
 
     @pytest.mark.asyncio
     async def test_notification_log_null_preview(self, test_db, sample_site):
-        from Uptime_Robot.models import log_notification, get_notification_history
+        from Uptime_Robot.models import get_notification_history, log_notification
         await log_notification(test_db, sample_site, "S", "telegram", "sent", None)
         h = await get_notification_history(test_db)
         assert h[0]["message_preview"] == ""
@@ -686,16 +696,17 @@ class TestMoreEdgeCases:
     @pytest.mark.asyncio
     async def test_maintenance_window_skips_checks(self, test_db):
         from unittest.mock import patch
+
         from Uptime_Robot import config_manager
         from Uptime_Robot.database import close_db, get_db_connection
         await close_db()
         orig_db = config_manager.DB_PATH
         config_manager.DB_PATH = test_db
         try:
-            from Uptime_Robot.models import add_site, add_maintenance_window
+            from Uptime_Robot.models import add_maintenance_window, add_site
             site_id = await add_site(test_db, "Maint Site", "http://example.com", monitor_type="http")
-            from datetime import datetime, timedelta
-            now = datetime.now()
+            from datetime import datetime, timedelta, timezone
+            now = datetime.now(timezone.utc)
             await add_maintenance_window(
                 test_db, name="Maint Window", site_id=site_id, rule_type="one_off",
                 start_time=(now - timedelta(hours=1)).isoformat(),
@@ -734,6 +745,7 @@ class TestMoreEdgeCases:
     @pytest.mark.asyncio
     async def test_webhook_alert_dispatch(self):
         from unittest.mock import AsyncMock, MagicMock, patch
+
         from Uptime_Robot.notifications import send_webhook
         mock_response = AsyncMock()
         mock_response.status = 200

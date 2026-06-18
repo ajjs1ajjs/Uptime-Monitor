@@ -21,8 +21,9 @@ def setup_test_db():
     # Patch DB_PATH before any imports
     with patch("Uptime_Robot.state.DB_PATH", TEST_DB_PATH):
         with patch("Uptime_Robot.main.DB_PATH", TEST_DB_PATH):
-            from Uptime_Robot.models import init_database
             import asyncio
+
+            from Uptime_Robot.models import init_database
             asyncio.run(init_database(TEST_DB_PATH))
 
             from Uptime_Robot.database import get_db_connection
@@ -67,6 +68,7 @@ def db():
 @pytest.fixture
 def client():
     from fastapi.testclient import TestClient
+
     from Uptime_Robot.main import app
 
     with patch("Uptime_Robot.state.DB_PATH", TEST_DB_PATH):

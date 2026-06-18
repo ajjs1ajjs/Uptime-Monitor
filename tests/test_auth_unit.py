@@ -2,15 +2,15 @@
 import pytest
 
 from Uptime_Robot.auth_module import (
-    validate_password_strength,
+    API_KEY_PREFIX,
+    _hash_api_key,
+    generate_api_key,
     has_role,
+    hash_password,
     is_admin,
     is_viewer_or_higher,
-    hash_password,
+    validate_password_strength,
     verify_password,
-    generate_api_key,
-    _hash_api_key,
-    API_KEY_PREFIX,
 )
 
 

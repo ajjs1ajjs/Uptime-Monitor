@@ -106,6 +106,7 @@ async def _check_http(
     url: str, start_time: datetime, policy: dict, keyword: Optional[str]
 ) -> tuple:
     import sys
+
     _os = "Windows NT 10.0; Win64; x64" if sys.platform == "win32" else "X11; Linux x86_64"
     headers = {"User-Agent": f"Mozilla/5.0 ({_os}) AppleWebKit/537.36"}
     async with aiohttp.ClientSession() as session:
@@ -184,7 +185,11 @@ def _check_flapping(site_id: int, prev_status: str, status: str, policy: dict) -
 
         if state["count"] >= policy["flapping_threshold"]:
             state["suppressed_until"] = now + policy["flapping_suppression_seconds"]
-            logger.warning("Site %d flapping detected — alerts suppressed for %ss", site_id, policy['flapping_suppression_seconds'])
+            logger.warning(
+                "Site %d flapping detected — alerts suppressed for %ss",
+                site_id,
+                policy["flapping_suppression_seconds"],
+            )
             return True
 
     return False
@@ -209,7 +214,9 @@ async def _process_alerting(
 ):
     checked_at_dt = checked_at
     last_down_alert = datetime.fromisoformat(last_down_alert_str) if last_down_alert_str else None
-    first_failure_at = datetime.fromisoformat(first_failure_at_str) if first_failure_at_str else None
+    first_failure_at = (
+        datetime.fromisoformat(first_failure_at_str) if first_failure_at_str else None
+    )
     policy = get_alert_policy()
 
     if status == "down" and notify_methods:
@@ -226,12 +233,16 @@ async def _process_alerting(
                 alert_type = "NEW"
         else:
             if last_down_alert is None:
-                elapsed = (checked_at_dt - first_failure_at).total_seconds() if first_failure_at else 0
+                elapsed = (
+                    (checked_at_dt - first_failure_at).total_seconds() if first_failure_at else 0
+                )
                 if elapsed >= grace:
                     should_alert = True
                     alert_type = "NEW"
             else:
-                if (checked_at_dt - last_down_alert).total_seconds() >= policy["still_down_repeat_seconds"]:
+                if (checked_at_dt - last_down_alert).total_seconds() >= policy[
+                    "still_down_repeat_seconds"
+                ]:
                     should_alert = True
                     alert_type = "REPEAT"
 
@@ -321,9 +332,13 @@ async def check_site_status(
                 response_time = None
                 error_message = "Maintenance Window Active"
             elif monitor_type == "ping":
-                status, status_code, response_time, error_message = await _check_ping(url, start_time)
+                status, status_code, response_time, error_message = await _check_ping(
+                    url, start_time
+                )
             elif monitor_type == "dns":
-                status, status_code, response_time, error_message = await _check_dns(url, start_time)
+                status, status_code, response_time, error_message = await _check_dns(
+                    url, start_time
+                )
             elif monitor_type in ("port", "tcp"):
                 status, status_code, response_time, error_message = await _check_port(
                     url, start_time, policy["request_timeout_seconds"]
@@ -333,7 +348,12 @@ async def check_site_status(
                     url, start_time, policy, keyword
                 )
         except aiohttp.ClientConnectorError:
-            status, status_code, response_time, error_message = "down", None, None, "Connection failed"
+            status, status_code, response_time, error_message = (
+                "down",
+                None,
+                None,
+                "Connection failed",
+            )
         except asyncio.TimeoutError:
             status, status_code, response_time, error_message = "down", None, None, "Timeout"
         except Exception as e:
@@ -345,7 +365,12 @@ async def check_site_status(
         delay = delays[attempt]
         logger.info(
             "Site %s (ID: %d) check failed (attempt %d/%d): %s. Retrying in %ds...",
-            url, site_id, attempt + 1, max_attempts, error_message, delay,
+            url,
+            site_id,
+            attempt + 1,
+            max_attempts,
+            error_message,
+            delay,
         )
         await asyncio.sleep(delay)
 
@@ -545,7 +570,10 @@ async def check_site_certificate(
         thresholds_to_notify = [t for t in thresholds if days <= t and t not in notified]
 
         if thresholds_to_notify and notify_methods:
-            if last_notif_dt and (datetime.now(timezone.utc) - last_notif_dt).total_seconds() < cooldown:
+            if (
+                last_notif_dt
+                and (datetime.now(timezone.utc) - last_notif_dt).total_seconds() < cooldown
+            ):
                 thresholds_to_notify = []
 
         for threshold in thresholds_to_notify:
@@ -597,7 +625,7 @@ async def check_all_certificates(notify_settings: dict[str, Any]):
         try:
             await check_site_certificate(site["id"], site["url"], notify_methods, notify_settings)
         except Exception as e:
-            logger.error("Error checking SSL certificate for site %s: %s", site['url'], e)
+            logger.error("Error checking SSL certificate for site %s: %s", site["url"], e)
         await asyncio.sleep(1)
 
 
@@ -631,7 +659,9 @@ async def monitor_loop(notify_settings: dict[str, Any], default_check_interval: 
                 if db_settings:
                     for key, value in db_settings.items():
                         notify_settings[key] = value
-                    last_notify_settings_reload += timedelta(seconds=notify_settings_reload_interval)
+                    last_notify_settings_reload += timedelta(
+                        seconds=notify_settings_reload_interval
+                    )
                     logger.debug("Reloaded notification settings from DB")
 
             async with get_db_connection() as conn:

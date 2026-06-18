@@ -3,13 +3,17 @@
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from .database import get_db_connection
 from .logger import logger
 
 _TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
-_JINJA_ENV = Environment(loader=FileSystemLoader(str(_TEMPLATE_DIR)))
+# autoescape on so site names/URLs from the DB can't inject HTML into the report.
+_JINJA_ENV = Environment(
+    loader=FileSystemLoader(str(_TEMPLATE_DIR)),
+    autoescape=select_autoescape(["html", "xml"]),
+)
 
 
 async def generate_sla_report(days: int = 30) -> dict:
@@ -42,21 +46,24 @@ async def generate_sla_report(days: int = 30) -> dict:
                    WHERE site_id = ? AND status IN ('down', 'slow') AND checked_at >= datetime('now', ?)""",
                 (sid, f"-{days} days"),
             ) as c:
-                incidents = (await c.fetchone())[0]
+                incidents_row = await c.fetchone()
+                incidents = incidents_row[0] if incidents_row else 0
 
-            total = stats["total"] or 0
-            up_count = stats["up_count"] or 0
+            total = (stats["total"] if stats else 0) or 0
+            up_count = (stats["up_count"] if stats else 0) or 0
             uptime = (up_count / total * 100) if total > 0 else 100.0
-            avg_rt = stats["avg_rt"] or 0
+            avg_rt = (stats["avg_rt"] if stats else 0) or 0
 
-            report_sites.append({
-                "name": s["name"],
-                "url": s["url"],
-                "uptime": round(uptime, 2),
-                "avg_response_time": round(avg_rt, 1),
-                "total_checks": total,
-                "incidents": incidents,
-            })
+            report_sites.append(
+                {
+                    "name": s["name"],
+                    "url": s["url"],
+                    "uptime": round(uptime, 2),
+                    "avg_response_time": round(avg_rt, 1),
+                    "total_checks": total,
+                    "incidents": incidents,
+                }
+            )
             total_incidents += incidents
             uptime_sum += uptime
             rt_sum += avg_rt

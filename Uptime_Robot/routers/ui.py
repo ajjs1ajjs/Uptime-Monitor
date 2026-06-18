@@ -162,9 +162,7 @@ async def htmx_monitors(
             last = last_status_map.get(sid, "unknown")
             total, up_count = stats_map.get(sid, (0, 0))
             site["status"] = last
-            site["uptime"] = (
-                round((up_count / total * 100), 1) if total > 0 else 100.0
-            )
+            site["uptime"] = round((up_count / total * 100), 1) if total > 0 else 100.0
             site["notify_methods"] = json.loads(site.get("notify_methods") or "[]")
             site["tags"] = (
                 json.loads(site.get("tags", "[]"))
@@ -399,10 +397,10 @@ async def public_status_page(request: Request):
 @router.websocket("/ws")
 async def dashboard_websocket(ws: WebSocket):
     """WebSocket endpoint for real-time dashboard updates."""
+    from http.cookies import SimpleCookie
+
     from ..auth_module import validate_session
     from ..state import DB_PATH
-
-    from http.cookies import SimpleCookie
 
     cookies = SimpleCookie(ws.headers.get("cookie", ""))
     session_id = cookies.get("session_id")

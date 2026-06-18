@@ -26,7 +26,7 @@ if [ ! -d "$INSTALL_DIR" ]; then
 fi
 
 CONFIG_PATH="/etc/uptime-monitor/config.json"
-DATA_DIR=$(python3 -c "import json; print(json.load(open('$CONFIG_PATH')).get('data_dir', '/var/lib/uptime-monitor'))" 2>/dev/null || echo "/var/lib/uptime-monitor")
+DATA_DIR=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('data_dir', '/var/lib/uptime-monitor'))" "$CONFIG_PATH" 2>/dev/null || echo "/var/lib/uptime-monitor")
 DB_PATH="$DATA_DIR/sites.db"
 
 echo -e "${GREEN}✓ Installation Directory:${NC} $INSTALL_DIR"
@@ -99,8 +99,8 @@ if pgrep -f "python.*main.py" > /dev/null; then
     echo -e "${BLUE}  PID: $MONITOR_PID${NC}"
 
     # Check if monitoring thread is active (look for monitor_loop in stack)
-    if ps -T -p $MONITOR_PID 2>/dev/null | grep -q .; then
-        THREAD_COUNT=$(ps -T -p $MONITOR_PID 2>/dev/null | wc -l)
+    if ps -T -p "$MONITOR_PID" 2>/dev/null | grep -q .; then
+        THREAD_COUNT=$(ps -T -p "$MONITOR_PID" 2>/dev/null | wc -l)
         echo -e "${BLUE}  Threads: $((THREAD_COUNT - 1))${NC}"
     fi
 else
@@ -126,9 +126,9 @@ if [ -f "$DB_PATH" ]; then
         echo -e "${BLUE}Sites with notification methods:${NC}"
         sqlite3 "$DB_PATH" "SELECT name, notify_methods FROM sites WHERE is_active = 1;" 2>/dev/null | while IFS='|' read -r name methods; do
             if [ -n "$methods" ] && [ "$methods" != "[]" ]; then
-                echo -e "  ${GREEN}✓${NC} $name: $methods"
+                printf "  %b✓%b %s: %s\n" "$GREEN" "$NC" "$name" "$methods"
             else
-                echo -e "  ${YELLOW}!${NC} $name: NO notification methods"
+                printf "  %b!%b %s: NO notification methods\n" "$YELLOW" "$NC" "$name"
             fi
         done
     fi
@@ -137,7 +137,7 @@ echo ""
 
 # 6. Test notification endpoint (if web UI is accessible)
 echo -e "${YELLOW}[6/6] Checking web UI accessibility...${NC}"
-PORT=$(python3 -c "import json; print(json.load(open('$CONFIG_PATH')).get('server',{}).get('port',8080))" 2>/dev/null || echo "8080")
+PORT=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('server',{}).get('port',8080))" "$CONFIG_PATH" 2>/dev/null || echo "8080")
 if curl -s --max-time 5 "http://localhost:$PORT/health" > /dev/null 2>&1; then
     echo -e "${GREEN}✓ Web UI is accessible on port $PORT${NC}"
     echo -e "${BLUE}  Health: $(curl -s "http://localhost:$PORT/health" 2>/dev/null)${NC}"

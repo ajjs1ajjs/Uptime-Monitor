@@ -14,7 +14,9 @@ import bcrypt
 def _init_crypto():
     try:
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-        from Uptime_Robot.crypto_utils import encrypt_value as _enc, decrypt_value as _dec
+        from Uptime_Robot.crypto_utils import decrypt_value as _dec
+        from Uptime_Robot.crypto_utils import encrypt_value as _enc
+
         return _enc, _dec
     except Exception:
         return None, None
@@ -144,7 +146,9 @@ def init_auth(db_path):
         if existing_encrypted:
             saved_pw = _decrypt_password(existing_encrypted)
             if saved_pw:
-                print(f"\n{'='*50}\nAdmin user 'admin' already exists\nCurrent password: {saved_pw}\n{'='*50}\n")
+                print(
+                    f"\n{'='*50}\nAdmin user 'admin' already exists\nCurrent password: {saved_pw}\n{'='*50}\n"
+                )
             else:
                 print("\n[OK] User 'admin' already exists\n")
         else:
@@ -359,9 +363,13 @@ if __name__ == "__main__":
 
     subparsers.add_parser("init", help="Initialize database and create default user")
 
-    reset_parser = subparsers.add_parser("reset-password", help="Reset user password (generates random if --password omitted)")
+    reset_parser = subparsers.add_parser(
+        "reset-password", help="Reset user password (generates random if --password omitted)"
+    )
     reset_parser.add_argument("--user", default="admin", help="Username")
-    reset_parser.add_argument("--password", default=None, help="New password (omit to generate random)")
+    reset_parser.add_argument(
+        "--password", default=None, help="New password (omit to generate random)"
+    )
     reset_parser.add_argument(
         "--no-force-change",
         action="store_true",
@@ -373,7 +381,9 @@ if __name__ == "__main__":
     show_parser = subparsers.add_parser("show-password", help="Show current password")
     show_parser.add_argument("--user", default="admin", help="Username")
 
-    restore_parser = subparsers.add_parser("restore-password", help="Restore password from encrypted backup")
+    restore_parser = subparsers.add_parser(
+        "restore-password", help="Restore password from encrypted backup"
+    )
     restore_parser.add_argument("--user", default="admin", help="Username")
 
     # Create user command

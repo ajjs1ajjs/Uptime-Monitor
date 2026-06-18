@@ -23,7 +23,9 @@ def _rate_limit_dependency(endpoint: str, max_attempts: int, window_seconds: int
 
     async def limiter(request: Request):
         client_ip = request.client.host if request.client else "unknown"
-        ok = await models.check_db_rate_limit(endpoint, client_ip, max_attempts, window_seconds, DB_PATH)
+        ok = await models.check_db_rate_limit(
+            endpoint, client_ip, max_attempts, window_seconds, DB_PATH
+        )
         if not ok:
             raise HTTPException(
                 status_code=429,
@@ -122,7 +124,9 @@ async def change_password(
 
     session_id = request.cookies.get("session_id", "")
     if not await validate_csrf_token(session_id, csrf_token):
-        return RedirectResponse(url="/change-password?error=Session expired, try again", status_code=302)
+        return RedirectResponse(
+            url="/change-password?error=Session expired, try again", status_code=302
+        )
 
     if new_password != confirm_password:
         return RedirectResponse(
@@ -201,7 +205,7 @@ async def forgot_password_action(
         '<div class="success">'
         f"Password reset for {html.escape(username)} — user must change on next login. "
         f"Temporary password: <code>{html.escape(temporary_password)}</code> "
-        f'<button onclick="setTimeout(function(){{ document.getElementById(\'temp-pw\').style.display=\'none\'; }},60000)" class="text-xs text-slate-400">(hide in 60s)</button>'
+        f"<button onclick=\"setTimeout(function(){{ document.getElementById('temp-pw').style.display='none'; }},60000)\" class=\"text-xs text-slate-400\">(hide in 60s)</button>"
         "</div>"
     )
     response = templates.TemplateResponse(
