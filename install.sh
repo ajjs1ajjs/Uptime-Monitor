@@ -75,7 +75,7 @@ done
 if [ "$IS_UPDATE" = true ]; then
     echo -e "${YELLOW}=========================================="
     echo "   Update Mode Detected"
-    echo "==========================================${NC}"
+    echo -e "==========================================${NC}"
     echo ""
 fi
 
@@ -508,7 +508,7 @@ if systemctl is-active --quiet $SERVICE_NAME; then
     if [ "$IS_UPDATE" = true ]; then
         echo -e "${GREEN}=========================================="
         echo "   Uptime Monitor - Update Successful!"
-        echo "==========================================${NC}"
+        echo -e "==========================================${NC}"
         echo ""
         echo -e "  ${GREEN}Version:${NC}     $APP_VERSION"
         echo -e "  ${GREEN}URL:${NC}         http://$IP:$PORT"
@@ -532,7 +532,7 @@ if systemctl is-active --quiet $SERVICE_NAME; then
         echo "Management Commands:"
         echo "  sudo systemctl status $SERVICE_NAME"
         echo "  sudo systemctl restart $SERVICE_NAME"
-        echo "  sudo systemctl logs $SERVICE_NAME -n 50"
+        echo "  sudo journalctl -u $SERVICE_NAME -n 50"
         echo ""
         echo "  Password Commands:"
         echo "    $INSTALL_DIR/venv/bin/python -m Uptime_Robot.auth_cli show-password        # Show current password"
@@ -543,7 +543,7 @@ if systemctl is-active --quiet $SERVICE_NAME; then
     else
         echo -e "${GREEN}=========================================="
         echo "   Uptime Monitor - Installation Successful!"
-        echo "==========================================${NC}"
+        echo -e "==========================================${NC}"
         echo ""
         echo -e "  ${GREEN}Version:${NC}     $APP_VERSION"
         echo -e "  ${GREEN}Port:${NC}        $PORT"
@@ -608,7 +608,7 @@ else
     else
         echo "   Installation Failed"
     fi
-    echo "==========================================${NC}"
+    echo -e "==========================================${NC}"
     echo ""
     echo "Service failed to start. Check logs:"
     echo "  sudo journalctl -u $SERVICE_NAME -n 50"
