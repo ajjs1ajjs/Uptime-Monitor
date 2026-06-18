@@ -29,9 +29,12 @@ sudo /opt/uptime-monitor/scripts/schedule-backup.sh --install --dest /backup/upt
 2. Увійдіть: логін `admin`, пароль з виводу інсталятора
 3. Негайно змініть пароль!
 
-> **v2.0.0+:** Пароль генерується випадково при першому запуску. Якщо не встигли скопіювати — виконайте:
+> Пароль генерується випадково при першому запуску й показується один раз у виводі інсталятора
+> (а також зберігається у `/etc/uptime-monitor/credentials.txt`). З міркувань безпеки він **не**
+> пишеться в журнал. Якщо не встигли скопіювати — виконайте:
 > ```bash
-> sudo journalctl -u uptime-monitor | grep "DEFAULT ADMIN"
+> sudo /opt/uptime-monitor/venv/bin/python -m Uptime_Robot.auth_cli show-password
+> # або: sudo cat /etc/uptime-monitor/credentials.txt
 > ```
 
 ---
