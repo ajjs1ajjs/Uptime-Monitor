@@ -232,13 +232,25 @@ def decrypt_config_sensitive(config: dict) -> dict:
     return config
 
 
+_CRYPTO_STATUS_LOGGED = False
+
+
 def init_crypto():
+    # init_crypto runs on every config reload; only log the status once per
+    # process so the monitor loop doesn't spam the journal every cycle.
+    global _CRYPTO_STATUS_LOGGED
     if Fernet is None:
-        logger.warning("cryptography library not available. Sensitive data stored in plaintext.")
+        if not _CRYPTO_STATUS_LOGGED:
+            logger.warning(
+                "cryptography library not available. Sensitive data stored in plaintext."
+            )
+            _CRYPTO_STATUS_LOGGED = True
         return
 
-    key = load_master_key()
-    if key:
+    if _CRYPTO_STATUS_LOGGED:
+        return
+    _CRYPTO_STATUS_LOGGED = True
+    if load_master_key():
         logger.info("Master key found, encryption available.")
     else:
         logger.info("No master key found. Run generate_master_key() to enable encryption.")
