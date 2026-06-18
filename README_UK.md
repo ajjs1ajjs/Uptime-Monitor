@@ -1,7 +1,7 @@
 # Uptime Monitor
 
 [![Версія](https://img.shields.io/badge/версія-2.1.0-blue.svg)](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
-[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
+[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Платформа](https://img.shields.io/badge/платформа-Linux%20%7C%20Windows-lightgrey.svg)]()
 
@@ -84,18 +84,20 @@ python -m Uptime_Robot.main --host 0.0.0.0 --port 8080
 ## 🌟 Можливості
 
 ### Моніторинг
-- ✅ HTTP/HTTPS перевірки
+- ✅ HTTP/HTTPS/SSL/Port/Ping перевірки
 - ✅ SSL сертифікати (термін дії)
-- ✅ Час відповіді
-- ✅ Інтервал перевірки: 60 секунд
+- ✅ Час відповіді, keyword/regex-перевірки
+- ✅ Інтервал перевірки налаштовується (за замовч. 60 секунд)
 
 ### Сповіщення
-- 📱 Telegram
+- 📱 Telegram (з inline-кнопками acknowledge/silence)
 - 📧 Email (SMTP)
 - 💬 Slack
 - 🎮 Discord
 - 🏢 Microsoft Teams
 - 📞 SMS (Twilio)
+- 🔗 Webhook (кастомний JSON POST)
+- 🔔 Pushover / Gotify / ntfy
 
 ### Резервне копіювання
 - 🔄 Автоматичні бекапи (щодня/щотижня/щомісяця)
@@ -104,10 +106,12 @@ python -m Uptime_Robot.main --host 0.0.0.0 --port 8080
 - 📦 Збереження: БД, конфігурації, SSL, логи
 
 ### Безпека
-- 🔒 HTTPS/SSL підтримка
-- 👥 Ролі користувачів (admin/viewer)
-- 🔐 Управління сесіями
-- 🛡️ HSTS заголовки
+- 🔒 HTTPS/SSL підтримка, HSTS заголовки
+- 🛡️ CSRF-захист + перевірка Origin для `/api/*`
+- 🚫 SSRF-захист (блокування приватних/loopback/metadata-адрес)
+- 👥 Ролі користувачів (admin/viewer), API-ключі, audit log
+- 🔐 Управління сесіями, rate limiting, шифрування секретів (Fernet)
+- 🔑 bcrypt-хешування паролів, політика стійкості (12+ символів)
 
 ---
 
@@ -128,9 +132,12 @@ python -m Uptime_Robot.main --host 0.0.0.0 --port 8080
 | **Порт** | 8080 |
 | **Інтервал перевірки** | 60 секунд |
 | **SSL перевірка** | Кожні 6 годин |
-| **SSL сповіщення** | ≤14 днів до закінчення |
-| **Down поріг** | 1 невдача |
-| **Up поріг** | 1 успіх |
+| **SSL сповіщення** | ≤30 днів до закінчення (30/14/7/5/3/1) |
+| **Grace-період** | 0с (сповіщення з першої невдачі) |
+| **Up поріг** | 2 успіхи |
+| **Повтор «досі не працює»** | Кожні 10 хвилин |
+| **Rate limit** | 5 спроб / 15 хв на IP |
+| **CORS origins** | `["http://localhost:8080"]` (налаштовується) |
 
 ---
 
