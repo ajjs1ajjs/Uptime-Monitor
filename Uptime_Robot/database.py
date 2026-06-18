@@ -33,10 +33,11 @@ async def get_db() -> aiosqlite.Connection:
     global _db_connection
     if _db_connection is None:
         db_path = get_db_path()
-        _db_connection = await aiosqlite.connect(db_path)
+        _db_connection = await aiosqlite.connect(db_path, timeout=30)
         _db_connection.row_factory = aiosqlite.Row
         await _db_connection.execute("PRAGMA journal_mode=WAL")
         await _db_connection.execute("PRAGMA busy_timeout=30000")
+        await _db_connection.execute("PRAGMA synchronous=NORMAL")
     return _db_connection
 
 
@@ -44,10 +45,11 @@ async def get_db() -> aiosqlite.Connection:
 async def get_db_connection(db_path: Optional[str] = None) -> AsyncIterator[aiosqlite.Connection]:
     """Асинхронний менеджер контексту для БД (single connection)."""
     if db_path is not None:
-        async with aiosqlite.connect(db_path) as db:
+        async with aiosqlite.connect(db_path, timeout=30) as db:
             db.row_factory = aiosqlite.Row
             await db.execute("PRAGMA journal_mode=WAL")
             await db.execute("PRAGMA busy_timeout=30000")
+            await db.execute("PRAGMA synchronous=NORMAL")
             yield db
     else:
         conn = await get_db()

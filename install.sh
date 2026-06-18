@@ -377,12 +377,22 @@ echo -e "${BLUE}Initializing database and default credentials...${NC}"
 INIT_OUT=$(export CONFIG_PATH="$CONFIG_DIR/config.json"; ./venv/bin/python -c "
 import asyncio, sys
 sys.path.insert(0, '$INSTALL_DIR')
-from Uptime_Robot import models, auth_module
+from Uptime_Robot import models, auth_module, crypto_utils
+# Generate the encryption master key once (skip if one already exists, so an
+# update never invalidates already-encrypted secrets).
+if not crypto_utils.load_master_key():
+    crypto_utils.generate_master_key('$CONFIG_DIR/master.key')
 async def main():
     await models.init_database('$DATA_DIR/sites.db')
     await auth_module.init_auth_tables('$DATA_DIR/sites.db')
 asyncio.run(main())
 " 2>&1 || true)
+
+# Master key must be readable by the service user (created as root above).
+if [ -f "$CONFIG_DIR/master.key" ]; then
+    chown "$APP_USER:$APP_USER" "$CONFIG_DIR/master.key" 2>/dev/null || true
+    chmod 600 "$CONFIG_DIR/master.key" 2>/dev/null || true
+fi
 
 # Print initialization output
 if echo "$INIT_OUT" | grep -q "DEFAULT ADMIN USER CREATED"; then
@@ -535,9 +545,9 @@ if systemctl is-active --quiet $SERVICE_NAME; then
         echo "  sudo journalctl -u $SERVICE_NAME -n 50"
         echo ""
         echo "  Password Commands:"
-        echo "    $INSTALL_DIR/venv/bin/python -m Uptime_Robot.auth_cli show-password        # Show current password"
-        echo "    $INSTALL_DIR/venv/bin/python -m Uptime_Robot.auth_cli reset-password       # Reset to random password"
-        echo "    $INSTALL_DIR/venv/bin/python -m Uptime_Robot.auth_cli restore-password     # Restore from backup"
+        echo "    cd $INSTALL_DIR && sudo venv/bin/python -m Uptime_Robot.auth_cli show-password        # Show current password"
+        echo "    cd $INSTALL_DIR && sudo venv/bin/python -m Uptime_Robot.auth_cli reset-password       # Reset to random password"
+        echo "    cd $INSTALL_DIR && sudo venv/bin/python -m Uptime_Robot.auth_cli restore-password     # Restore from backup"
         echo ""
         echo -e "${GREEN}Update completed successfully!${NC}"
     else
@@ -564,9 +574,9 @@ if systemctl is-active --quiet $SERVICE_NAME; then
         echo "  sudo systemctl stop $SERVICE_NAME"
         echo ""
         echo "  Password Commands:"
-        echo "    $INSTALL_DIR/venv/bin/python -m Uptime_Robot.auth_cli show-password        # Show current password"
-        echo "    $INSTALL_DIR/venv/bin/python -m Uptime_Robot.auth_cli reset-password       # Reset to random password"
-        echo "    $INSTALL_DIR/venv/bin/python -m Uptime_Robot.auth_cli restore-password     # Restore from backup"
+        echo "    cd $INSTALL_DIR && sudo venv/bin/python -m Uptime_Robot.auth_cli show-password        # Show current password"
+        echo "    cd $INSTALL_DIR && sudo venv/bin/python -m Uptime_Robot.auth_cli reset-password       # Reset to random password"
+        echo "    cd $INSTALL_DIR && sudo venv/bin/python -m Uptime_Robot.auth_cli restore-password     # Restore from backup"
         echo ""
         echo -e "${GREEN}Password saved to: ${YELLOW}/etc/uptime-monitor/credentials.txt${NC}"
         echo ""

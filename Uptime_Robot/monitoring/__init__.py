@@ -404,7 +404,10 @@ async def check_site_status(
     # Transaction 1: DB writes only (fast, no network I/O inside)
     async with get_db_connection(DB_PATH) as conn:
         try:
-            await conn.execute("BEGIN")
+            # IMMEDIATE acquires the write lock up front so busy_timeout applies;
+            # a plain BEGIN takes a read snapshot first and a later write can fail
+            # instantly with a stale-snapshot "database is locked" under WAL.
+            await conn.execute("BEGIN IMMEDIATE")
             async with conn.execute(
                 "SELECT name, status, failed_attempts, success_attempts, last_down_alert, first_failure_at FROM sites WHERE id = ?",
                 (site_id,),
@@ -486,7 +489,10 @@ async def check_site_status(
     first_failure_str = first_failure_at.isoformat() if first_failure_at else None
     async with get_db_connection(DB_PATH) as conn:
         try:
-            await conn.execute("BEGIN")
+            # IMMEDIATE acquires the write lock up front so busy_timeout applies;
+            # a plain BEGIN takes a read snapshot first and a later write can fail
+            # instantly with a stale-snapshot "database is locked" under WAL.
+            await conn.execute("BEGIN IMMEDIATE")
             await conn.execute(
                 """UPDATE sites SET
                    failed_attempts = ?, success_attempts = ?, last_down_alert = ?,
