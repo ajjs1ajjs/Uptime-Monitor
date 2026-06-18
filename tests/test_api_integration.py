@@ -518,6 +518,65 @@ class TestRateLimiting:
         assert r.status_code == 200
 
 
+class TestSecurityHardening:
+    """CSRF, Origin and SSRF protections added in security hardening."""
+
+    def test_ssrf_literal_private_ip_rejected(self, client, admin_headers):
+        r = client.post("/api/sites", json={
+            "name": "ssrf-private", "url": "http://127.0.0.1", "monitor_type": "http",
+        }, headers=admin_headers)
+        assert r.status_code == 400
+
+    def test_ssrf_cloud_metadata_ip_rejected(self, client, admin_headers):
+        r = client.post("/api/sites", json={
+            "name": "ssrf-metadata", "url": "http://169.254.169.254/latest/meta-data",
+            "monitor_type": "http",
+        }, headers=admin_headers)
+        assert r.status_code == 400
+
+    def test_ssrf_hostname_resolving_to_private_rejected(self, client, admin_headers):
+        # A public-looking hostname that resolves to a private address must be
+        # blocked (DNS-based SSRF).
+        with patch("socket.getaddrinfo", return_value=[(2, 1, 6, "", ("10.0.0.5", 0))]):
+            r = client.post("/api/sites", json={
+                "name": "ssrf-dns", "url": "http://internal.example.com",
+                "monitor_type": "http",
+            }, headers=admin_headers)
+        assert r.status_code == 400
+
+    def test_api_cross_origin_post_denied(self, client, admin_headers):
+        headers = dict(admin_headers)
+        headers["Origin"] = "http://evil.example.com"
+        r = client.post("/api/sites", json={
+            "name": "xorigin", "url": "https://example.org", "monitor_type": "http",
+        }, headers=headers)
+        assert r.status_code == 403
+
+    def test_forgot_password_requires_csrf_token(self, client, admin_headers):
+        # POST without a valid CSRF token is rejected (redirect with error).
+        r = client.post("/forgot-password", data={"username": "admin"},
+                        headers=admin_headers, follow_redirects=False)
+        assert r.status_code == 302
+        assert "error" in r.headers.get("location", "").lower()
+
+    def test_forgot_password_with_csrf_token_passes_csrf(self, client, admin_headers):
+        # Use a non-existent target so a valid CSRF token reaches the handler
+        # WITHOUT resetting the shared admin password (which other tests rely on).
+        import re
+        page = client.get("/forgot-password", headers=admin_headers)
+        assert page.status_code == 200
+        m = re.search(r'name="csrf_token" value="([^"]+)"', page.text)
+        assert m, "CSRF token not found in forgot-password form"
+        token = m.group(1)
+        r = client.post("/forgot-password",
+                        data={"username": "no-such-user", "csrf_token": token},
+                        headers=admin_headers, follow_redirects=False)
+        # CSRF accepted → handler runs (200 with "User not found"), not a
+        # 302 "Session expired" redirect.
+        assert r.status_code == 200
+        assert "User not found" in r.text
+
+
 class TestDnsMonitorApi:
     def test_create_dns_monitor(self, client, admin_headers):
         r = client.post("/api/sites", json={

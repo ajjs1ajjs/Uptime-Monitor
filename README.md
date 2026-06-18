@@ -67,7 +67,7 @@ python -m Uptime_Robot.main --host 0.0.0.0 --port 8080
 | **Monitoring** | HTTP/HTTPS/SSL/Port/Ping checks, response time, configurable intervals |
 | **Backups** | One-click API backup/restore, automatic DB snapshots, restore via dashboard |
 | **Alerts** | Telegram, Email, Slack, Discord, Teams, SMS, Webhook, Pushover, Gotify, ntfy |
-| **Security** | CORS config, encrypted secrets, rate limiting, RBAC (admin/viewer), API keys, audit log |
+| **Security** | CSRF + Origin checks, SSRF-safe target validation, encrypted secrets, rate limiting, RBAC (admin/viewer), API keys, audit log |
 | **Dashboard** | Real-time WebSocket, response time charts, SSL timeline, uptime bars, incident history |
 | **Status Page** | Public status page with 30d uptime %, response time, incident timeline, customizable branding |
 | **Notification History** | Full audit trail of all sent notifications with timestamps and delivery status |
@@ -87,6 +87,11 @@ Starting from v2.0.0, the project includes enterprise-grade security:
 - **Configurable CORS** — Restrict origins via `cors.allow_origins` in `config.json`
 - **SSL Verification** — Configurable `verify_ssl` in `alert_policy`
 - **Security Headers** — X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, HSTS
+- **CSRF Protection** — Same-origin enforcement on `/api/*`, one-time tokens on auth forms
+- **SSRF Protection** — Monitor targets resolving to private/loopback/metadata IPs are rejected
+- **Reverse-proxy aware** — Set `UPTIME_MONITOR_TRUSTED_PROXIES` to rate-limit by real client IP
+
+See [Security details](Uptime_Robot/README_SECURITY.md) and [Admin/password guide](docs/ADMIN_GUIDE.md).
 
 ---
 

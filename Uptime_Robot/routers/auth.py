@@ -9,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 from .. import auth_module, models
 from ..csrf import generate_csrf_token, validate_csrf_token
 from ..database import get_db_connection
-from ..dependencies import get_current_user, require_admin
+from ..dependencies import get_client_ip, get_current_user, require_admin
 from ..state import DB_PATH
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -22,7 +22,7 @@ def _rate_limit_dependency(endpoint: str, max_attempts: int, window_seconds: int
     """Creates a FastAPI Dependency that rate-limits by client IP using DB."""
 
     async def limiter(request: Request):
-        client_ip = request.client.host if request.client else "unknown"
+        client_ip = get_client_ip(request)
         ok = await models.check_db_rate_limit(
             endpoint, client_ip, max_attempts, window_seconds, DB_PATH
         )
@@ -52,7 +52,7 @@ async def login_page(request: Request, error: str = None, user: dict = Depends(g
 
 @router.post("/login")
 async def login(request: Request, username: str = Form(...), password: str = Form(...)):
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = get_client_ip(request)
     if not await models.check_db_rate_limit("login", client_ip, 5, 900, DB_PATH):
         return RedirectResponse(
             url="/login?error=Too many login attempts. Try again later.", status_code=429
@@ -171,10 +171,18 @@ async def forgot_password_page(
     error_html = f'<div class="error">{error}</div>' if error else ""
     success_html = f'<div class="success">{success}</div>' if success else ""
 
+    session_id = request.cookies.get("session_id", "")
+    csrf_token = await generate_csrf_token(session_id) if session_id else ""
+
     return templates.TemplateResponse(
         request,
         "forgot_password.html",
-        {"request": request, "error_message": error_html, "success_message": success_html},
+        {
+            "request": request,
+            "error_message": error_html,
+            "success_message": success_html,
+            "csrf_token": csrf_token,
+        },
     )
 
 
@@ -182,9 +190,17 @@ async def forgot_password_page(
 async def forgot_password_action(
     request: Request,
     username: str = Form(...),
+    csrf_token: str = Form(default=""),
     current_user: dict = Depends(require_admin),
     _rate_ok: bool = Depends(_rate_limit_dependency("forgot_password", 3, 1800)),
 ):
+    session_id = request.cookies.get("session_id", "")
+    if not await validate_csrf_token(session_id, csrf_token):
+        return RedirectResponse(
+            url="/forgot-password?error=Session expired, try again", status_code=302
+        )
+    fresh_token = await generate_csrf_token(session_id) if session_id else ""
+
     async with get_db_connection() as conn:
         async with conn.execute("SELECT id FROM users WHERE username = ?", (username,)) as c:
             user = await c.fetchone()
@@ -194,7 +210,12 @@ async def forgot_password_action(
             return templates.TemplateResponse(
                 request,
                 "forgot_password.html",
-                {"request": request, "error_message": error_html, "success_message": ""},
+                {
+                    "request": request,
+                    "error_message": error_html,
+                    "success_message": "",
+                    "csrf_token": fresh_token,
+                },
             )
         temporary_password = secrets.token_urlsafe(12)
         await auth_module.change_password(user["id"], temporary_password, DB_PATH)
@@ -211,7 +232,12 @@ async def forgot_password_action(
     response = templates.TemplateResponse(
         request,
         "forgot_password.html",
-        {"request": request, "error_message": "", "success_message": success_html},
+        {
+            "request": request,
+            "error_message": "",
+            "success_message": success_html,
+            "csrf_token": fresh_token,
+        },
     )
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     return response
