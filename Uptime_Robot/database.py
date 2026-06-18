@@ -8,6 +8,8 @@ from typing import Optional
 
 import aiosqlite
 
+# Legacy global kept only so close_db() (called from lifespan/worker/restore)
+# stays valid. The connection-per-context model below no longer relies on it.
 _db_connection: Optional[aiosqlite.Connection] = None
 
 
@@ -28,36 +30,44 @@ def get_db_path() -> str:
     return os.path.join(app_dir, "sites.db")
 
 
+async def _configure(db: aiosqlite.Connection) -> None:
+    db.row_factory = aiosqlite.Row
+    await db.execute("PRAGMA journal_mode=WAL")
+    await db.execute("PRAGMA busy_timeout=30000")
+    await db.execute("PRAGMA synchronous=NORMAL")
+
+
 async def get_db() -> aiosqlite.Connection:
-    """Повертає глобальне з'єднання (створює при першому виклику)."""
+    """Deprecated: повертає глобальне з'єднання (створює при першому виклику).
+
+    Збережено для зворотної сумісності. Новий код має використовувати
+    ``get_db_connection()``, що відкриває окреме з'єднання на контекст.
+    """
     global _db_connection
     if _db_connection is None:
-        db_path = get_db_path()
-        _db_connection = await aiosqlite.connect(db_path, timeout=30)
-        _db_connection.row_factory = aiosqlite.Row
-        await _db_connection.execute("PRAGMA journal_mode=WAL")
-        await _db_connection.execute("PRAGMA busy_timeout=30000")
-        await _db_connection.execute("PRAGMA synchronous=NORMAL")
+        _db_connection = await aiosqlite.connect(get_db_path(), timeout=30)
+        await _configure(_db_connection)
     return _db_connection
 
 
 @asynccontextmanager
 async def get_db_connection(db_path: Optional[str] = None) -> AsyncIterator[aiosqlite.Connection]:
-    """Асинхронний менеджер контексту для БД (single connection)."""
-    if db_path is not None:
-        async with aiosqlite.connect(db_path, timeout=30) as db:
-            db.row_factory = aiosqlite.Row
-            await db.execute("PRAGMA journal_mode=WAL")
-            await db.execute("PRAGMA busy_timeout=30000")
-            await db.execute("PRAGMA synchronous=NORMAL")
-            yield db
-    else:
-        conn = await get_db()
-        yield conn
+    """Async context manager that yields a dedicated SQLite connection.
+
+    A fresh connection is opened per ``with`` block (and closed on exit) instead
+    of sharing one process-wide connection across all concurrent coroutines.
+    Under WAL mode this is the safe, standard pattern: readers never block and
+    writers serialize via ``busy_timeout``. It also matches what the hot write
+    path (``check_site_status``) has always done with an explicit ``db_path``.
+    """
+    path = db_path or get_db_path()
+    async with aiosqlite.connect(path, timeout=30) as db:
+        await _configure(db)
+        yield db
 
 
 async def close_db():
-    """Закриває глобальне з'єднання."""
+    """Закриває застаріле глобальне з'єднання (якщо було створене)."""
     global _db_connection
     if _db_connection is not None:
         await _db_connection.close()

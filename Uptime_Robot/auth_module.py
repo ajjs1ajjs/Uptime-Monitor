@@ -357,6 +357,11 @@ API_KEY_PREFIX = "um_"
 
 
 def _hash_api_key(key: str) -> str:
+    # A FIXED salt is intentional: the hash must be deterministic so an incoming
+    # key can be looked up by hash. This is acceptable because keys are 256 bits
+    # of CSPRNG output (generate_api_key), which defeats precomputation/brute
+    # force regardless of the salt. The salt must NOT be changed — doing so would
+    # invalidate every previously issued API key.
     salt = hashlib.sha256(b"uptime-monitor-api-key-salt").digest()
     return hashlib.pbkdf2_hmac("sha256", key.encode(), salt, 100000).hex()
 

@@ -474,6 +474,86 @@ async def get_response_time_stats(user: dict = Depends(require_viewer_or_higher)
         ]
 
 
+def _format_incident_duration(start_iso: str, end_iso: str) -> Optional[str]:
+    """Human-readable duration between two ISO timestamps, or None on parse error."""
+    try:
+        start_dt = datetime.fromisoformat(start_iso.replace("Z", "+00:00"))
+        end_dt = datetime.fromisoformat(end_iso.replace("Z", "+00:00"))
+        seconds = (end_dt - start_dt).total_seconds()
+        hours = seconds // 3600
+        mins = (seconds % 3600) // 60
+        return f"{int(hours)}год {int(mins)}хв" if hours > 0 else f"{int(mins)}хв"
+    except Exception:
+        return None
+
+
+def _compute_down_times(history_by_site: dict) -> dict:
+    """Derive incident start/end times from per-site history (newest-first).
+
+    Keyed by ``"{site_id}_{status}_{incident_start}"`` so each contiguous
+    down/slow run maps to one entry.
+    """
+    down_times: dict = {}
+    for site_id, history in history_by_site.items():
+        prev_status = None
+        incident_start = None
+        for h in history:
+            curr_status = h["status"]
+            checked = h["checked_at"]
+            if curr_status in ("down", "slow"):
+                if prev_status != curr_status:
+                    incident_start = checked
+                down_times[f"{site_id}_{curr_status}_{incident_start}"] = {
+                    "started_at": incident_start,
+                    "ended_at": checked if prev_status == curr_status else None,
+                }
+            elif prev_status in ("down", "slow") and incident_start:
+                key = f"{site_id}_{prev_status}_{incident_start}"
+                if key in down_times:
+                    down_times[key]["ended_at"] = checked
+            prev_status = curr_status
+    return down_times
+
+
+def _build_incidents(results: list, down_times: dict) -> list:
+    """Assemble the incident list (deduped), attaching a duration where known."""
+    incidents = []
+    seen_incidents = set()
+    for r in results:
+        inc_key = f"{r['site_id']}_{r['status']}_{r['checked_at']}"
+        if inc_key in seen_incidents:
+            continue
+        seen_incidents.add(inc_key)
+
+        duration_found = None
+        prefix = f"{r['site_id']}_{r['status']}_"
+        for key, dt in down_times.items():
+            if key.startswith(prefix) and dt["started_at"] == r["checked_at"]:
+                duration_found = _format_incident_duration(
+                    dt["started_at"], dt["ended_at"] or dt["started_at"]
+                )
+                break
+
+        incidents.append(
+            {
+                "id": r["id"],
+                "site_id": r["site_id"],
+                "site_name": r["site_name"],
+                "site_url": r["site_url"],
+                "status": r["status"],
+                "status_code": r["status_code"],
+                "response_time": r["response_time"],
+                "error_message": r["error_message"],
+                "checked_at": r["checked_at"],
+                "prev_status": None,
+                "duration": (
+                    duration_found if duration_found else ("в процесі" if not down_times else None)
+                ),
+            }
+        )
+    return incidents
+
+
 @router.get("/incidents")
 async def get_incidents(user: dict = Depends(require_viewer_or_higher)):
     if not user:
@@ -531,88 +611,29 @@ async def get_incidents(user: dict = Depends(require_viewer_or_higher)):
                     }
                 )
 
-        down_times = {}
-        for site_id in {r["site_id"] for r in results}:
-            async with conn.execute(
-                """
-                SELECT status, checked_at
-                FROM status_history
-                WHERE site_id = ?
-                AND checked_at >= datetime('now', '-7 days')
-                ORDER BY checked_at DESC
-            """,
-                (site_id,),
-            ) as c:
-                history_raw = await c.fetchall()
-                history = [dict(h) for h in history_raw]
-
-            prev_status = None
-            incident_start = None
-            for h in history:
-                curr_status = h["status"]
-                checked = h["checked_at"]
-
-                if curr_status in ("down", "slow"):
-                    if prev_status != curr_status:
-                        incident_start = checked
-                    down_times[f"{site_id}_{curr_status}_{incident_start}"] = {
-                        "started_at": incident_start,
-                        "ended_at": checked if prev_status == curr_status else None,
-                    }
-                elif prev_status in ("down", "slow") and incident_start:
-                    key = f"{site_id}_{prev_status}_{incident_start}"
-                    if key in down_times:
-                        down_times[key]["ended_at"] = checked
-
-                prev_status = curr_status
-
-        incidents = []
-        seen_incidents = set()
-        for r in results:
-            inc_key = f"{r['site_id']}_{r['status']}_{r['checked_at']}"
-            if inc_key in seen_incidents:
-                continue
-            seen_incidents.add(inc_key)
-
-            inc = {
-                "id": r["id"],
-                "site_id": r["site_id"],
-                "site_name": r["site_name"],
-                "site_url": r["site_url"],
-                "status": r["status"],
-                "status_code": r["status_code"],
-                "response_time": r["response_time"],
-                "error_message": r["error_message"],
-                "checked_at": r["checked_at"],
-                "prev_status": None,
-            }
-
-            duration_found = None
-            for key, dt in down_times.items():
-                if key.startswith(f"{r['site_id']}_{r['status']}_"):
-                    if dt["started_at"] == r["checked_at"]:
-                        start = dt["started_at"]
-                        end = dt["ended_at"] or start
-                        try:
-                            start_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
-                            end_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
-                            duration = end_dt - start_dt
-                            hours = duration.total_seconds() // 3600
-                            mins = (duration.total_seconds() % 3600) // 60
-                            if hours > 0:
-                                duration_found = f"{int(hours)}год {int(mins)}хв"
-                            else:
-                                duration_found = f"{int(mins)}хв"
-                        except Exception:
-                            duration_found = None
-                        break
-
-            inc["duration"] = (
-                duration_found if duration_found else ("в процесі" if not down_times else None)
+        # Bulk-fetch 7-day history for all involved sites in ONE query (was a
+        # query per site), then group newest-first to mirror the old per-site
+        # "ORDER BY checked_at DESC".
+        site_ids = {r["site_id"] for r in results}
+        history_by_site: dict = {}
+        if site_ids:
+            placeholders = ",".join("?" * len(site_ids))
+            params = tuple(site_ids)
+            # Only "?" placeholders are interpolated; all values are bound params.
+            query = (
+                "SELECT site_id, status, checked_at FROM status_history "
+                f"WHERE site_id IN ({placeholders}) "  # nosec B608
+                "AND checked_at >= datetime('now', '-7 days') "
+                "ORDER BY site_id, checked_at DESC"
             )
-            incidents.append(inc)
+            async with conn.execute(query, params) as c:
+                for row in await c.fetchall():
+                    history_by_site.setdefault(row["site_id"], []).append(
+                        {"status": row["status"], "checked_at": row["checked_at"]}
+                    )
 
-        return incidents
+        down_times = _compute_down_times(history_by_site)
+        return _build_incidents(results, down_times)
 
 
 @router.post("/notify-settings")
