@@ -142,17 +142,10 @@ def init_auth(db_path):
         print(f"Password: {default_password}")
         print("=" * 50 + "\n")
     else:
-        existing_encrypted = admin_row[1]
-        if existing_encrypted:
-            saved_pw = _decrypt_password(existing_encrypted)
-            if saved_pw:
-                print(
-                    f"\n{'='*50}\nAdmin user 'admin' already exists\nCurrent password: {saved_pw}\n{'='*50}\n"
-                )
-            else:
-                print("\n[OK] User 'admin' already exists\n")
-        else:
-            print("\n[OK] User 'admin' already exists\n")
+        # Do not auto-print the stored password here; use `show-password` to
+        # recover it on demand. This keeps passwords out of install/upgrade logs.
+        print("\n[OK] User 'admin' already exists")
+        print("[HINT] Run 'show-password' to reveal the current admin password\n")
 
     conn.commit()
     conn.close()

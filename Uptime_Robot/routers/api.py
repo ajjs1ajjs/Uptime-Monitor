@@ -89,7 +89,34 @@ class UserUpdate(BaseModel):
 
 def _normalize_and_validate_url(raw_url: str, monitor_type: str) -> str:
     import ipaddress
+    import socket
     from urllib.parse import urlparse
+
+    def _is_blocked_ip(addr) -> bool:
+        return (
+            addr.is_private
+            or addr.is_loopback
+            or addr.is_link_local
+            or addr.is_reserved
+            or addr.is_multicast
+            or addr.is_unspecified
+        )
+
+    def _resolves_to_blocked(hostname: str) -> bool:
+        # SSRF defense: a public-looking hostname can still resolve to a private
+        # address (e.g. 127.0.0.1 or the 169.254.169.254 cloud-metadata IP).
+        # Reject the URL if ANY resolved address is internal.
+        try:
+            infos = socket.getaddrinfo(hostname, None)
+        except (socket.gaierror, UnicodeError):
+            return False  # let the monitor surface DNS failures as "down"
+        for *_, sockaddr in infos:
+            try:
+                if _is_blocked_ip(ipaddress.ip_address(sockaddr[0])):
+                    return True
+            except ValueError:
+                continue
+        return False
 
     def _is_valid_host(hostname: Optional[str]) -> bool:
         if not hostname:
@@ -101,9 +128,7 @@ def _normalize_and_validate_url(raw_url: str, monitor_type: str) -> str:
             return False
         try:
             addr = ipaddress.ip_address(host)
-            if addr.is_private or addr.is_loopback or addr.is_link_local:
-                return False
-            return True
+            return not _is_blocked_ip(addr)
         except ValueError:
             pass
         labels = host.split(".")
@@ -116,6 +141,8 @@ def _normalize_and_validate_url(raw_url: str, monitor_type: str) -> str:
                 return False
             if not all(ch.isalnum() or ch == "-" for ch in label):
                 return False
+        if _resolves_to_blocked(host):
+            return False
         return True
 
     url = (raw_url or "").strip()
@@ -731,6 +758,10 @@ async def update_user_api(
         return {"message": f"User '{username}' role updated to '{user_data.role}'"}
 
     if user_data.password:
+        is_valid, err = auth_module.validate_password_strength(user_data.password)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=err)
+
         async with get_db_connection() as conn:
             async with conn.execute("SELECT id FROM users WHERE username = ?", (username,)) as c:
                 user_row = await c.fetchone()
@@ -832,31 +863,30 @@ async def get_sla_report(days: int = 7, user: dict = Depends(require_viewer_or_h
             sites_raw = await c.fetchall()
             sites = [dict(s) for s in sites_raw]
 
+        window = f"-{days} days"
+        # Bulk aggregation for all sites in one pass (was 2 queries per site).
+        async with conn.execute(
+            """SELECT site_id,
+                    COUNT(*) as total,
+                    SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count,
+                    SUM(CASE WHEN status IN ('down', 'slow') THEN 1 ELSE 0 END) as incidents,
+                    AVG(response_time) as avg_rt
+                  FROM status_history
+                  WHERE checked_at >= datetime('now', ?)
+                  GROUP BY site_id""",
+            (window,),
+        ) as c:
+            stats_map = {r["site_id"]: r for r in await c.fetchall()}
+
         report = []
         for s in sites:
             sid = s["id"]
-            async with conn.execute(
-                """SELECT
-                    COUNT(*) as total,
-                    SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count,
-                    AVG(response_time) as avg_rt
-                  FROM status_history
-                  WHERE site_id = ? AND checked_at >= datetime('now', ?)""",
-                (sid, f"-{days} days"),
-            ) as c:
-                stats = await c.fetchone()
-
-            async with conn.execute(
-                """SELECT COUNT(*) FROM status_history
-                   WHERE site_id = ? AND status IN ('down', 'slow') AND checked_at >= datetime('now', ?)""",
-                (sid, f"-{days} days"),
-            ) as c:
-                incidents = (await c.fetchone())[0]
-
-            total = stats["total"] or 0
-            up_count = stats["up_count"] or 0
+            stats = stats_map.get(sid)
+            total = (stats["total"] if stats else 0) or 0
+            up_count = (stats["up_count"] if stats else 0) or 0
+            incidents = (stats["incidents"] if stats else 0) or 0
             uptime = (up_count / total * 100) if total > 0 else 100.0
-            avg_rt = stats["avg_rt"] or 0
+            avg_rt = (stats["avg_rt"] if stats else 0) or 0
 
             report.append(
                 {
@@ -998,6 +1028,13 @@ async def restore_backup_endpoint(backup_id: int, confirm: bool = Query(False)):
     from ..database import close_db
 
     await close_db()
+    # Remove stale WAL/SHM sidecar files: leaving them would let SQLite replay
+    # old transactions over the freshly restored database on next open.
+    for sidecar in (DB_PATH + "-wal", DB_PATH + "-shm"):
+        try:
+            os.remove(sidecar)
+        except OSError:
+            pass
     shutil.copy2(target["filepath"], DB_PATH)
     await models.log_audit_event(
         DB_PATH,

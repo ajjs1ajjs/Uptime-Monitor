@@ -362,7 +362,10 @@ async def check_site_status(
         if status != "down" or attempt == max_attempts - 1:
             break
 
-        delay = delays[attempt]
+        # retry_delays may be shorter than the number of retries; reuse the last
+        # configured delay instead of raising IndexError (which would abort the
+        # whole check and silently stop monitoring the site).
+        delay = delays[attempt] if attempt < len(delays) else delays[-1]
         logger.info(
             "Site %s (ID: %d) check failed (attempt %d/%d): %s. Retrying in %ds...",
             url,
@@ -398,8 +401,6 @@ async def check_site_status(
         pass
 
     from ..state import DB_PATH
-
-    skip_alert = _check_flapping(site_id, None, status, policy)
 
     # Transaction 1: DB writes only (fast, no network I/O inside)
     async with get_db_connection(DB_PATH) as conn:
@@ -463,8 +464,9 @@ async def check_site_status(
             await conn.rollback()
             raise
 
-    # Alerting (network I/O) — outside transaction, no DB lock held
-    skip_alert = skip_alert or _check_flapping(site_id, prev_status, status, policy)
+    # Alerting (network I/O) — outside transaction, no DB lock held.
+    # Flapping is evaluated once here, now that prev_status is known.
+    skip_alert = _check_flapping(site_id, prev_status, status, policy)
 
     failed_attempts, success_attempts, last_down_alert, first_failure_at = await _process_alerting(
         status,
@@ -665,10 +667,10 @@ async def monitor_loop(notify_settings: dict[str, Any], default_check_interval: 
                 if db_settings:
                     for key, value in db_settings.items():
                         notify_settings[key] = value
-                    last_notify_settings_reload += timedelta(
-                        seconds=notify_settings_reload_interval
-                    )
                     logger.debug("Reloaded notification settings from DB")
+                # Advance the marker regardless of result, otherwise an empty
+                # config makes us re-query the DB on every 5s loop iteration.
+                last_notify_settings_reload = current_time
 
             async with get_db_connection() as conn:
                 async with conn.execute(

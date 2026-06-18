@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from . import __version__, auth_module, config_manager, metrics_store, models, monitoring
 from . import state as app_state
 from .database import close_db, get_db_connection
+from .dependencies import get_client_ip
 from .logger import logger
 from .models import check_db_rate_limit
 from .routers import api, auth, ui
@@ -127,6 +128,14 @@ app.add_middleware(
 )
 
 
+# CSRF protection (token for non-/api state changes, Origin check for /api).
+@app.middleware("http")
+async def csrf_protection(request: Request, call_next):
+    from .csrf import csrf_middleware
+
+    return await csrf_middleware(request, call_next)
+
+
 # Add security headers middleware
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
@@ -205,7 +214,7 @@ async def server_error_handler(request: Request, exc):
 async def health_check(request: Request):
     """Health check endpoint for Docker and monitoring."""
 
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = get_client_ip(request)
     if not await check_db_rate_limit("health", client_ip, 30, 60, DB_PATH):
         from fastapi.responses import JSONResponse
 
@@ -241,7 +250,7 @@ async def prometheus_metrics(request: Request):
     """Prometheus metrics endpoint (no external dependencies)."""
     from .database import get_db_connection
 
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = get_client_ip(request)
     if not await check_db_rate_limit("metrics", client_ip, 30, 60, DB_PATH):
         return Response(
             content="# rate limited\n",

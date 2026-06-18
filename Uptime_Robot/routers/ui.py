@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from ..database import get_db_connection
-from ..dependencies import get_current_user, require_admin
+from ..dependencies import get_client_ip, get_current_user, require_admin
 from ..logger import logger
 from ..state import (
     BRAND_ACCENT_COLOR,
@@ -264,7 +264,7 @@ async def public_status_page(request: Request):
     # Rate limit: 30 req/min per IP
     from ..models import check_db_rate_limit
 
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = get_client_ip(request)
     if not await check_db_rate_limit("public_status", client_ip, 30, 60, DB_PATH):
         return HTMLResponse("Too Many Requests", status_code=429)
     async with get_db_connection() as conn:
@@ -276,45 +276,58 @@ async def public_status_page(request: Request):
 
         cutoff_30d = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
 
+        # Bulk uptime stats for all sites in one query (was N queries).
+        async with conn.execute(
+            "SELECT site_id, COUNT(*) as total, "
+            "SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count "
+            "FROM status_history WHERE checked_at >= ? GROUP BY site_id",
+            (cutoff_30d,),
+        ) as c:
+            uptime_map = {
+                r["site_id"]: (r["total"] or 0, r["up_count"] or 0) for r in await c.fetchall()
+            }
+
+        # Bulk latest response time per site via a window function (was N queries).
+        async with conn.execute(
+            "SELECT site_id, response_time FROM ("
+            "  SELECT site_id, response_time, "
+            "         ROW_NUMBER() OVER (PARTITION BY site_id ORDER BY checked_at DESC) AS rn "
+            "  FROM status_history WHERE checked_at >= ?"
+            ") WHERE rn = 1",
+            (cutoff_30d,),
+        ) as c:
+            latest_rt_map = {r["site_id"]: r["response_time"] for r in await c.fetchall()}
+
+        # Bulk recent down events for all sites (was N queries); keep 5 per site.
+        async with conn.execute(
+            "SELECT site_id, checked_at FROM status_history "
+            "WHERE status = 'down' AND checked_at >= ? ORDER BY checked_at DESC",
+            (cutoff_30d,),
+        ) as c:
+            down_rows = await c.fetchall()
+
+        site_name_by_id = {s["id"]: s["name"] for s in sites}
+        down_count_per_site: dict = {}
         incidents_raw = []
+        for dr in down_rows:
+            sid = dr["site_id"]
+            if down_count_per_site.get(sid, 0) >= 5:
+                continue
+            down_count_per_site[sid] = down_count_per_site.get(sid, 0) + 1
+            incidents_raw.append(
+                {
+                    "site_name": site_name_by_id.get(sid, ""),
+                    "time": dr["checked_at"][:19].replace("T", " "),
+                }
+            )
+
         for s in sites:
-            sid = s["id"]
-            async with conn.execute(
-                "SELECT COUNT(*) as total, SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count "
-                "FROM status_history WHERE site_id = ? AND checked_at >= ?",
-                (sid, cutoff_30d),
-            ) as c:
-                row = await c.fetchone()
-                total_checks = row[0] or 0
-                up_checks = row[1] or 0
-                s["uptime_pct"] = round(
-                    (up_checks / total_checks * 100) if total_checks > 0 else 100.0, 2
-                )
-
-            async with conn.execute(
-                "SELECT status, response_time, checked_at FROM status_history "
-                "WHERE site_id = ? AND checked_at >= ? ORDER BY checked_at DESC LIMIT 1",
-                (sid, cutoff_30d),
-            ) as c:
-                last = await c.fetchone()
-                s["latest_response_time"] = (
-                    round(last[1], 2) if last and last[1] is not None else None
-                )
-
-            async with conn.execute(
-                "SELECT checked_at FROM status_history "
-                "WHERE site_id = ? AND status = 'down' AND checked_at >= ? "
-                "ORDER BY checked_at DESC LIMIT 5",
-                (sid, cutoff_30d),
-            ) as c:
-                down_events = await c.fetchall()
-                for de in down_events:
-                    incidents_raw.append(
-                        {
-                            "site_name": s["name"],
-                            "time": de[0][:19].replace("T", " "),
-                        }
-                    )
+            total_checks, up_checks = uptime_map.get(s["id"], (0, 0))
+            s["uptime_pct"] = round(
+                (up_checks / total_checks * 100) if total_checks > 0 else 100.0, 2
+            )
+            rt = latest_rt_map.get(s["id"])
+            s["latest_response_time"] = round(rt, 2) if rt is not None else None
 
         thirty_day_uptime = 100.0
         if sites:

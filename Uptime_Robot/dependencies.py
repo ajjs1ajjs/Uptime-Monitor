@@ -1,7 +1,33 @@
+import os
+
 from fastapi import Depends, HTTPException, Request
 
 from . import auth_module
 from .state import DB_PATH
+
+# Reverse-proxy support: only honour X-Forwarded-For when the direct peer is a
+# configured trusted proxy. Empty by default → behaviour unchanged (direct IP).
+_TRUSTED_PROXIES = {
+    p.strip() for p in os.environ.get("UPTIME_MONITOR_TRUSTED_PROXIES", "").split(",") if p.strip()
+}
+
+
+def get_client_ip(request: Request) -> str:
+    """Resolve the real client IP for rate-limiting/logging.
+
+    Behind a reverse proxy every request appears to come from the proxy IP,
+    which would make per-IP rate limits global. If the direct peer is a trusted
+    proxy, use the first hop in X-Forwarded-For instead. X-Forwarded-For is
+    spoofable, so it is ONLY trusted from configured proxy addresses.
+    """
+    direct = request.client.host if request.client else "unknown"
+    if direct in _TRUSTED_PROXIES:
+        xff = request.headers.get("X-Forwarded-For")
+        if xff:
+            first = xff.split(",")[0].strip()
+            if first:
+                return first
+    return direct
 
 
 async def get_current_user(request: Request):

@@ -724,11 +724,15 @@ async def get_notification_history(db_path: str, limit: int = 100) -> list:
 
 
 async def create_backup(db_path: str, backup_path: str) -> dict:
-    """Create a backup of the database."""
-    import shutil
+    """Create a backup of the database.
 
+    Uses SQLite's ``VACUUM INTO`` so the backup is a single, consistent file
+    that already includes any committed data still living in the WAL — a plain
+    file copy of just ``sites.db`` could miss the latest transactions.
+    """
     os.makedirs(os.path.dirname(backup_path), exist_ok=True)
-    shutil.copy2(db_path, backup_path)
+    async with get_db_connection(db_path) as conn:
+        await conn.execute("VACUUM INTO ?", (backup_path,))
     async with get_db_connection(db_path) as conn:
         async with conn.execute("SELECT COUNT(*) FROM sites") as c:
             row = await c.fetchone()

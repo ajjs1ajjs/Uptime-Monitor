@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Security
+
+- **CSRF defense-in-depth enabled** — the CSRF middleware (previously defined but
+  never registered) is now active: same-origin `Origin`/`Referer` enforcement on
+  `/api/*` and one-time token validation on the `forgot-password` / `change-password`
+  forms.
+- **SSRF hardening** — monitor URL validation now resolves the hostname and rejects
+  targets that point at private, loopback, link-local (incl. `169.254.169.254`
+  cloud-metadata), reserved or multicast addresses — not just literal private IPs.
+- **No passwords in logs** — the admin password is shown once on stdout at creation
+  and is no longer written to the application logger or re-printed on every restart.
+  Use `auth_cli show-password` for on-demand recovery.
+- **Stronger password policy on reset** — admin password reset via `PUT /api/users/{username}`
+  now enforces the same strength rules as user creation.
+- **Reverse-proxy aware rate limiting** — set `UPTIME_MONITOR_TRUSTED_PROXIES`
+  (comma-separated proxy IPs) to honour `X-Forwarded-For` so per-IP limits apply to
+  real clients instead of the proxy. Defaults to off (direct peer IP).
+
+### Fixed
+
+- **Crash in monitor retries** — `check_site_status` raised `IndexError` and stopped
+  monitoring a site when `max_retries` exceeded the configured `retry_delays`; the
+  last delay is now reused.
+- **WAL-safe backups** — `create_backup` uses `VACUUM INTO` (consistent snapshot incl.
+  WAL), and restore now removes stale `-wal`/`-shm` sidecar files so restored data is
+  not overwritten on next open.
+- Redundant/duplicate flapping check removed from `check_site_status`.
+- `monitor_loop` no longer re-queries notification settings every 5 s when the DB
+  config is empty.
+- Telegram `reply_markup` no longer raises on plain-string messages.
+
+### Changed
+
+- **Performance** — eliminated N+1 query patterns in the public status page and SLA
+  report (bulk aggregation in a single query instead of per-site queries).
+
+---
+
 ## [2.1.0] - 2026-05-26
 
 ### Added

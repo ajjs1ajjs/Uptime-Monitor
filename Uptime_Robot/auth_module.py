@@ -121,29 +121,19 @@ async def init_auth_tables(db_path):
             )
             _save_credentials_file(default_password)
 
+            # The generated password is shown ONCE on stdout (the operator needs
+            # it for first login) and saved to the protected credentials file.
+            # It is deliberately NOT written to the application logger, which
+            # ends up in journald/Docker logs/log files.
             msg = f"\n{'='*50}\nDEFAULT ADMIN USER CREATED\nUsername: admin\nPassword: {default_password}\n{'='*50}\n"
-            logger.info("DEFAULT ADMIN USER CREATED")
-            logger.info("Username: admin")
-            logger.info("Password: %s", default_password)
+            logger.info("Default admin user created (password printed once to stdout, not logged)")
             print(msg)
         else:
-            existing_encrypted = admin_row["password_encrypted"]
-            if existing_encrypted:
-                saved_pw = _decrypt_password(existing_encrypted)
-                if saved_pw:
-                    msg = f"\n{'='*50}\nAdmin user 'admin' already exists\nCurrent password: {saved_pw}\n{'='*50}\n"
-                    logger.info("Admin user 'admin' already exists")
-                    print(msg)
-                else:
-                    logger.warning(
-                        "Admin user 'admin' already exists (password_encrypted unreadable)"
-                    )
-                    print(
-                        "\n[WARN] Admin user 'admin' already exists — cannot read encrypted password backup\n"
-                    )
-            else:
-                logger.warning("Admin user 'admin' already exists (no password backup)")
-                print("\n[OK] Admin user 'admin' already exists\n")
+            # Never re-print the stored password on restart — that would leak it
+            # into the journal on every service start. Use the `show-password`
+            # CLI command for on-demand recovery instead.
+            logger.info("Admin user 'admin' already exists")
+            print("\n[OK] Admin user 'admin' already exists\n")
 
         # Note: legacy admin passwords cannot be recovered into the encrypted
         # backup because only the bcrypt hash is stored. Such accounts will

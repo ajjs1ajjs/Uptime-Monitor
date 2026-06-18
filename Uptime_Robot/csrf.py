@@ -2,7 +2,8 @@
 
 import secrets
 
-from fastapi import HTTPException, Request
+from fastapi import Request
+from fastapi.responses import PlainTextResponse
 
 from .database import get_db_connection
 from .logger import logger
@@ -36,16 +37,22 @@ async def generate_csrf_token(session_id: str) -> str:
     token = secrets.token_urlsafe(32)
     try:
         async with get_db_connection() as conn:
+            # csrf_tokens is the authoritative store; commit it first.
             await conn.execute(
                 "INSERT INTO csrf_tokens (session_id, token) VALUES (?, ?)",
                 (session_id, token),
             )
-            # Also keep single token in sessions table for backward compat
-            await conn.execute(
-                "UPDATE sessions SET csrf_token = ? WHERE session_id = ?",
-                (token, session_id),
-            )
             await conn.commit()
+            # Best-effort mirror into sessions.csrf_token (legacy backward compat).
+            # Must not fail token generation if that column is absent.
+            try:
+                await conn.execute(
+                    "UPDATE sessions SET csrf_token = ? WHERE session_id = ?",
+                    (token, session_id),
+                )
+                await conn.commit()
+            except Exception:
+                pass
     except Exception as e:
         logger.error("CSRF token save failed: %s", e)
         return ""
@@ -82,40 +89,48 @@ async def validate_csrf_token(session_id: str, token: str) -> bool:
         return False
 
 
+# Paths that perform their own CSRF handling (validate a one-time token inside
+# the route handler) or cannot have a token yet (/login, pre-auth).
+# These form-POST routes self-validate; the middleware must NOT read their body
+# here, because consuming request.form() in a Starlette HTTP middleware empties
+# the body stream for the downstream handler (→ spurious 422).
 CSRF_EXEMPT: set[str] = {
     "/login",
+    "/change-password",
     "/forgot-password",
 }
 
 
 async def csrf_middleware(request: Request, call_next):
-    """Middleware that validates CSRF tokens on state-changing methods."""
+    """CSRF defense-in-depth on state-changing methods.
+
+    - ``/api/*``: enforce a same-origin Origin/Referer (the SPA uses fetch, which
+      always sends Origin on non-GET requests; SameSite=Lax cookies are the
+      primary defense and this is the second layer).
+    - other non-exempt routes: require the token in the ``X-CSRF-Token`` header.
+
+    The request body is never read here (see CSRF_EXEMPT note). Form-POST routes
+    validate their own ``_csrf_token`` field. NOTE: raising HTTPException from a
+    Starlette HTTP middleware yields a 500, so we return a Response directly.
+    """
     if request.method in ("POST", "PUT", "DELETE"):
         path = request.url.path
-        if path not in CSRF_EXEMPT and not path.startswith("/api/"):
-            session_id = request.cookies.get("session_id")
-            csrf_token = ""
-            if request.method == "POST":
-                try:
-                    form = await request.form()
-                    csrf_token = str(form.get("_csrf_token", ""))
-                except RuntimeError:
-                    logger.warning("CSRF: request body already consumed for %s", path)
-            else:
-                csrf_token = request.headers.get("X-CSRF-Token", "")
 
-            if not await validate_csrf_token(session_id or "", csrf_token):
-                raise HTTPException(status_code=403, detail="CSRF validation failed")
-
-        # Origin/Referer check for API endpoints (defense in depth)
         if path.startswith("/api/"):
             origin = request.headers.get("Origin") or request.headers.get("Referer") or ""
             if origin:
                 from urllib.parse import urlparse
 
-                allowed = urlparse(str(request.base_url)).netloc
-                req_origin = urlparse(origin).netloc
-                if req_origin and req_origin != allowed:
-                    raise HTTPException(status_code=403, detail="Cross-origin request denied")
+                # Compare hostnames only (ignore port): TLS-terminating proxies
+                # often make base_url's port differ from the public Origin.
+                allowed = urlparse(str(request.base_url)).hostname
+                req_origin = urlparse(origin).hostname
+                if req_origin and allowed and req_origin != allowed:
+                    return PlainTextResponse("Cross-origin request denied", status_code=403)
+        elif path not in CSRF_EXEMPT:
+            session_id = request.cookies.get("session_id")
+            csrf_token = request.headers.get("X-CSRF-Token", "")
+            if not await validate_csrf_token(session_id or "", csrf_token):
+                return PlainTextResponse("CSRF validation failed", status_code=403)
 
     return await call_next(request)
