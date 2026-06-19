@@ -1,245 +1,315 @@
 # Uptime Monitor
 
-[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
+[![Версія](https://img.shields.io/badge/версія-2.1.0-blue.svg)](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-lightgrey.svg)]()
-[![CI/CD](https://github.com/ajjs1ajjs/Uptime-Monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/ajjs1ajjs/Uptime-Monitor/actions)
-[![Tests](https://img.shields.io/badge/tests-229%20passed-brightgreen.svg)]()
+[![Платформа](https://img.shields.io/badge/платформа-Linux%20%7C%20Windows-lightgrey.svg)]()
 
-**Enterprise uptime monitoring with automatic backups, SSL certificate tracking, and multi-channel notifications.**
+**Моніторинг доступності з автоматичним резервним копіюванням, SSL сертифікатами та сповіщеннями.**
 
-A self-hosted alternative to UptimeRobot: HTTP/SSL/Port/Ping checks, a real-time dashboard, a public status page, 10+ alert channels, and a REST API — on Linux, Windows, or Docker.
+<p align="center">
+  <img src="https://img.shields.io/badge/uptime-24/7-green" alt="24/7 Uptime">
+  <img src="https://img.shields.io/badge/SSL-моніторинг-orange" alt="SSL Monitoring">
+  <img src="https://img.shields.io/badge/сповіщення-Telegram%20%7C%20Email%20%7C%20Teams-blue" alt="Сповіщення">
+</p>
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Швидкий старт
 
-### Install (Linux)
+### Встановлення (Linux)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
+
+# Доступ до панелі
+http://YOUR_SERVER_IP:8080
+# Логін: admin / Пароль: auto-generated
 ```
 
-### Install (Windows — Service)
+### Windows
 
+**Варіант A — Служба Windows (рекомендовано):**
 ```powershell
-# Run as Administrator in Uptime_Robot folder
-git clone https://github.com/ajjs1ajjs/Uptime-Monitor.git
-cd Uptime-Monitor\Uptime_Robot
+# Запустіть від імені адміністратора в папці Uptime_Robot
 .\install_service.bat
-
-# Or quick install:
-.\install.bat /y
+# Доступ: http://localhost:8080
 ```
 
-> 💡 Run the same command again to update (auto-detects existing installation, backs up config, restarts service).
+**Варіант B — Швидке встановлення через PowerShell:**
+```powershell
+# Запустіть від імені адміністратора
+& {
+    if (!(Get-Command python -ErrorAction SilentlyContinue)) {
+        Write-Host "Installing Python..."; winget install Python.Python.3.12 --silent
+    }
+    iwr https://github.com/ajjs1ajjs/Uptime-Monitor/archive/refs/heads/main.zip -OutFile uptime.zip
+    Expand-Archive uptime.zip -DestinationPath . -Force; Remove-Item uptime.zip
+    cd Uptime-Monitor-main/Uptime_Robot
+    .\install.bat /y
+}
+```
 
-### Run directly (any platform)
+> 💡 Запустіть ту ж команду повторно для оновлення (автоматично виявляє існуюче встановлення, створює резервну копію конфігурації, перезапускає службу).
 
-```bash
+**Варіант C — Напряму через Python (без служби):**
+```powershell
 python -m Uptime_Robot.main --host 0.0.0.0 --port 8080
+# Доступ: http://localhost:8080
 ```
 
-> **Security (v2.0.0+):** Default credentials are `admin` / `auto-generated`.
+> **Пароль у Windows (v2.0.0+):** Генерується випадково під час першого запуску. Перевірте вивід у консолі або знайдіть його у файлі `credentials.txt`.
 
 ---
 
-## 📚 Documentation
+## 📚 Документація
 
-| Document | Language | Description |
-|----------|----------|-------------|
-| **[UPDATE_PRODUCTION.md](UPDATE_PRODUCTION.md)** | 🇺🇦 UA | Production update with backup & rollback |
-| **[README_UK.md](README_UK.md)** | 🇺🇦 UA | Main documentation (Ukrainian) |
-| **[INSTALL.md](INSTALL.md)** | 🇺🇦 UA | Installation guide |
-| **[QUICKSTART_UK.md](QUICKSTART_UK.md)** | 🇺🇦 UA | Quick start (5 minutes) |
-| **[docs/API.md](docs/API.md)** | 🇬🇧 EN | API reference |
-| **[docs/COMMANDS.md](docs/COMMANDS.md)** | 🇺🇦 UA | Commands reference |
-| **[docs/BACKUP.md](docs/BACKUP.md)** | 🇺🇦 UA | Backup system guide |
-| **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** | 🇺🇦 UA | Troubleshooting |
-| **[NOTIFICATION_TROUBLESHOOTING_UK.md](NOTIFICATION_TROUBLESHOOTING_UK.md)** | 🇺🇦 UA | Notification diagnostics |
-| **[MIGRATION_GUIDE_UK.md](MIGRATION_GUIDE_UK.md)** | 🇺🇦 UA | Migration from other systems |
-
----
-
-## ✨ Features
-
-| Category | Features |
-|----------|----------|
-| **Monitoring** | HTTP/HTTPS/SSL/Port/Ping checks, response time, configurable intervals |
-| **Backups** | One-click API backup/restore, automatic DB snapshots, restore via dashboard |
-| **Alerts** | Telegram, Email, Slack, Discord, Teams, SMS, Webhook, Pushover, Gotify, ntfy |
-| **Security** | CSRF + Origin checks, SSRF-safe target validation, encrypted secrets, rate limiting, RBAC (admin/viewer), API keys, audit log |
-| **Dashboard** | Real-time WebSocket, response time charts, SSL timeline, uptime bars, incident history |
-| **Status Page** | Public status page with 30d uptime %, response time, incident timeline, customizable branding |
-| **Notification History** | Full audit trail of all sent notifications with timestamps and delivery status |
-| **Healthcheck** | `/health` endpoint for Docker/k8s readiness probes |
-| **Platform** | Linux (systemd), Docker Compose, Windows service, Debian package |
+| Документ | Опис |
+|----------|------|
+| **[INSTALL.md](INSTALL.md)** | Повна інструкція з встановлення |
+| **[QUICKSTART_UK.md](QUICKSTART_UK.md)** | Швидкий старт за 5 хвилин |
+| **[docs/API.md](docs/API.md)** | API документація |
+| **[docs/BACKUP.md](docs/BACKUP.md)** | Система резервного копіювання |
+| **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** | Усунення несправностей |
+| **[docs/COMMANDS.md](docs/COMMANDS.md)** | Довідник команд |
+| **[UPDATE_PRODUCTION.md](UPDATE_PRODUCTION.md)** | Оновлення Production |
+| **[NOTIFICATION_TROUBLESHOOTING_UK.md](NOTIFICATION_TROUBLESHOOTING_UK.md)** | Діагностика сповіщень |
+| **[MIGRATION_GUIDE_UK.md](MIGRATION_GUIDE_UK.md)** | Міграція з інших систем |
 
 ---
 
-## 🔒 Security
+## 🌟 Можливості
 
-Enterprise-grade security, hardened across the 2.x line:
+### Моніторинг
+- ✅ HTTP/HTTPS/SSL/Port/Ping перевірки
+- ✅ SSL сертифікати (термін дії)
+- ✅ Час відповіді, keyword/regex-перевірки
+- ✅ Інтервал перевірки налаштовується (за замовч. 60 секунд)
 
-- **Rate Limiting** — 5 login attempts per 15 minutes per IP
-- **Password Policy** — Minimum 12 characters, requires uppercase + lowercase + digit
-- **Default Credentials** — Admin: `admin` / `auto-generated` (change after first login)
-- **Encrypted Secrets** — Email passwords and tokens encrypted with Fernet at rest
-- **Configurable CORS** — Restrict origins via `cors.allow_origins` in `config.json`
-- **SSL Verification** — Configurable `verify_ssl` in `alert_policy`
-- **Security Headers** — X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, HSTS
-- **CSRF Protection** — Same-origin enforcement on `/api/*`, one-time tokens on auth forms
-- **SSRF Protection** — Monitor targets resolving to private/loopback/metadata IPs are rejected
-- **Reverse-proxy aware** — Set `UPTIME_MONITOR_TRUSTED_PROXIES` to rate-limit by real client IP
+### Сповіщення
+- 📱 Telegram (з inline-кнопками acknowledge/silence)
+- 📧 Email (SMTP)
+- 💬 Slack
+- 🎮 Discord
+- 🏢 Microsoft Teams
+- 📞 SMS (Twilio)
+- 🔗 Webhook (кастомний JSON POST)
+- 🔔 Pushover / Gotify / ntfy
 
-See [Security details](Uptime_Robot/README_SECURITY.md) and [Admin/password guide](docs/ADMIN_GUIDE.md).
+### Резервне копіювання
+- 🔄 Автоматичні бекапи (щодня/щотижня/щомісяця)
+- 💾 NFS/Samba підтримка
+- 🔧 Відновлення однією командою
+- 📦 Збереження: БД, конфігурації, SSL, логи
+
+### Безпека
+- 🔒 HTTPS/SSL підтримка, HSTS заголовки
+- 🛡️ CSRF-захист + перевірка Origin для `/api/*`
+- 🚫 SSRF-захист (блокування приватних/loopback/metadata-адрес)
+- 👥 Ролі користувачів (admin/viewer), API-ключі, audit log
+- 🔐 Управління сесіями, rate limiting, шифрування секретів (Fernet)
+- 🔑 bcrypt-хешування паролів, політика стійкості (12+ символів)
 
 ---
 
-## 📊 Dashboard
+## 📊 Функціонал
 
-- **Real-time monitoring** — Check every 60 seconds (configurable per site)
-- **SSL tracking** — Alerts up to 30 days before expiry, configurable cooldown
-- **Backup system** — Automatic with verification and restore
-- **Multi-channel alerts** — Never miss downtime
-- **Public status page** — Share with customers
-- **REST API** — Full automation support
+- **Веб-панель** — реальний час, REST API
+- **Публічна сторінка статусу** — для клієнтів
+- **Історія статусів** — 30 днів
+- **Uptime статистика** — відсотки доступності
+- **SSL дашборд** — термін дії сертифікатів
 
 ---
 
-## ⚙️ Default Settings
+## ⚙️ Налаштування за замовчуванням
 
-| Parameter | Value |
+| Параметр | Значення |
 |-----------|-------|
-| **Port** | 8080 |
-| **Check Interval** | 60 seconds |
-| **SSL Check** | Every 6 hours |
-| **SSL Alert** | ≤30 days before expiry (30/14/7/5/3/1) |
-| **Grace Period** | 0s (alert on first failure) |
-| **Up Threshold** | 2 successes |
-| **Still Down Repeat** | Every 10 minutes |
-| **SSL Verify** | Enabled (configurable) |
-| **CORS Origins** | `["http://localhost:8080"]` (configurable) |
-| **Rate Limit** | 5 attempts / 15 min per IP |
-| **Password Policy** | 12+ chars, upper+lower+digit |
+| **Порт** | 8080 |
+| **Інтервал перевірки** | 60 секунд |
+| **SSL перевірка** | Кожні 6 годин |
+| **SSL сповіщення** | ≤30 днів до закінчення (30/14/7/5/3/1) |
+| **Grace-період** | 0с (сповіщення з першої невдачі) |
+| **Up поріг** | 2 успіхи |
+| **Повтор «досі не працює»** | Кожні 10 хвилин |
+| **Rate limit** | 5 спроб / 15 хв на IP |
+| **CORS origins** | `["http://localhost:8080"]` (налаштовується) |
 
 ---
 
-## 🛠️ Technology Stack
+## 🛠️ Технології
 
-- **Backend**: Python 3.9+, FastAPI, Uvicorn, Jinja2
-- **Database**: SQLite (aiosqlite)
-- **Frontend**: HTML/CSS/JS with Jinja2 templates, Chart.js, HTMX
-- **Security**: bcrypt, Fernet (cryptography), API keys with SHA-256 hashing
-- **Monitoring**: aiohttp (async), asyncio
-- **Notifications**: SMTP, Telegram Bot API, Discord/Teams/Slack Webhooks, Pushover, Gotify, ntfy
-- **Infrastructure**: Docker Compose, Prometheus metrics, WebSocket live updates
-- **Testing**: pytest (229 tests), pytest-asyncio, coverage ~52%
+- **Backend**: Python 3.9+, FastAPI
+- **Database**: SQLite
+- **Frontend**: HTML/CSS/JavaScript
+- **Monitoring**: aiohttp (async)
+- **Notifications**: SMTP, Telegram API, Webhooks
 
 ---
 
-## 📦 Installation Methods
+## 📦 Методи встановлення
 
-| Method | Platform | Command |
+| Метод | Платформа | Команда |
 |--------|----------|---------|
-| **Curl** | Linux | `curl -fsSL https://... \| sudo bash` |
-| **Git** | Linux | `git clone && cd Uptime-Monitor && sudo ./install.sh` |
-| **Service** | Windows | `cd Uptime_Robot && .\install_service.bat` |
-| **Quick** | Windows | `cd Uptime_Robot && .\install.bat /y` |
-| **Docker** | Any | `docker compose up -d --build` (see [docker-compose.yml](docker-compose.yml)) |
-| **APT** | Debian | `sudo apt install uptime-monitor` |
+| **Git** | Linux | `git clone && cd Uptime-Monitor` |
+| **Curl** | Linux | `curl ... \| sudo bash` |
+| **Docker** | Будь-яка | `docker run -p 8080:8080 ...` |
+| **MSI** | Windows | Завантажити з Releases |
+| **APT** | Debian/Ubuntu | `apt install uptime-monitor` |
 
 ---
 
-## 🔧 Basic Commands
-
-### Linux (systemd)
+## 🔧 Основні команди
 
 ```bash
-# Service management
+# Управління службами
 sudo systemctl start|stop|restart|status uptime-monitor
 sudo systemctl start|stop|restart|status uptime-monitor-worker
 
-# One-command update (auto backup + rollback)
-curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
+# Резервне копіювання
+sudo /opt/uptime-monitor/scripts/backup-system.sh --dest /backup/
 
-# Or via deploy script (if installed from Git)
-sudo /opt/uptime-monitor/deploy_update.sh
-
-# Backup & Restore
-sudo /opt/uptime-monitor/scripts/backup-system.sh --dest /backup/ --verify
+# Відновлення
 sudo /opt/uptime-monitor/scripts/restore-system.sh --from /backup/...
 
-# Logs
+# Перегляд логів
 sudo journalctl -u uptime-monitor -f
 sudo journalctl -u uptime-monitor-worker -f
 
-# Diagnostics
+# Діагностика
 sudo /opt/uptime-monitor/check-notifications.sh
 ```
 
-### Windows (Service)
+---
 
-```powershell
-# Service management
-net start UptimeMonitor
-net stop UptimeMonitor
-python main_service.py remove
+## 🔌 API Приклади
 
-# Install service
-.\install_service.bat
-.\install.bat /y
+### Python
 
-# Test mode
-python main_service.py console
-python -m Uptime_Robot.main --host 0.0.0.0 --port 8080
+```python
+import requests
 
-# Scheduled Task (alternative to service)
-powershell -ExecutionPolicy Bypass -File create_task_simple.ps1
+# Логін
+session = requests.Session()
+session.post('http://localhost:8080/login',
+             data={'username': 'admin', 'password': 'admin'})
 
-# Build EXE
-.\build_exe.bat
+# Отримати сайти
+resp = session.get('http://localhost:8080/api/sites')
+sites = resp.json()
+
+# Додати сайт
+session.post('http://localhost:8080/api/sites', json={
+    'name': 'Мій Сайт',
+    'url': 'https://mysite.com',
+    'check_interval': 60
+})
 ```
 
----
+### cURL
 
-## 🔔 Notifications
+```bash
+# Логін
+curl -X POST http://localhost:8080/login \
+  -d "username=admin&password=admin" -c cookies.txt
 
-- 📧 **Email** — SMTP with STARTTLS
-- 📱 **Telegram** — Bot API with HTML formatting and inline acknowledge/silence buttons
-- 💬 **Slack** — Webhooks
-- 🎮 **Discord** — Webhooks with rich embeds
-- 🏢 **Microsoft Teams** — Message Cards
-- 📞 **SMS** — Twilio integration
-- 🔗 **Webhook** — Custom JSON POST to any endpoint
-- 🔔 **Pushover / Gotify / ntfy** — Self-hostable push notifications
+# Отримати сайти
+curl -X GET http://localhost:8080/api/sites -b cookies.txt
+```
 
-Per-site channel selection, multiple channels per provider, and a full delivery history are supported.
+Більше прикладів: [examples/api_examples.py](examples/api_examples.py)
 
 ---
 
-## 🤝 Contributing
+## 🆘 Усунення несправностей
 
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing`)
-3. Commit changes
-4. Push to branch
-5. Open Pull Request
+### Служба не запускається
+
+```bash
+# Перевірити статус
+sudo systemctl status uptime-monitor
+
+# Переглянути логи
+sudo journalctl -u uptime-monitor -n 50
+
+# Перезапустити
+sudo systemctl restart uptime-monitor
+```
+
+### Сповіщення не працюють
+
+```bash
+# Запустити діагностику
+sudo /opt/uptime-monitor/check-notifications.sh
+
+# Перевірити налаштування в БД
+sudo sqlite3 /var/lib/uptime-monitor/sites.db \
+  "SELECT config FROM notify_config WHERE id = 1;" | python3 -m json.tool
+```
+
+### Проблеми з бекапом
+
+Дивіться: [docs/BACKUP.md](docs/BACKUP.md)
 
 ---
 
-## 📝 License
+## 📈 Порівняння
 
-MIT License — see [LICENSE](LICENSE) file.
+| Функція | Uptime Monitor | Uptime.com | Pingdom |
+|---------|---------------|------------|---------|
+| **Self-hosted** | ✅ Так | ❌ Ні | ❌ Ні |
+| **Безкоштовно** | ✅ Open-source | ❌ Платно | ❌ Платно |
+| **Бекапи** | ✅ Вбудовані | ⚠️ Обмежено | ⚠️ Обмежено |
+| **SSL моніторинг** | ✅ Так | ✅ Так | ✅ Так |
+| **Сповіщень** | ✅ 6+ каналів | ✅ Так | ✅ Так |
+| **Кастомізація** | ✅ Повна | ❌ Обмежено | ❌ Обмежено |
 
 ---
 
-## 👥 Support
+## 🤝 Внесок у проект
+
+1. Fork репозиторій
+2. Створіть гілку (`git checkout -b feature/amazing`)
+3. Зробіть коміт (`git commit -m 'Додано amazing функцію'`)
+4. Push (`git push origin feature/amazing`)
+5. Відкрийте Pull Request
+
+---
+
+## 📝 Ліцензія
+
+MIT License — дивіться файл [LICENSE](LICENSE).
+
+---
+
+## 👥 Підтримка
 
 - **Issues**: https://github.com/ajjs1ajjs/Uptime-Monitor/issues
 - **Discussions**: https://github.com/ajjs1ajjs/Uptime-Monitor/discussions
+- **Email**: support@example.com
 
 ---
 
-**⭐ Star this repo if you find it useful!**
+## 🎯 Roadmap
+
+### v2.1.0 (Q2 2026)
+- [ ] WebSocket оновлення в реальному часі
+- [ ] Темна/Світла тема
+- [ ] Експорт звітів (CSV/PDF)
+
+### v2.2.0 (Q3 2026)
+- [ ] Технічні вікна обслуговування
+- [ ] Багатомовність (i18n)
+- [ ] Аудит логів
+
+### v3.0.0 (Q4 2026)
+- [ ] PostgreSQL підтримка
+- [ ] Кластеризація/HA
+- [ ] Мобільний додаток
+
+---
+
+**⭐ Додайте зірку якщо проект корисний!**
+
+**📢 Питання? Відкрийте issue або приєднуйтесь до обговорення!**

@@ -1,78 +1,78 @@
-# Installation and Update Guide
+# Посібник зі встановлення та оновлення
 
-**For complete installation instructions, see:**
+**Повні інструкції зі встановлення дивіться тут:**
 
-- **[INSTALL.md](../INSTALL.md)** — Full installation guide (Ukrainian)
-- **[QUICKSTART_UK.md](../QUICKSTART_UK.md)** — Quick start (5 minutes)
-- **[UPDATE_PRODUCTION.md](../UPDATE_PRODUCTION.md)** — Production update guide (with backup & rollback)
+- **[INSTALL.md](../INSTALL.md)** — Повний посібник зі встановлення (українською)
+- **[QUICKSTART_UK.md](../QUICKSTART_UK.md)** — Швидкий старт (5 хвилин)
+- **[UPDATE_PRODUCTION.md](../UPDATE_PRODUCTION.md)** — Посібник з оновлення на продакшені (з резервним копіюванням та відкатом)
 
 ---
 
-## Quick Install (Linux)
+## Швидке встановлення (Linux)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 ```
 
-Access: `http://YOUR_SERVER_IP:8080`
+Доступ: `http://YOUR_SERVER_IP:8080`
 
-> **Security:** Default credentials are `admin` / `auto-generated`.
+> **Безпека:** Облікові дані за замовчуванням — `admin` / `auto-generated`.
 
 ---
 
-## Update (Production)
+## Оновлення (продакшен)
 
-### ⭐ Recommended: One-command update (for curl-based install)
+### ⭐ Рекомендовано: оновлення однією командою (для встановлення через curl)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 ```
-The installer auto-detects existing installation, backups up DB + config, updates code, and restarts services.
+Інсталятор автоматично виявляє наявне встановлення, створює резервну копію БД та конфігурації, оновлює код і перезапускає сервіси.
 
-### Alternative: Automated deploy script (for Git-based install)
+### Альтернатива: автоматизований скрипт розгортання (для встановлення через Git)
 
 ```bash
 sudo /opt/uptime-monitor/deploy_update.sh
 ```
 
-### Manual update
+### Оновлення вручну
 
-See **[UPDATE_PRODUCTION.md](../UPDATE_PRODUCTION.md)** for safe update with:
-- Pre-update backup system
-- Code update (Git or ZIP or curl)
-- Database migration steps
-- Post-update verification (smoke tests)
-- Rollback procedure (with DB restore)
+Дивіться **[UPDATE_PRODUCTION.md](../UPDATE_PRODUCTION.md)** для безпечного оновлення з:
+- Системою резервного копіювання перед оновленням
+- Оновленням коду (Git, ZIP або curl)
+- Кроками міграції бази даних
+- Перевіркою після оновлення (smoke-тести)
+- Процедурою відкату (з відновленням БД)
 
 ---
 
-## Basic Commands
+## Основні команди
 
 ```bash
-# Service management
+# Керування сервісом
 sudo systemctl start|stop|restart|status uptime-monitor
 sudo systemctl start|stop|restart|status uptime-monitor-worker
 
-# One-command update (curl)
+# Оновлення однією командою (curl)
 curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 
-# Or deploy script (git-based)
+# Або скрипт розгортання (на основі git)
 sudo /opt/uptime-monitor/deploy_update.sh
 sudo /opt/uptime-monitor/deploy_update.sh --rollback
 
-# Backup
+# Резервне копіювання
 sudo /opt/uptime-monitor/scripts/backup-system.sh --dest /backup/ --verify
 
-# Logs
+# Логи
 sudo journalctl -u uptime-monitor -f
 sudo journalctl -u uptime-monitor-worker -f
 ```
 
 ---
 
-## Configuration Changes (v2.0.0)
+## Зміни в конфігурації (v2.0.0)
 
-New config options in `/etc/uptime-monitor/config.json`:
+Нові параметри конфігурації у `/etc/uptime-monitor/config.json`:
 
 ```json
 {
@@ -85,13 +85,13 @@ New config options in `/etc/uptime-monitor/config.json`:
 }
 ```
 
-- `cors.allow_origins` — Restrict to specific origins (e.g., `["https://myapp.com"]`)
-- `alert_policy.verify_ssl` — Set to `false` if monitoring sites with self-signed certificates
+- `cors.allow_origins` — Обмежте конкретними джерелами (наприклад, `["https://myapp.com"]`)
+- `alert_policy.verify_ssl` — Встановіть `false`, якщо моніторите сайти з самопідписаними сертифікатами
 
 ---
 
-## Troubleshooting
+## Усунення несправностей
 
-- **[docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md)** — General issues
-- **[docs/BACKUP.md](BACKUP.md)** — Backup problems
-- **[NOTIFICATION_TROUBLESHOOTING_UK.md](../NOTIFICATION_TROUBLESHOOTING_UK.md)** — Notification issues
+- **[docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md)** — Загальні проблеми
+- **[docs/BACKUP.md](BACKUP.md)** — Проблеми з резервним копіюванням
+- **[NOTIFICATION_TROUBLESHOOTING_UK.md](../NOTIFICATION_TROUBLESHOOTING_UK.md)** — Проблеми зі сповіщеннями

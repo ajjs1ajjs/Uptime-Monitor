@@ -1,44 +1,44 @@
-# Uptime Monitor API Documentation
+# Документація API Uptime Monitor
 
-Complete API reference for Uptime Monitor v2.1.0.
+Повний довідник API для Uptime Monitor v2.1.0.
 
-**Base URL:** `http://localhost:8080`
+**Базова URL-адреса:** `http://localhost:8080`
 
-**Authentication:** All API endpoints (except `/login`) require JWT session cookie.
-
----
-
-## Table of Contents
-
-1. [Authentication](#authentication)
-2. [Sites](#sites)
-3. [SSL Certificates](#ssl-certificates)
-4. [Statistics](#statistics)
-5. [Notifications](#notifications)
-6. [Public Status](#public-status)
-7. [System](#system)
+**Автентифікація:** Усі ендпоінти API (окрім `/login`) потребують JWT-куки сесії.
 
 ---
 
-## Authentication
+## Зміст
 
-### Login
+1. [Автентифікація](#authentication)
+2. [Сайти](#sites)
+3. [SSL-сертифікати](#ssl-certificates)
+4. [Статистика](#statistics)
+5. [Сповіщення](#notifications)
+6. [Публічний статус](#public-status)
+7. [Система](#system)
 
-Get session cookie for authentication.
+---
 
-**Endpoint:** `POST /login`
+## Автентифікація
 
-**Request:**
+### Вхід
+
+Отримати куку сесії для автентифікації.
+
+**Ендпоінт:** `POST /login`
+
+**Запит:**
 ```
 Content-Type: application/x-www-form-urlencoded
 
 username=admin&password=<your_password>
 ```
 
-> **Note (v2.0.0):** Default credentials are `admin` / `auto-generated`.
-> **Rate Limit:** 5 failed attempts per 15 minutes per IP. After exceeding — 429 Too Many Requests.
+> **Примітка (v2.0.0):** Облікові дані за замовчуванням — `admin` / `auto-generated`.
+> **Ліміт запитів:** 5 невдалих спроб на 15 хвилин для кожної IP-адреси. Після перевищення — 429 Too Many Requests.
 
-**Response:**
+**Відповідь:**
 ```
 302 Found
 Set-Cookie: session_id=abc123...; Path=/; HttpOnly
@@ -47,11 +47,11 @@ Location: /
 
 ---
 
-### Logout
+### Вихід
 
-**Endpoint:** `GET /logout`
+**Ендпоінт:** `GET /logout`
 
-**Response:**
+**Відповідь:**
 ```
 302 Found
 Location: /login
@@ -59,18 +59,18 @@ Location: /login
 
 ---
 
-## Sites
+## Сайти
 
-### List All Sites
+### Перелік усіх сайтів
 
-**Endpoint:** `GET /api/sites`
+**Ендпоінт:** `GET /api/sites`
 
-**Headers:**
+**Заголовки:**
 ```
 Cookie: session_id=<your_session>
 ```
 
-**Response:**
+**Відповідь:**
 ```json
 {
   "sites": [
@@ -93,11 +93,11 @@ Cookie: session_id=<your_session>
 
 ---
 
-### Add Site
+### Додавання сайту
 
-**Endpoint:** `POST /api/sites`
+**Ендпоінт:** `POST /api/sites`
 
-**Request:**
+**Запит:**
 ```json
 {
   "name": "My Website",
@@ -109,7 +109,7 @@ Cookie: session_id=<your_session>
 }
 ```
 
-**Response:**
+**Відповідь:**
 ```json
 {
   "id": 2,
@@ -119,11 +119,11 @@ Cookie: session_id=<your_session>
 
 ---
 
-### Get Site Details
+### Отримання деталей сайту
 
-**Endpoint:** `GET /api/sites/{site_id}`
+**Ендпоінт:** `GET /api/sites/{site_id}`
 
-**Response:**
+**Відповідь:**
 ```json
 {
   "id": 1,
@@ -141,11 +141,11 @@ Cookie: session_id=<your_session>
 
 ---
 
-### Update Site
+### Оновлення сайту
 
-**Endpoint:** `PUT /api/sites/{site_id}`
+**Ендпоінт:** `PUT /api/sites/{site_id}`
 
-**Request:**
+**Запит:**
 ```json
 {
   "name": "Updated Name",
@@ -154,7 +154,7 @@ Cookie: session_id=<your_session>
 }
 ```
 
-**Response:**
+**Відповідь:**
 ```json
 {
   "message": "Updated"
@@ -163,11 +163,11 @@ Cookie: session_id=<your_session>
 
 ---
 
-### Delete Site
+### Видалення сайту
 
-**Endpoint:** `DELETE /api/sites/{site_id}`
+**Ендпоінт:** `DELETE /api/sites/{site_id}`
 
-**Response:**
+**Відповідь:**
 ```json
 {
   "message": "Deleted"
@@ -176,13 +176,13 @@ Cookie: session_id=<your_session>
 
 ---
 
-### Manual Check
+### Ручна перевірка
 
-Trigger immediate status check.
+Ініціювати негайну перевірку статусу.
 
-**Endpoint:** `POST /api/sites/{site_id}/check`
+**Ендпоінт:** `POST /api/sites/{site_id}/check`
 
-**Response:**
+**Відповідь:**
 ```json
 {
   "message": "Check triggered"
@@ -191,18 +191,18 @@ Trigger immediate status check.
 
 ---
 
-### Get Site History
+### Отримання історії сайту
 
-Get status history for charts.
+Отримати історію статусів для графіків.
 
-**Endpoint:** `GET /api/sites/{site_id}/history`
+**Ендпоінт:** `GET /api/sites/{site_id}/history`
 
-**Query Parameters:**
-| Parameter | Type | Default | Description |
+**Параметри запиту:**
+| Параметр | Тип | За замовчуванням | Опис |
 |-----------|------|---------|-------------|
-| `limit` | int | 50 | Number of records to return |
+| `limit` | int | 50 | Кількість записів, які потрібно повернути |
 
-**Response:**
+**Відповідь:**
 ```json
 {
   "history": [
@@ -224,13 +224,13 @@ Get status history for charts.
 
 ---
 
-## SSL Certificates
+## SSL-сертифікати
 
-### List All SSL Certificates
+### Перелік усіх SSL-сертифікатів
 
-**Endpoint:** `GET /api/ssl-certificates`
+**Ендпоінт:** `GET /api/ssl-certificates`
 
-**Response:**
+**Відповідь:**
 ```json
 {
   "certificates": [
@@ -251,11 +251,11 @@ Get status history for charts.
 
 ---
 
-### Manual SSL Check
+### Ручна перевірка SSL
 
-**Endpoint:** `POST /api/ssl-certificates/check`
+**Ендпоінт:** `POST /api/ssl-certificates/check`
 
-**Response:**
+**Відповідь:**
 ```json
 {
   "message": "SSL check triggered"
@@ -264,13 +264,13 @@ Get status history for charts.
 
 ---
 
-## Statistics
+## Статистика
 
-### Get Response Time Statistics
+### Отримання статистики часу відповіді
 
-**Endpoint:** `GET /api/stats/response-time`
+**Ендпоінт:** `GET /api/stats/response-time`
 
-**Response:**
+**Відповідь:**
 ```json
 {
   "stats": [
@@ -288,13 +288,13 @@ Get status history for charts.
 
 ---
 
-### Get Incidents
+### Отримання інцидентів
 
-Get downtime incidents for last 7 days.
+Отримати інциденти простою за останні 7 днів.
 
-**Endpoint:** `GET /api/incidents`
+**Ендпоінт:** `GET /api/incidents`
 
-**Response:**
+**Відповідь:**
 ```json
 {
   "incidents": [
@@ -314,13 +314,13 @@ Get downtime incidents for last 7 days.
 
 ---
 
-## Notifications
+## Сповіщення
 
-### Get Notification Settings
+### Отримання налаштувань сповіщень
 
-**Endpoint:** `GET /api/notify-settings`
+**Ендпоінт:** `GET /api/notify-settings`
 
-**Response:**
+**Відповідь:**
 ```json
 {
   "telegram": {
@@ -344,11 +344,11 @@ Get downtime incidents for last 7 days.
 
 ---
 
-### Update Notification Settings
+### Оновлення налаштувань сповіщень
 
-**Endpoint:** `PUT /api/notify-settings`
+**Ендпоінт:** `PUT /api/notify-settings`
 
-**Request:**
+**Запит:**
 ```json
 {
   "telegram": {
@@ -374,23 +374,23 @@ Get downtime incidents for last 7 days.
 
 ---
 
-## Public Status
+## Публічний статус
 
-### Public Status Page
+### Сторінка публічного статусу
 
-Public endpoint (no authentication required).
+Публічний ендпоінт (автентифікація не потрібна).
 
-**Endpoint:** `GET /public-status`
+**Ендпоінт:** `GET /public-status`
 
-**Response:** HTML status page
+**Відповідь:** HTML-сторінка статусу
 
 ---
 
-### Public Status API
+### API публічного статусу
 
-**Endpoint:** `GET /api/public/status`
+**Ендпоінт:** `GET /api/public/status`
 
-**Response:**
+**Відповідь:**
 ```json
 {
   "overall_status": "operational",
@@ -412,13 +412,13 @@ Public endpoint (no authentication required).
 
 ---
 
-## System
+## Система
 
-### Health Check
+### Перевірка стану (Health Check)
 
-**Endpoint:** `GET /health`
+**Ендпоінт:** `GET /health`
 
-**Response:**
+**Відповідь:**
 ```json
 {
   "status": "healthy",
@@ -429,11 +429,11 @@ Public endpoint (no authentication required).
 
 ---
 
-### Get Server Time
+### Отримання серверного часу
 
-**Endpoint:** `GET /api/server-time`
+**Ендпоінт:** `GET /api/server-time`
 
-**Response:**
+**Відповідь:**
 ```json
 {
   "timestamp": 1710842400.0,
@@ -444,11 +444,11 @@ Public endpoint (no authentication required).
 
 ---
 
-### Get App Settings
+### Отримання налаштувань застосунку
 
-**Endpoint:** `GET /api/app-settings`
+**Ендпоінт:** `GET /api/app-settings`
 
-**Response:**
+**Відповідь:**
 ```json
 {
   "display_address": "Kyiv, Ukraine",
@@ -459,11 +459,11 @@ Public endpoint (no authentication required).
 
 ---
 
-### Update App Settings
+### Оновлення налаштувань застосунку
 
-**Endpoint:** `PUT /api/app-settings`
+**Ендпоінт:** `PUT /api/app-settings`
 
-**Request:**
+**Запит:**
 ```json
 {
   "display_address": "New Address",
@@ -473,7 +473,7 @@ Public endpoint (no authentication required).
 
 ---
 
-## Error Responses
+## Відповіді з помилками
 
 ### 400 Bad Request
 ```json
@@ -512,42 +512,42 @@ Public endpoint (no authentication required).
 
 ---
 
-## Rate Limiting
+## Обмеження частоти запитів (Rate Limiting)
 
-Rate limiting is applied to authentication endpoints:
+Обмеження частоти запитів застосовується до ендпоінтів автентифікації:
 
-| Endpoint | Limit | Window | Block Duration |
+| Ендпоінт | Ліміт | Вікно | Тривалість блокування |
 |----------|-------|--------|----------------|
-| `POST /login` | 5 failed attempts | 15 minutes per IP | Until window expires |
+| `POST /login` | 5 невдалих спроб | 15 хвилин на IP-адресу | До завершення вікна |
 
-Exceeding the limit returns `429 Too Many Requests` with message:
+Перевищення ліміту повертає `429 Too Many Requests` з повідомленням:
 ```
 Too many login attempts. Try again later.
 ```
 
-Other API endpoints are **not** currently rate-limited (planned for v2.1).
+Інші ендпоінти API наразі **не** мають обмеження частоти запитів (заплановано для v2.1).
 
 ---
 
-## SDK Examples
+## Приклади SDK
 
 ### Python
 
 ```python
 import requests
 
-# Login (use your actual password from install output)
+# Вхід (використовуйте ваш фактичний пароль із виводу інсталяції)
 session = requests.Session()
 resp = session.post('http://localhost:8080/login', data={
     'username': 'admin',
     'password': 'YOUR_ADMIN_PASSWORD'
 })
 
-# Get sites
+# Отримати сайти
 resp = session.get('http://localhost:8080/api/sites')
 sites = resp.json()
 
-# Add site
+# Додати сайт
 resp = session.post('http://localhost:8080/api/sites', json={
     'name': 'My Site',
     'url': 'https://mysite.com',
@@ -557,7 +557,7 @@ resp = session.post('http://localhost:8080/api/sites', json={
     'monitor_type': 'http'
 })
 
-# Get history
+# Отримати історію
 resp = session.get('http://localhost:8080/api/sites/1/history', params={'limit': 100})
 history = resp.json()['history']
 ```
@@ -565,17 +565,17 @@ history = resp.json()['history']
 ### cURL
 
 ```bash
-# Login and save cookie (use your actual password from install output)
+# Вхід і збереження куки (використовуйте ваш фактичний пароль із виводу інсталяції)
 curl -X POST http://localhost:8080/login \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "username=admin&password=YOUR_ADMIN_PASSWORD" \
   -c cookies.txt
 
-# Get sites
+# Отримати сайти
 curl -X GET http://localhost:8080/api/sites \
   -b cookies.txt
 
-# Add site
+# Додати сайт
 curl -X POST http://localhost:8080/api/sites \
   -b cookies.txt \
   -H "Content-Type: application/json" \
@@ -591,22 +591,22 @@ curl -X POST http://localhost:8080/api/sites \
 ```javascript
 const axios = require('axios');
 
-// Create instance with cookie
+// Створення екземпляра з кукою
 const api = axios.create({
   baseURL: 'http://localhost:8080',
   withCredentials: true
 });
 
-// Login (use your actual password from install output)
+// Вхід (використовуйте ваш фактичний пароль із виводу інсталяції)
 await api.post('/login', null, {
   params: { username: 'admin', password: 'YOUR_ADMIN_PASSWORD' }
 });
 
-// Get sites
+// Отримати сайти
 const { data } = await api.get('/api/sites');
 console.log(data.sites);
 
-// Add site
+// Додати сайт
 await api.post('/api/sites', {
   name: 'My Site',
   url: 'https://mysite.com',
@@ -616,13 +616,13 @@ await api.post('/api/sites', {
 
 ---
 
-## Webhooks
+## Вебхуки
 
-### Incident Webhook
+### Вебхук інциденту
 
-Configure webhook to receive incident notifications.
+Налаштуйте вебхук для отримання сповіщень про інциденти.
 
-**Payload:**
+**Корисне навантаження (payload):**
 ```json
 {
   "event": "incident",
@@ -636,9 +636,9 @@ Configure webhook to receive incident notifications.
 }
 ```
 
-### Recovery Webhook
+### Вебхук відновлення
 
-**Payload:**
+**Корисне навантаження (payload):**
 ```json
 {
   "event": "recovery",
@@ -654,8 +654,8 @@ Configure webhook to receive incident notifications.
 
 ---
 
-## Support
+## Підтримка
 
-For issues or questions:
+З питань або проблем:
 - **GitHub Issues**: https://github.com/ajjs1ajjs/Uptime-Monitor/issues
-- **Documentation**: https://github.com/ajjs1ajjs/Uptime-Monitor/tree/main/docs
+- **Документація**: https://github.com/ajjs1ajjs/Uptime-Monitor/tree/main/docs

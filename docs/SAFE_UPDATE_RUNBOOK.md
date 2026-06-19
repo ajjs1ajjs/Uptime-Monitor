@@ -228,7 +228,7 @@ curl -fsS http://localhost:8080/health | python3 -c "import sys,json; d=json.loa
 
 ---
 
-## 🧭 Best Practices
+## 🧭 Найкращі практики
 
 - Завжди роби backup **до** апдейту.
 - На критичних змінах завжди використовуй `--verify`.

@@ -5,7 +5,7 @@ UPTIME MONITOR - ВСТАНОВЛЕННЯ, РЕЗЕРВНЕ КОПІЮВАННЯ
 
 Основні документи:
 - ../INSTALL.md
-- ../docs/QUICKSTART.md
+- ../QUICKSTART_UK.md
 - ../docs/COMMANDS.md
 - ../docs/TROUBLESHOOTING.md
 - ../docs/BACKUP.md

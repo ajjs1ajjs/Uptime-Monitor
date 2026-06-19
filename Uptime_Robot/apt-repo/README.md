@@ -1,15 +1,15 @@
-# APT Repository for Uptime Monitor
+# APT-репозиторій для Uptime Monitor
 
 Ця гілка містить репозиторій APT для Uptime Monitor.
 
 ## Використання
 
 ```bash
-# Add repository
+# Додати репозиторій
 curl -fsSL https://ajjs1ajjs.github.io/Uptime-Monitor/KEY.gpg | sudo gpg --dearmor -o /usr/share/keyrings/uptime-monitor.gpg
 echo "deb [signed-by=/usr/share/keyrings/uptime-monitor.gpg] https://ajjs1ajjs.github.io/Uptime-Monitor stable main" | sudo tee /etc/apt/sources.list.d/uptime-monitor.list
 
-# Install
+# Встановити
 sudo apt update
 sudo apt install uptime-monitor
 ```
