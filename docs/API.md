@@ -1,6 +1,6 @@
 # Документація API Uptime Monitor
 
-Повний довідник API для Uptime Monitor v2.1.0.
+Повний довідник API для Uptime Monitor v2.2.0.
 
 **Базова URL-адреса:** `http://localhost:8080`
 

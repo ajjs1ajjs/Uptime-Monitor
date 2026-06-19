@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [2.2.0] - 2026-06-19
 
 ### Security
 
@@ -26,6 +26,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Reverse-proxy aware rate limiting** — set `UPTIME_MONITOR_TRUSTED_PROXIES`
   (comma-separated proxy IPs) to honour `X-Forwarded-For` so per-IP limits apply to
   real clients instead of the proxy. Defaults to off (direct peer IP).
+- **CSRF fail-closed** — cookie-authenticated `/api/*` state-changing requests are
+  now rejected when the `Origin`/`Referer` is missing or cross-origin (API-key
+  clients are exempt; CSRF tokens compared in constant time).
+- **Secrets fail closed** — when the encryption backend is unavailable, secrets are
+  no longer silently written in plaintext; the save is refused instead.
+- **Least-privilege roles** — new users default to `viewer` (was `admin`); the last
+  remaining admin can no longer be demoted or deleted (API and CLI).
+- **Check-time SSRF defense** — HTTP/Ping/Port/DNS monitors re-validate the resolved
+  IP at check time and HTTP redirects are followed manually with per-hop validation,
+  defeating DNS rebinding and redirect-based SSRF to internal hosts.
+- **Session invalidation** — changing or admin-resetting a password now revokes all
+  of that user's existing sessions (the actor is re-issued a fresh session).
+- **Temporary-password gate enforced on the API** — accounts flagged
+  `must_change_password` (incl. API-key auth) can no longer drive the JSON API
+  until the password is changed.
+- **ReDoS guard** — user-supplied `regex:` keyword checks run in a worker thread with
+  a timeout so a catastrophic pattern cannot block the monitoring loop.
+- **Key/credentials file permissions on Windows** — `master.key` and `credentials.txt`
+  get an explicit ACL lockdown (icacls), matching the POSIX `chmod 0o600`.
 
 ### Fixed
 
@@ -39,6 +58,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `monitor_loop` no longer re-queries notification settings every 5 s when the DB
   config is empty.
 - Telegram `reply_markup` no longer raises on plain-string messages.
+- **SMS alerts no longer crash** — `send_sms` normalises dict alert payloads to text
+  (previously raised `TypeError` and silently dropped every SMS).
+- **Windows service startup** — no longer calls `asyncio.get_running_loop()` with no
+  running loop (which reported the service STOPPED); it owns an explicit loop.
+- **Atomic monitor writes** — `check_site_status` persists status, history and
+  counters in a single transaction; the alert decision is computed before the write
+  and notifications are sent after commit. `failed_attempts` now increments for sites
+  without notification channels, and write failures are no longer swallowed.
+- **Truthful uptime %** — a `status_history` row is recorded on every check (bounded
+  by the 30-day retention), so uptime = up/total is a real ratio, not transition rows.
+- **Notification accuracy** — `send_slack` formats dict alerts instead of dumping a
+  Python `repr`; per-method sent/failed status is recorded; the duplicate
+  `notifications_sent` metric increment was removed; Telegram `callback_data` is
+  truncated to 64 bytes (not characters).
+- **Maintenance windows** — daily/weekly windows are evaluated in local wall-clock
+  time instead of UTC.
+- **Worker shutdown** — cancels the main task and cleans up in a `finally` block
+  instead of racing `loop.stop()`.
+- **No orphan rows** — `delete_site` also removes the site's `maintenance_windows`
+  and `notification_history`; retention added for `audit_log` and `backups`.
+- **SLA report** — counts distinct outages (status transitions), not every down check.
+- Background `create_task` calls keep a strong reference and log exceptions.
 
 ### Changed
 

@@ -64,7 +64,7 @@ VOLUME ["/data", "/config", "/logs"]
 
 # Labels
 LABEL maintainer="Uptime Monitor Team"
-LABEL version="2.0.0"
+LABEL version="2.2.0"
 LABEL description="Enterprise Uptime Monitoring with Backup & SSL"
 LABEL org.opencontainers.image.source="https://github.com/ajjs1ajjs/Uptime-Monitor"
 
