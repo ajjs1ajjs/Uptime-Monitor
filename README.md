@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Платформа](https://img.shields.io/badge/платформа-Linux%20%7C%20Windows-lightgrey.svg)]()
 
-**Моніторинг доступності з автоматичним резервним копіюванням, SSL сертифікатами та сповіщеннями.**
+**Моніторинг доступності сервісів, SSL сертифікатами та сповіщеннями.**
 
 <p align="center">
   <img src="https://img.shields.io/badge/uptime-24/7-green" alt="24/7 Uptime">
