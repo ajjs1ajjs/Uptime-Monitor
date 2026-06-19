@@ -890,3 +890,43 @@ class TestRoleManagementGuards:
             ) as c:
                 row = await c.fetchone()
         assert row["role"] == "viewer"
+
+
+class TestAuditFixRegressions:
+    @pytest.mark.asyncio
+    async def test_change_password_invalidates_sessions(self, test_db):
+        from Uptime_Robot import auth_module
+        await auth_module.init_auth_tables(test_db)
+        # find admin id
+        from Uptime_Robot.database import get_db_connection
+        async with get_db_connection(test_db) as conn:
+            async with conn.execute("SELECT id FROM users WHERE username='admin'") as c:
+                uid = (await c.fetchone())[0]
+        sid = await auth_module.create_session(uid, test_db)
+        assert await auth_module.validate_session(sid, test_db) is not None
+        ok = await auth_module.change_password(uid, "BrandNewP@ss123", test_db)
+        assert ok
+        # old session must no longer validate
+        assert await auth_module.validate_session(sid, test_db) is None
+
+    @pytest.mark.asyncio
+    async def test_delete_site_cascades_children(self, test_db, sample_site):
+        from Uptime_Robot.database import get_db_connection
+        from Uptime_Robot.models import delete_site
+        async with get_db_connection(test_db) as conn:
+            await conn.execute(
+                "INSERT INTO maintenance_windows (name, site_id, rule_type) VALUES ('w', ?, 'one_off')",
+                (sample_site,),
+            )
+            await conn.execute(
+                "INSERT INTO notification_history (site_id, site_name, method, status) VALUES (?, 'S', 'email', 'sent')",
+                (sample_site,),
+            )
+            await conn.commit()
+        assert await delete_site(test_db, sample_site) is True
+        async with get_db_connection(test_db) as conn:
+            for table in ("maintenance_windows", "notification_history", "status_history"):
+                async with conn.execute(
+                    f"SELECT COUNT(*) FROM {table} WHERE site_id = ?", (sample_site,)
+                ) as c:
+                    assert (await c.fetchone())[0] == 0, f"orphans left in {table}"

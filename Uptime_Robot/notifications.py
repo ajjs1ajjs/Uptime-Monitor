@@ -13,6 +13,15 @@ from .logger import logger
 from .metrics_store import increment_metric
 
 
+def _telegram_cb(data: str) -> str:
+    """Truncate Telegram callback_data to its 64-BYTE limit.
+
+    String slicing ([:64]) counts code points, so a Cyrillic/emoji site name
+    can still exceed 64 bytes within 64 chars and Telegram rejects the message.
+    """
+    return data.encode("utf-8")[:64].decode("utf-8", "ignore")
+
+
 def format_telegram_message(data: dict[str, Any], alert_type: str = "down") -> str:
     """Форматує повідомлення для Telegram"""
     site_name = data.get("site_name", "Unknown")
@@ -481,15 +490,19 @@ async def send_telegram(message: Union[str, dict], settings: dict[str, Any]) -> 
                     [
                         {
                             "text": "✅ Acknowledge",
-                            "callback_data": f"ack_{message.get('site_name', '')}"[:64],
+                            "callback_data": _telegram_cb(f"ack_{message.get('site_name', '')}"),
                         },
                         {
                             "text": "🔇 Silence 1h",
-                            "callback_data": f"silence1h_{message.get('site_name', '')}"[:64],
+                            "callback_data": _telegram_cb(
+                                f"silence1h_{message.get('site_name', '')}"
+                            ),
                         },
                         {
                             "text": "🔕 Silence 6h",
-                            "callback_data": f"silence6h_{message.get('site_name', '')}"[:64],
+                            "callback_data": _telegram_cb(
+                                f"silence6h_{message.get('site_name', '')}"
+                            ),
                         },
                     ]
                 ]
@@ -571,7 +584,18 @@ async def send_slack(message: Union[str, dict], settings: dict[str, Any]) -> boo
 
     try:
         if isinstance(message, dict):
-            text = message.get("error", str(message))
+            # Build a readable line from the alert fields. Falling back to
+            # str(message) would post a raw Python dict repr (recovery/SSL
+            # alerts have no "error" key).
+            alert_type = message.get("alert_type", "alert")
+            parts = [f"[{alert_type}] {message.get('site_name', 'N/A')}"]
+            if message.get("url"):
+                parts.append(message["url"])
+            if message.get("status_code"):
+                parts.append(f"status={message['status_code']}")
+            if message.get("error"):
+                parts.append(str(message["error"]))
+            text = " — ".join(parts)
         else:
             text = message
         payload = {"text": text}
@@ -633,13 +657,24 @@ async def send_sms(message: Union[str, dict], settings: dict[str, Any]) -> bool:
     if not all([account_sid, auth_token, from_number, to_number]):
         return False
 
+    # Normalize dict alerts to text (all real callers pass a dict); otherwise
+    # message[:1600] raises TypeError and the SMS silently never sends.
+    if isinstance(message, dict):
+        body = (
+            f"Uptime Monitor ({message.get('alert_type', 'alert')}): "
+            f"{message.get('site_name', 'N/A')} - "
+            f"{message.get('error') or message.get('url', '')}"
+        )
+    else:
+        body = message
+
     try:
         url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
         auth = aiohttp.BasicAuth(str(account_sid), str(auth_token))
         payload = {
             "From": str(from_number),
             "To": str(to_number),
-            "Body": message[:1600],
+            "Body": body[:1600],
         }
         async with session_scope() as session:
             async with session.post(url, data=payload, auth=auth) as response:

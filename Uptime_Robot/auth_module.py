@@ -266,8 +266,20 @@ async def cleanup_expired_sessions(db_path: str) -> None:
         logger.error("Expired session cleanup failed: %s", e)
 
 
+async def delete_user_sessions(user_id: int, db_path: str) -> None:
+    """Delete ALL sessions for a user (used after a password change/reset)."""
+    async with get_db_connection(db_path) as conn:
+        await conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+        await conn.commit()
+
+
 async def change_password(user_id: int, new_password: str, db_path: str) -> bool:
-    """Змінює пароль користувача"""
+    """Змінює пароль користувача.
+
+    Invalidates every existing session for the user: a password change/reset
+    must evict any other (possibly compromised) live session. The caller that
+    represents the acting user should mint a fresh session afterwards.
+    """
     try:
         async with get_db_connection(db_path) as conn:
             password_hash = hash_password(new_password)
@@ -276,6 +288,7 @@ async def change_password(user_id: int, new_password: str, db_path: str) -> bool
                 "UPDATE users SET password_hash = ?, password_encrypted = ?, must_change_password = 0 WHERE id = ?",
                 (password_hash, encrypted or None, user_id),
             )
+            await conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
             await conn.commit()
         _save_credentials_file(new_password)
         return True
@@ -449,7 +462,7 @@ async def validate_api_key(db_path: str, api_key: str) -> dict:
     key_hash = _hash_api_key(api_key)
     async with get_db_connection(db_path) as conn:
         async with conn.execute(
-            """SELECT k.key_id, k.user_id, k.last_used_at, u.username, u.role
+            """SELECT k.key_id, k.user_id, k.last_used_at, u.username, u.role, u.must_change_password
                FROM api_keys k JOIN users u ON k.user_id = u.id
                WHERE k.key_hash = ? AND k.is_active = 1""",
             (key_hash,),
@@ -482,6 +495,7 @@ async def validate_api_key(db_path: str, api_key: str) -> dict:
         "user_id": row["user_id"],
         "username": row["username"],
         "role": row["role"],
+        "must_change_password": row["must_change_password"],
         "auth_method": "api_key",
     }
 

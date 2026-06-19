@@ -17,6 +17,30 @@ from ..state import DB_PATH
 
 router = APIRouter(prefix="/api")
 
+# The event loop keeps only a weak reference to tasks, so a fire-and-forget
+# create_task can be garbage-collected mid-run. Hold a strong reference until
+# the task finishes and log any exception (otherwise failures are swallowed).
+_bg_tasks: set = set()
+
+
+def _spawn_bg(coro, label: str):
+    task = asyncio.create_task(coro)
+    _bg_tasks.add(task)
+
+    def _done(t):
+        _bg_tasks.discard(t)
+        try:
+            exc = t.exception()
+        except asyncio.CancelledError:
+            return
+        if exc:
+            from ..logger import logger
+
+            logger.error("Background task %s failed: %s", label, exc)
+
+    task.add_done_callback(_done)
+    return task
+
 
 class SiteCreate(BaseModel):
     name: str
@@ -327,14 +351,16 @@ async def add_site(site: SiteCreate, user: dict = Depends(require_admin)):
         f"name={site.name}, url={url}",
     )
 
-    asyncio.create_task(
-        monitoring.check_site_status(site_id, url, site.notify_methods, app_state.NOTIFY_SETTINGS)
+    _spawn_bg(
+        monitoring.check_site_status(site_id, url, site.notify_methods, app_state.NOTIFY_SETTINGS),
+        f"check_site_status[{site_id}]",
     )
     if m_type == "ssl" or url.lower().startswith("https://"):
-        asyncio.create_task(
+        _spawn_bg(
             monitoring.check_site_certificate(
                 site_id, url, site.notify_methods, app_state.NOTIFY_SETTINGS
-            )
+            ),
+            f"check_site_certificate[{site_id}]",
         )
 
     return {"id": site_id, "message": "Site added"}
@@ -641,10 +667,24 @@ async def save_notify(settings: NotifySettingsModel, user: dict = Depends(requir
     if not user:
         raise HTTPException(401)
     new_data = settings.dict(exclude_unset=True)
+    # Build a candidate and persist FIRST. save_notify_settings can now raise
+    # (encryption fails closed), so mutating the live in-memory settings before
+    # a successful write would leave the running process diverged from disk.
+    candidate = dict(app_state.NOTIFY_SETTINGS)
     for k, v in new_data.items():
         if v is not None:
-            app_state.NOTIFY_SETTINGS[k] = v
-    await models.save_notify_settings(DB_PATH, app_state.NOTIFY_SETTINGS)
+            candidate[k] = v
+    try:
+        await models.save_notify_settings(DB_PATH, candidate)
+    except Exception as e:
+        from ..logger import logger
+
+        logger.error("Failed to persist notification settings: %s", e)
+        raise HTTPException(
+            status_code=503, detail="Could not save settings (encryption unavailable)"
+        ) from e
+    app_state.NOTIFY_SETTINGS.clear()
+    app_state.NOTIFY_SETTINGS.update(candidate)
     return {"message": "Saved"}
 
 

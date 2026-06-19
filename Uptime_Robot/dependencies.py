@@ -45,12 +45,25 @@ async def get_current_user(request: Request):
     return None
 
 
+def _enforce_password_change(user: dict):
+    """Block API access for a user who must still change a temporary password.
+
+    The HTML dashboard already redirects such users to /change-password, but the
+    JSON API never checked the flag, so an admin-reset account could keep driving
+    the whole API on its temporary password. The /change-password form route
+    uses get_current_user directly (not these dependencies), so it stays usable.
+    """
+    if user.get("must_change_password"):
+        raise HTTPException(status_code=403, detail="Password change required")
+
+
 def require_admin(user: dict = Depends(get_current_user)):
     """Dependency to require admin role"""
     if not user:
         raise HTTPException(status_code=401, detail="Authentication required")
     if not auth_module.is_admin(user):
         raise HTTPException(status_code=403, detail="Admin access required")
+    _enforce_password_change(user)
     return user
 
 
@@ -60,4 +73,5 @@ def require_viewer_or_higher(user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=401, detail="Authentication required")
     if not auth_module.is_viewer_or_higher(user):
         raise HTTPException(status_code=403, detail="Viewer or admin access required")
+    _enforce_password_change(user)
     return user

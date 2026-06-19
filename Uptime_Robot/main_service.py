@@ -65,14 +65,17 @@ if IS_WINDOWS:
             self.ReportServiceStatus(win32service.SERVICE_START_PENDING, waitHint=30000)
 
             try:
-                # Initialize app (Sync wrapper handles loop)
-                app_main.initialize_app()
+                # Create and own the event loop explicitly. (initialize_app()
+                # runs its async init on a loop that is NOT left running, so
+                # asyncio.get_running_loop() here would raise "no running event
+                # loop" and the service would report STOPPED on startup.)
+                app_main.config_manager.init_paths()
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(app_main.initialize_app_async())
 
-                # Get the event loop created by initialize_app
-                loop = asyncio.get_running_loop()
-
-                # Start monitoring in the background
-                asyncio.create_task(
+                # Start monitoring in the background on this loop
+                loop.create_task(
                     app_main.monitoring.monitor_loop(
                         app_state.NOTIFY_SETTINGS, app_state.CHECK_INTERVAL
                     )

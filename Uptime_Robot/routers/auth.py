@@ -151,7 +151,19 @@ async def change_password(
         )
 
     if await auth_module.change_password(user["user_id"], new_password, DB_PATH):
-        return RedirectResponse(url="/?message=Password updated", status_code=302)
+        # change_password invalidated ALL of this user's sessions (including the
+        # current one). Mint a fresh session so the acting user stays logged in.
+        new_session_id = await auth_module.create_session(user["user_id"], DB_PATH)
+        response = RedirectResponse(url="/?message=Password updated", status_code=302)
+        response.set_cookie(
+            key="session_id",
+            value=new_session_id,
+            httponly=True,
+            max_age=604800,
+            secure=request.url.scheme == "https",
+            samesite="lax",
+        )
+        return response
     else:
         return RedirectResponse(url="/change-password?error=Update failed", status_code=302)
 

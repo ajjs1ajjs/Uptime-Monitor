@@ -59,6 +59,23 @@ class TestSsrfCheckTimeGuard:
         with patch("socket.getaddrinfo", side_effect=socket.gaierror):
             assert _host_resolves_to_blocked("nonexistent.invalid") is False
 
+    @pytest.mark.asyncio
+    async def test_check_http_blocks_internal_host_before_request(self):
+        # _check_http must reject an internal target at check time (DNS rebinding
+        # defense), without issuing any HTTP request.
+        from datetime import datetime
+
+        from Uptime_Robot.monitoring import _check_http
+        policy = {"request_timeout_seconds": 5, "treat_4xx_as_down": True, "verify_ssl": True}
+        with patch("aiohttp.ClientSession") as mock_session:
+            status, code, rt, err = await _check_http(
+                "http://127.0.0.1/admin", datetime.now(timezone.utc), policy, None
+            )
+        assert status == "down"
+        assert err == "Blocked internal address"
+        # No HTTP request must be issued for a blocked target.
+        mock_session.return_value.get.assert_not_called()
+
 SENSITIVE_KEYS = {
     "request_timeout_seconds", "grace_period_seconds", "up_success_threshold",
     "still_down_repeat_seconds", "treat_4xx_as_down", "ssl_notification_days",
@@ -285,7 +302,9 @@ class TestDailyMaintenanceMidnight:
         from Uptime_Robot.monitoring.maintenance import is_under_maintenance
 
         # Test window: start 23:00, duration 120 mins (23:00 - 01:00)
-        # Evaluated at 00:30 (next day) -> should return True
+        # Evaluated at 00:30 (next day) -> should return True.
+        # Daily/weekly windows are evaluated in LOCAL wall-clock time, so the
+        # simulated "now" must be a local-aware 00:30.
         mock_row = {
             "rule_type": "daily",
             "start_hour_minute": "23:00",
@@ -293,13 +312,15 @@ class TestDailyMaintenanceMidnight:
             "site_id": 1,
             "is_active": 1
         }
-        
-        eval_time = datetime(2026, 6, 4, 0, 30, 0, tzinfo=timezone.utc)
+
+        eval_time_utc = datetime(2026, 6, 4, 0, 30, 0, tzinfo=timezone.utc)
+        eval_time_local = datetime(2026, 6, 4, 0, 30, 0).astimezone()
 
         class MockDateTime:
             @classmethod
             def now(cls, tz=None):
-                return eval_time
+                # now(timezone.utc) -> UTC clock (one_off); now() -> local clock
+                return eval_time_utc if tz is not None else eval_time_local
             @classmethod
             def fromisoformat(cls, s):
                 return datetime.fromisoformat(s)

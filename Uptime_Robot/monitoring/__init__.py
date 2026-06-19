@@ -162,49 +162,97 @@ async def _check_port(url: str, start_time: datetime, timeout: int) -> tuple:
             pass
 
 
+_REDIRECT_CODES = (301, 302, 303, 307, 308)
+_MAX_REDIRECTS = 5
+_REGEX_TIMEOUT_SECONDS = 2
+
+
+async def _match_keyword(keyword: str, body_text: str) -> Optional[str]:
+    """Apply a keyword/regex content check. Returns an error string or None.
+
+    Regex matching runs in a worker thread with a timeout so a catastrophic
+    backtracking pattern (ReDoS) against an attacker-influenced body cannot
+    block the monitoring event loop.
+    """
+    if keyword.startswith("regex:"):
+        import re
+
+        pattern = keyword[6:]
+        try:
+            compiled = re.compile(pattern)
+        except re.error as e:
+            return f"Invalid regex pattern: {e}"
+        try:
+            matched = await asyncio.wait_for(
+                asyncio.to_thread(compiled.search, body_text), timeout=_REGEX_TIMEOUT_SECONDS
+            )
+        except asyncio.TimeoutError:
+            return "Regex evaluation timed out"
+        if not matched:
+            return "Regex pattern not matched"
+    elif keyword not in body_text:
+        return "Keyword not found"
+    return None
+
+
 async def _check_http(
     url: str, start_time: datetime, policy: dict, keyword: Optional[str]
 ) -> tuple:
     import sys
+    from urllib.parse import urljoin, urlparse
 
     _os = "Windows NT 10.0; Win64; x64" if sys.platform == "win32" else "X11; Linux x86_64"
     headers = {"User-Agent": f"Mozilla/5.0 ({_os}) AppleWebKit/537.36"}
     # Reuse the shared pooled session (keep-alive / connection reuse) instead of
     # building and tearing down a ClientSession on every single check.
     session = await get_session()
-    async with session.get(
-        url,
-        timeout=aiohttp.ClientTimeout(total=policy["request_timeout_seconds"]),
-        headers=headers,
-        ssl=policy.get("verify_ssl", True),
-        allow_redirects=True,
-    ) as response:
-        status_code = response.status
-        response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+    timeout = aiohttp.ClientTimeout(total=policy["request_timeout_seconds"])
+    verify_ssl = policy.get("verify_ssl", True)
 
-        if keyword:
-            try:
-                body_text = await response.text(errors="ignore")
-            except Exception:
-                body_text = ""
-            if keyword.startswith("regex:"):
-                import re
+    # Follow redirects MANUALLY so every hop's host is re-validated against the
+    # blocked-IP set. With allow_redirects=True aiohttp would transparently
+    # follow a 30x Location into 127.0.0.1 / 169.254.169.254 / RFC1918, and the
+    # creation-time SSRF check (which only saw the original host) would be
+    # bypassed. Re-resolving each hop also defeats DNS rebinding on the target.
+    current_url = url
+    for _hop in range(_MAX_REDIRECTS + 1):
+        if _host_resolves_to_blocked(urlparse(current_url).hostname or ""):
+            response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            return "down", None, response_time, "Blocked internal address"
 
-                pattern = keyword[6:]
+        async with session.get(
+            current_url,
+            timeout=timeout,
+            headers=headers,
+            ssl=verify_ssl,
+            allow_redirects=False,
+        ) as response:
+            status_code = response.status
+
+            location = response.headers.get("Location") if status_code in _REDIRECT_CODES else None
+            if location:
+                current_url = urljoin(current_url, location)
+                continue
+
+            response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+
+            if keyword:
                 try:
-                    if not re.search(pattern, body_text):
-                        return "down", status_code, response_time, "Regex pattern not matched"
-                except Exception as e:
-                    return "down", status_code, response_time, f"Invalid regex pattern: {e}"
-            else:
-                if keyword not in body_text:
-                    return "down", status_code, response_time, "Keyword not found"
+                    body_text = await response.text(errors="ignore")
+                except Exception:
+                    body_text = ""
+                err = await _match_keyword(keyword, body_text)
+                if err:
+                    return "down", status_code, response_time, err
 
-        if policy["treat_4xx_as_down"]:
-            status = "up" if 200 <= status_code < 400 else "down"
-        else:
-            status = "up" if status_code < 500 else "down"
-        return status, status_code, response_time, None
+            if policy["treat_4xx_as_down"]:
+                status = "up" if 200 <= status_code < 400 else "down"
+            else:
+                status = "up" if status_code < 500 else "down"
+            return status, status_code, response_time, None
+
+    response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+    return "down", None, response_time, "Too many redirects"
 
 
 _flap_state: dict[int, dict] = {}
@@ -257,12 +305,10 @@ def _check_flapping(site_id: int, prev_status: str, status: str, policy: dict) -
     return False
 
 
-async def _process_alerting(
+def _process_alerting(
     status,
     prev_status,
     notify_methods,
-    notify_settings,
-    site_id,
     site_name,
     url,
     status_code,
@@ -274,14 +320,25 @@ async def _process_alerting(
     first_failure_at_str,
     skip_alert,
 ):
+    """Pure decision step: compute the new counters/alert-state and the list of
+    alert messages to dispatch.
+
+    It performs NO network or DB I/O so it can run inside the single write
+    transaction in check_site_status. The caller sends `alerts` AFTER the commit.
+    Returns (failed_attempts, success_attempts, last_down_alert, first_failure_at, alerts).
+    """
     checked_at_dt = checked_at
     last_down_alert = datetime.fromisoformat(last_down_alert_str) if last_down_alert_str else None
     first_failure_at = (
         datetime.fromisoformat(first_failure_at_str) if first_failure_at_str else None
     )
     policy = get_alert_policy()
+    alerts: list[dict] = []
 
-    if status == "down" and notify_methods:
+    if status == "down":
+        # Consecutive-failure bookkeeping must run for EVERY down result, not
+        # only when notify_methods is set — otherwise sites without alert
+        # channels report a stuck failed_attempts counter.
         failed_attempts += 1
         success_attempts = 0
         should_alert = False
@@ -308,20 +365,19 @@ async def _process_alerting(
                     should_alert = True
                     alert_type = "REPEAT"
 
-        if should_alert and not skip_alert:
-            msg = {
-                "alert_type": "down" if alert_type == "NEW" else "still_down",
-                "site_name": site_name,
-                "url": url,
-                "status_code": status_code or "N/A",
-                "error": error_message or "None",
-                "checked_at": checked_at_dt.isoformat(),
-            }
-            await send_notification(msg, notify_methods, notify_settings, site_id, site_name)
+        if should_alert and notify_methods and not skip_alert:
+            alerts.append(
+                {
+                    "alert_type": "down" if alert_type == "NEW" else "still_down",
+                    "site_name": site_name,
+                    "url": url,
+                    "status_code": status_code or "N/A",
+                    "error": error_message or "None",
+                    "checked_at": checked_at_dt.isoformat(),
+                }
+            )
             last_down_alert = checked_at_dt
-            increment_metric("notifications_sent")
-
-    if status == "up":
+    elif status == "up":
         failed_attempts = 0
         first_failure_at = None
         success_attempts += 1
@@ -331,21 +387,21 @@ async def _process_alerting(
             and success_attempts >= policy["up_success_threshold"]
             and not skip_alert
         ):
-            msg = {
-                "alert_type": "up",
-                "site_name": site_name,
-                "url": url,
-                "status_code": status_code,
-                "response_time": None,
-                "checked_at": checked_at_dt.isoformat(),
-            }
-            await send_notification(msg, notify_methods, notify_settings, site_id, site_name)
+            alerts.append(
+                {
+                    "alert_type": "up",
+                    "site_name": site_name,
+                    "url": url,
+                    "status_code": status_code,
+                    "response_time": None,
+                    "checked_at": checked_at_dt.isoformat(),
+                }
+            )
             last_down_alert = None
     else:
-        if status != "down":
-            success_attempts = 0
+        success_attempts = 0
 
-    return failed_attempts, success_attempts, last_down_alert, first_failure_at
+    return failed_attempts, success_attempts, last_down_alert, first_failure_at, alerts
 
 
 async def check_site_status(
@@ -464,7 +520,16 @@ async def check_site_status(
 
     from ..state import DB_PATH
 
-    # Transaction 1: DB writes only (fast, no network I/O inside)
+    rt_rounded = round(response_time, 2) if response_time else None
+
+    # Single transaction: read prior state, decide alerting (pure CPU, no I/O),
+    # then persist status + history + counters + alert-state atomically. The
+    # alert decision is computed BEFORE the write so a crash can never leave a
+    # status_history row whose counters were never persisted, and concurrent
+    # checks of the same site cannot interleave a read-modify-write. Notification
+    # network I/O happens AFTER commit, holding no DB lock.
+    site_name = url
+    alerts: list[dict] = []
     async with get_db_connection(DB_PATH) as conn:
         try:
             # IMMEDIATE acquires the write lock up front so busy_timeout applies;
@@ -488,22 +553,37 @@ async def check_site_status(
             last_down_alert_str = row["last_down_alert"] if row else None
             first_failure_at_str = row["first_failure_at"] if row else None
 
-            if prev_status != status:
-                await conn.execute(
-                    """INSERT INTO status_history (site_id, status, status_code, response_time, error_message, checked_at)
-                       VALUES (?, ?, ?, ?, ?, ?)""",
-                    (
-                        site_id,
-                        status,
-                        status_code,
-                        round(response_time, 2) if response_time else None,
-                        error_message,
-                        checked_at_iso,
-                    ),
-                )
+            skip_alert = _check_flapping(site_id, prev_status, status, policy)
+            (
+                failed_attempts,
+                success_attempts,
+                last_down_alert,
+                first_failure_at,
+                alerts,
+            ) = _process_alerting(
+                status,
+                prev_status,
+                notify_methods,
+                site_name,
+                url,
+                status_code,
+                error_message,
+                checked_at,
+                failed_attempts,
+                success_attempts,
+                last_down_alert_str,
+                first_failure_at_str,
+                skip_alert,
+            )
 
-            last_down_str = last_down_alert_str
-            first_failure_str = first_failure_at_str
+            # Record EVERY check (not only transitions) so uptime % = up/total is
+            # a true ratio of checks. The 30-day retention bounds table growth.
+            await conn.execute(
+                """INSERT INTO status_history (site_id, status, status_code, response_time, error_message, checked_at)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (site_id, status, status_code, rt_rounded, error_message, checked_at_iso),
+            )
+
             await conn.execute(
                 """UPDATE sites SET
                    status = ?, status_code = ?, response_time = ?,
@@ -513,11 +593,11 @@ async def check_site_status(
                 (
                     status,
                     status_code,
-                    round(response_time, 2) if response_time else None,
+                    rt_rounded,
                     failed_attempts,
                     success_attempts,
-                    last_down_str,
-                    first_failure_str,
+                    last_down_alert.isoformat() if last_down_alert else None,
+                    first_failure_at.isoformat() if first_failure_at else None,
                     site_id,
                 ),
             )
@@ -526,47 +606,9 @@ async def check_site_status(
             await conn.rollback()
             raise
 
-    # Alerting (network I/O) — outside transaction, no DB lock held.
-    # Flapping is evaluated once here, now that prev_status is known.
-    skip_alert = _check_flapping(site_id, prev_status, status, policy)
-
-    failed_attempts, success_attempts, last_down_alert, first_failure_at = await _process_alerting(
-        status,
-        prev_status,
-        notify_methods,
-        notify_settings,
-        site_id,
-        site_name,
-        url,
-        status_code,
-        error_message,
-        checked_at,
-        failed_attempts,
-        success_attempts,
-        last_down_alert_str,
-        first_failure_at_str,
-        skip_alert,
-    )
-
-    # Transaction 2: always persist counters + alert-related fields
-    last_down_str = last_down_alert.isoformat() if last_down_alert else None
-    first_failure_str = first_failure_at.isoformat() if first_failure_at else None
-    async with get_db_connection(DB_PATH) as conn:
-        try:
-            # IMMEDIATE acquires the write lock up front so busy_timeout applies;
-            # a plain BEGIN takes a read snapshot first and a later write can fail
-            # instantly with a stale-snapshot "database is locked" under WAL.
-            await conn.execute("BEGIN IMMEDIATE")
-            await conn.execute(
-                """UPDATE sites SET
-                   failed_attempts = ?, success_attempts = ?, last_down_alert = ?,
-                   first_failure_at = ?
-                   WHERE id = ?""",
-                (failed_attempts, success_attempts, last_down_str, first_failure_str, site_id),
-            )
-            await conn.commit()
-        except Exception:
-            await conn.rollback()
+    # Notifications (network I/O) — after commit, no DB lock held.
+    for msg in alerts:
+        await send_notification(msg, notify_methods, notify_settings, site_id, site_name)
 
     return status, status_code, response_time, error_message
 

@@ -41,9 +41,19 @@ async def generate_sla_report(days: int = 30) -> dict:
             ) as c:
                 stats = await c.fetchone()
 
+            # An incident is a distinct OUTAGE, i.e. each transition INTO a
+            # down/slow streak — not every down check row (status_history now
+            # records every check, so COUNT(*) would inflate one outage into
+            # dozens of "incidents").
             async with conn.execute(
-                """SELECT COUNT(*) FROM status_history
-                   WHERE site_id = ? AND status IN ('down', 'slow') AND checked_at >= datetime('now', ?)""",
+                """SELECT COUNT(*) FROM (
+                       SELECT status,
+                              LAG(status) OVER (ORDER BY checked_at) AS prev
+                       FROM status_history
+                       WHERE site_id = ? AND checked_at >= datetime('now', ?)
+                   )
+                   WHERE status IN ('down', 'slow')
+                     AND (prev IS NULL OR prev NOT IN ('down', 'slow'))""",
                 (sid, f"-{days} days"),
             ) as c:
                 incidents_row = await c.fetchone()

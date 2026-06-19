@@ -19,33 +19,21 @@ CHECK_INTERVAL = app_state.CHECK_INTERVAL
 CONFIG_PATH = config_manager.CONFIG_PATH
 
 _worker_loop: asyncio.AbstractEventLoop | None = None
+_main_task: "asyncio.Task | None" = None
 
 
 def _handle_signal(signum, frame):
     logger.info("Received signal %s, shutting down worker...", signum)
     loop = _worker_loop
-    if loop and loop.is_running():
-        loop.call_soon_threadsafe(lambda: asyncio.create_task(_shutdown()))
+    task = _main_task
+    # Just cancel the main task. Its finally-block performs the cleanup and the
+    # coroutine then completes, so run_until_complete returns cleanly. (Calling
+    # loop.stop() here would race the still-running cleanup and could leave the
+    # DB/session unclosed.)
+    if loop and loop.is_running() and task is not None and not task.done():
+        loop.call_soon_threadsafe(task.cancel)
     else:
         sys.exit(0)
-
-
-async def _shutdown():
-    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
-    for t in tasks:
-        t.cancel()
-    try:
-        await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=10)
-    except asyncio.TimeoutError:
-        logger.warning("Shutdown timeout — forcing exit")
-    from .http_client import close_sessions
-
-    await close_sessions()
-    await close_db()
-    # Stop the loop we explicitly created in run_worker rather than relying on
-    # asyncio.get_event_loop() (deprecated when no loop is bound to the thread).
-    loop = _worker_loop or asyncio.get_running_loop()
-    loop.stop()
 
 
 async def initialize_worker():
@@ -65,9 +53,25 @@ async def initialize_worker():
 
 
 async def main_async():
+    global _main_task
+    _main_task = asyncio.current_task()
     await initialize_worker()
     logger.info("Starting monitoring loop...")
-    await monitoring.monitor_loop(NOTIFY_SETTINGS, CHECK_INTERVAL)
+    try:
+        await monitoring.monitor_loop(NOTIFY_SETTINGS, CHECK_INTERVAL)
+    except asyncio.CancelledError:
+        logger.info("Worker shutdown requested, stopping monitoring loop...")
+    finally:
+        # Cancel any in-flight site-check tasks, then release shared resources.
+        pending = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+        for t in pending:
+            t.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
+        from .http_client import close_sessions
+
+        await close_sessions()
+        await close_db()
 
 
 def run_worker():

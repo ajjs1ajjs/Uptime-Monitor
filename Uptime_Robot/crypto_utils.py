@@ -53,6 +53,34 @@ def _get_alternative_key_paths() -> list:
     return paths
 
 
+def _restrict_key_permissions(path: str) -> None:
+    """Lock a key file down to the current user.
+
+    POSIX uses chmod 0o600. On Windows os.chmod only toggles the read-only bit
+    and does NOT restrict the ACL, so the key would inherit the (possibly broad)
+    parent-directory ACL — strip inheritance and grant only the current user.
+    """
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
+    if os.name == "nt":
+        try:
+            import getpass
+            import subprocess
+
+            user = os.environ.get("USERNAME") or getpass.getuser()
+            if user:
+                subprocess.run(
+                    ["icacls", path, "/inheritance:r", "/grant:r", f"{user}:F"],
+                    capture_output=True,
+                    timeout=10,
+                    check=False,
+                )
+        except Exception:
+            pass
+
+
 def generate_master_key(base_path: Optional[str] = None) -> str:
     if Fernet is None:
         logger.warning("cryptography not installed. Skipping master key generation.")
@@ -65,7 +93,7 @@ def generate_master_key(base_path: Optional[str] = None) -> str:
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         with open(path, "w") as f:
             f.write(key)
-        os.chmod(path, 0o600)
+        _restrict_key_permissions(path)
         logger.info("Master key generated: %s", path)
         return key
     except OSError as e:
@@ -75,7 +103,7 @@ def generate_master_key(base_path: Optional[str] = None) -> str:
                 os.makedirs(os.path.dirname(alt_path) or ".", exist_ok=True)
                 with open(alt_path, "w") as f:
                     f.write(key)
-                os.chmod(alt_path, 0o600)
+                _restrict_key_permissions(alt_path)
                 logger.info("Master key saved to alternative path: %s", alt_path)
                 return key
             except OSError:

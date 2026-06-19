@@ -60,10 +60,34 @@ def _save_credentials_file(password: str):
                 with open(path, "w") as f:
                     f.write(f"Admin password: {password}\n")
                     f.write("Username: admin\n")
-                if os.name != "nt":
-                    os.chmod(path, 0o600)
+                _restrict_credentials_permissions(path)
             except Exception:
                 continue
+    except Exception:
+        pass
+
+
+def _restrict_credentials_permissions(path):
+    """Lock the plaintext credentials file to the current user.
+
+    POSIX: chmod 0o600. Windows: os.chmod cannot restrict the ACL, so strip
+    inheritance and grant only the current user (mirrors auth_module).
+    """
+    try:
+        if os.name != "nt":
+            os.chmod(path, 0o600)
+            return
+        import getpass
+        import subprocess
+
+        user = os.environ.get("USERNAME") or getpass.getuser()
+        if user:
+            subprocess.run(
+                ["icacls", path, "/inheritance:r", "/grant:r", f"{user}:F"],
+                capture_output=True,
+                timeout=10,
+                check=False,
+            )
     except Exception:
         pass
 

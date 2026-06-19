@@ -332,6 +332,25 @@ async def _cleanup_old_data(conn):
         if deleted:
             logger.info("Cleaned %d expired sessions", deleted)
 
+    # audit_log — старше 365 днів (інакше росте без межі на кожну привілейовану дію)
+    async with conn.execute(
+        "DELETE FROM audit_log WHERE created_at < datetime('now', '-365 days')"
+    ) as c:
+        deleted = c.rowcount
+        if deleted:
+            logger.info("Cleaned %d old audit_log rows", deleted)
+
+    # backups — метадані старше 180 днів (самі файли керуються ротацією окремо)
+    try:
+        async with conn.execute(
+            "DELETE FROM backups WHERE created_at < datetime('now', '-180 days')"
+        ) as c:
+            deleted = c.rowcount
+            if deleted:
+                logger.info("Cleaned %d old backup metadata rows", deleted)
+    except Exception:
+        pass
+
 
 async def init_database(db_path: str):
     """Ініціалізує базу даних: таблиці, міграції, початкові дані."""
@@ -433,8 +452,13 @@ async def update_site(db_path: str, site_id: int, **kwargs):
 async def delete_site(db_path: str, site_id: int) -> bool:
     """Видаляє сайт та його історію. Повертає True, якщо сайт було видалено."""
     async with get_db_connection(db_path) as conn:
+        # FK enforcement is off per-connection in SQLite, so the declared
+        # FOREIGN KEYs do not cascade — delete every child row explicitly to
+        # avoid orphans pointing at a non-existent site.
         await conn.execute("DELETE FROM status_history WHERE site_id = ?", (site_id,))
         await conn.execute("DELETE FROM ssl_certificates WHERE site_id = ?", (site_id,))
+        await conn.execute("DELETE FROM maintenance_windows WHERE site_id = ?", (site_id,))
+        await conn.execute("DELETE FROM notification_history WHERE site_id = ?", (site_id,))
         cursor = await conn.execute("DELETE FROM sites WHERE id = ?", (site_id,))
         await conn.commit()
         return cursor.rowcount > 0
