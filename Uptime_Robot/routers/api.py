@@ -763,10 +763,13 @@ async def update_user_api(
         raise HTTPException(status_code=400, detail="Invalid role")
 
     if user_data.role:
-        success = await auth_module.update_user_role(DB_PATH, username, user_data.role)
+        success, error_message = await auth_module.update_user_role(
+            DB_PATH, username, user_data.role
+        )
 
         if not success:
-            raise HTTPException(status_code=404, detail="User not found")
+            status = 404 if error_message == "User not found" else 400
+            raise HTTPException(status_code=status, detail=error_message)
         await models.log_audit_event(
             DB_PATH,
             current_user["user_id"],

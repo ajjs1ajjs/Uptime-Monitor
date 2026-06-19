@@ -4,7 +4,60 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from Uptime_Robot.monitoring import get_alert_policy, normalize_ssl_url
+from Uptime_Robot.monitoring import (
+    _host_resolves_to_blocked,
+    get_alert_policy,
+    normalize_ssl_url,
+)
+
+
+class TestSharedHttpSession:
+    @pytest.mark.asyncio
+    async def test_get_session_is_reused(self):
+        from Uptime_Robot.http_client import close_sessions, get_session
+        try:
+            s1 = await get_session()
+            s2 = await get_session()
+            assert s1 is s2
+            assert not s1.closed
+        finally:
+            await close_sessions()
+
+    @pytest.mark.asyncio
+    async def test_closed_session_is_recreated(self):
+        from Uptime_Robot.http_client import close_sessions, get_session
+        try:
+            s1 = await get_session()
+            await close_sessions()
+            s2 = await get_session()
+            assert s2 is not s1
+            assert not s2.closed
+        finally:
+            await close_sessions()
+
+
+class TestSsrfCheckTimeGuard:
+    def test_literal_loopback_blocked(self):
+        assert _host_resolves_to_blocked("127.0.0.1") is True
+
+    def test_literal_private_blocked(self):
+        assert _host_resolves_to_blocked("10.0.0.5") is True
+
+    def test_cloud_metadata_link_local_blocked(self):
+        assert _host_resolves_to_blocked("169.254.169.254") is True
+
+    def test_public_literal_allowed(self):
+        assert _host_resolves_to_blocked("8.8.8.8") is False
+
+    def test_hostname_resolving_to_private_blocked(self):
+        with patch("socket.getaddrinfo", return_value=[(2, 1, 6, "", ("10.0.0.5", 0))]):
+            assert _host_resolves_to_blocked("internal.example.com") is True
+
+    def test_resolution_failure_not_blocked(self):
+        # DNS failures must surface as a normal "down", not as a block.
+        import socket
+        with patch("socket.getaddrinfo", side_effect=socket.gaierror):
+            assert _host_resolves_to_blocked("nonexistent.invalid") is False
 
 SENSITIVE_KEYS = {
     "request_timeout_seconds", "grace_period_seconds", "up_success_threshold",

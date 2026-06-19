@@ -209,8 +209,32 @@ def save_config(config):
         return False
 
 
+_SECRET_KEY_HINTS = (
+    "password",
+    "token",
+    "secret",
+    "api_key",
+    "auth_token",
+    "webhook_url",
+    "account_sid",
+    "private_key",
+)
+
+
+def _redact_secrets(obj):
+    """Recursively replace secret-looking values with '***' for safe logging."""
+    if isinstance(obj, dict):
+        return {
+            k: ("***" if any(h in str(k).lower() for h in _SECRET_KEY_HINTS) and v else _redact_secrets(v))
+            for k, v in obj.items()
+        }
+    if isinstance(obj, list):
+        return [_redact_secrets(i) for i in obj]
+    return obj
+
+
 def log_config_change(config, old_config, new_config, user="system"):
-    """Log configuration changes"""
+    """Log configuration changes (secrets redacted)"""
     try:
         log_dir = config.get("log_dir", "/var/log/uptime-monitor")
         log_file = os.path.join(log_dir, "config-changes.log")
@@ -220,7 +244,10 @@ def log_config_change(config, old_config, new_config, user="system"):
             "timestamp": datetime.now().isoformat(),
             "user": user,
             "action": "config_changed",
-            "changes": {"old": old_config, "new": new_config},
+            "changes": {
+                "old": _redact_secrets(old_config),
+                "new": _redact_secrets(new_config),
+            },
         }
 
         with open(log_file, "a", encoding="utf-8") as f:

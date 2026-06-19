@@ -8,6 +8,7 @@ from typing import Any, Optional, Union
 
 import aiohttp
 
+from .http_client import session_scope
 from .logger import logger
 from .metrics_store import increment_metric
 
@@ -342,10 +343,18 @@ async def send_notification(
     site_name: Optional[str] = None,
 ):
     """Відправляє сповіщення через вказані методи"""
-    tasks = []
     site_name_val = site_name or (
         message.get("site_name", "Unknown") if isinstance(message, dict) else "Unknown"
     )
+
+    # Group dispatched coroutines per method so the notification history can
+    # record the *real* outcome (sent/failed) of each channel instead of a
+    # blanket "sent" for every requested method.
+    method_tasks: dict[str, list] = {}
+
+    def _add(method: str, coro):
+        method_tasks.setdefault(method, []).append(coro)
+
     for method in methods:
         method_config = notify_settings.get(method, {})
 
@@ -353,95 +362,102 @@ async def send_notification(
             continue
 
         if method == "telegram":
-            channels = method_config.get("channels", [])
-            for channel in channels:
+            for channel in method_config.get("channels", []):
                 if channel.get("token") and channel.get("chat_id"):
-                    tasks.append(send_telegram(message, channel))
+                    _add(method, send_telegram(message, channel))
 
         elif method == "discord":
-            channels = method_config.get("channels", [])
-            for channel in channels:
+            for channel in method_config.get("channels", []):
                 if channel.get("webhook_url"):
-                    tasks.append(send_discord(message, channel))
+                    _add(method, send_discord(message, channel))
 
         elif method == "teams":
-            channels = method_config.get("channels", [])
-            for channel in channels:
+            for channel in method_config.get("channels", []):
                 if channel.get("webhook_url"):
-                    tasks.append(send_teams(message, channel))
+                    _add(method, send_teams(message, channel))
 
         elif method == "email":
-            channels = method_config.get("channels", [])
-            for channel in channels:
+            for channel in method_config.get("channels", []):
                 if channel.get("smtp_server") and channel.get("username"):
-                    tasks.append(send_email(message, channel))
+                    _add(method, send_email(message, channel))
 
         elif method == "slack":
-            channels = method_config.get("channels", [])
-            for channel in channels:
+            for channel in method_config.get("channels", []):
                 if channel.get("webhook_url"):
-                    tasks.append(send_slack(message, channel))
+                    _add(method, send_slack(message, channel))
 
         elif method == "sms":
-            tasks.append(send_sms(message, method_config))
+            _add(method, send_sms(message, method_config))
 
         elif method == "webhook":
-            channels = method_config.get("channels", [])
-            for channel in channels:
+            for channel in method_config.get("channels", []):
                 if channel.get("webhook_url"):
-                    tasks.append(send_webhook(message, channel))
+                    _add(method, send_webhook(message, channel))
 
         elif method == "pushover":
-            channels = method_config.get("channels", [])
-            for channel in channels:
+            for channel in method_config.get("channels", []):
                 if channel.get("user_key") and channel.get("token"):
-                    tasks.append(send_pushover(message, channel))
+                    _add(method, send_pushover(message, channel))
 
         elif method == "gotify":
-            channels = method_config.get("channels", [])
-            for channel in channels:
+            for channel in method_config.get("channels", []):
                 if channel.get("server_url") and channel.get("token"):
-                    tasks.append(send_gotify(message, channel))
+                    _add(method, send_gotify(message, channel))
 
         elif method == "ntfy":
-            channels = method_config.get("channels", [])
-            for channel in channels:
+            for channel in method_config.get("channels", []):
                 if channel.get("topic"):
-                    tasks.append(send_ntfy(message, channel))
+                    _add(method, send_ntfy(message, channel))
 
-    if tasks:
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        for r in results:
-            if isinstance(r, Exception):
-                increment_metric("notifications_failed")
-            else:
-                increment_metric("notifications_sent")
+    # Preserve a stable method ordering so results map back deterministically.
+    ordered_methods = list(method_tasks.keys())
+    flat_tasks = [coro for m in ordered_methods for coro in method_tasks[m]]
+    method_status: dict[str, str] = {}
 
-    if site_id is not None:
+    # A sender signals failure either by raising (captured by gather) or by
+    # returning False (it caught and logged the error internally).
+    def _is_failure(r):
+        return isinstance(r, Exception) or r is False
+
+    if flat_tasks:
+        results = await asyncio.gather(*flat_tasks, return_exceptions=True)
+        idx = 0
+        for m in ordered_methods:
+            count = len(method_tasks[m])
+            method_results = results[idx : idx + count]
+            idx += count
+            for r in method_results:
+                increment_metric(
+                    "notifications_failed" if _is_failure(r) else "notifications_sent"
+                )
+            method_status[m] = "failed" if any(_is_failure(r) for r in method_results) else "sent"
+
+    if site_id is not None and method_status:
         try:
             from . import models
             from .state import DB_PATH
 
-            for method in methods:
+            # Only log methods that were actually dispatched, with their real status.
+            for method, status in method_status.items():
                 await models.log_notification(
                     DB_PATH,
                     site_id,
                     site_name_val,
                     method,
-                    "sent",
+                    status,
                     str(message)[:100],
                 )
         except Exception:
             pass
 
 
-async def send_telegram(message: Union[str, dict], settings: dict[str, Any]):
-    """Відправляє повідомлення в Telegram"""
+async def send_telegram(message: Union[str, dict], settings: dict[str, Any]) -> bool:
+    """Відправляє повідомлення в Telegram. Повертає True при успіху."""
     token = settings.get("token")
     chat_id = settings.get("chat_id")
 
     if not token or not chat_id:
-        return
+        return False
 
     try:
         url = f"https://api.telegram.org/bot{token}/sendMessage"
@@ -473,26 +489,29 @@ async def send_telegram(message: Union[str, dict], settings: dict[str, Any]):
                         },
                         {
                             "text": "🔕 Silence 6h",
-                            "callback_data": f"silence6h_{message.get('site_name', '')}",
+                            "callback_data": f"silence6h_{message.get('site_name', '')}"[:64],
                         },
                     ]
                 ]
             }
 
-        async with aiohttp.ClientSession() as session:
+        async with session_scope() as session:
             async with session.post(url, json=payload) as response:
                 if response.status != 200:
                     error_text = await response.text()
                     logger.error("Telegram API error: %s - %s", response.status, error_text)
+                    return False
+        return True
     except Exception as e:
         logger.error("Telegram error: %s", e)
+        return False
 
 
-async def send_teams(message: Union[str, dict], settings: dict[str, Any]):
-    """Відправляє повідомлення в Microsoft Teams"""
+async def send_teams(message: Union[str, dict], settings: dict[str, Any]) -> bool:
+    """Відправляє повідомлення в Microsoft Teams. Повертає True при успіху."""
     webhook_url = settings.get("webhook_url")
     if not webhook_url:
-        return
+        return False
 
     try:
         if isinstance(message, dict):
@@ -505,19 +524,22 @@ async def send_teams(message: Union[str, dict], settings: dict[str, Any]):
                 alert_type = "still_down"
             payload = format_teams_message(data, alert_type)
 
-        async with aiohttp.ClientSession() as session:
+        async with session_scope() as session:
             async with session.post(webhook_url, json=payload) as response:
                 if response.status not in [200, 204]:
                     logger.error("Teams API error: %s", response.status)
+                    return False
+        return True
     except Exception as e:
         logger.error("Teams error: %s", e)
+        return False
 
 
-async def send_discord(message: Union[str, dict], settings: dict[str, Any]):
-    """Відправляє повідомлення в Discord"""
+async def send_discord(message: Union[str, dict], settings: dict[str, Any]) -> bool:
+    """Відправляє повідомлення в Discord. Повертає True при успіху."""
     webhook_url = settings.get("webhook_url")
     if not webhook_url:
-        return
+        return False
 
     try:
         if isinstance(message, dict):
@@ -530,19 +552,22 @@ async def send_discord(message: Union[str, dict], settings: dict[str, Any]):
                 alert_type = "still_down"
             payload = format_discord_message(data, alert_type)
 
-        async with aiohttp.ClientSession() as session:
+        async with session_scope() as session:
             async with session.post(webhook_url, json=payload) as response:
                 if response.status not in [200, 204]:
                     logger.error("Discord API error: %s", response.status)
+                    return False
+        return True
     except Exception as e:
         logger.error("Discord error: %s", e)
+        return False
 
 
-async def send_slack(message: Union[str, dict], settings: dict[str, Any]):
-    """Відправляє повідомлення в Slack"""
+async def send_slack(message: Union[str, dict], settings: dict[str, Any]) -> bool:
+    """Відправляє повідомлення в Slack. Повертає True при успіху."""
     webhook_url = settings.get("webhook_url")
     if not webhook_url:
-        return
+        return False
 
     try:
         if isinstance(message, dict):
@@ -550,16 +575,19 @@ async def send_slack(message: Union[str, dict], settings: dict[str, Any]):
         else:
             text = message
         payload = {"text": text}
-        async with aiohttp.ClientSession() as session:
+        async with session_scope() as session:
             async with session.post(webhook_url, json=payload) as response:
                 if response.status not in [200, 204]:
                     logger.error("Slack API error: %s", response.status)
+                    return False
+        return True
     except Exception as e:
         logger.error("Slack error: %s", e)
+        return False
 
 
-async def send_email(message: Union[str, dict], settings: dict[str, Any]):
-    """Відправляє email"""
+async def send_email(message: Union[str, dict], settings: dict[str, Any]) -> bool:
+    """Відправляє email. Повертає True при успіху."""
     if isinstance(message, dict):
         message = f"Uptime Monitor Alert ({message.get('alert_type', 'unknown')}): {message.get('site_name', 'N/A')} - {message.get('error', '')}"
     smtp_server = settings.get("smtp_server")
@@ -569,7 +597,7 @@ async def send_email(message: Union[str, dict], settings: dict[str, Any]):
     to_email = settings.get("to_email")
 
     if not all([smtp_server, username, password, to_email]):
-        return
+        return False
 
     try:
         msg = MIMEText(message, "plain", "utf-8")
@@ -586,21 +614,24 @@ async def send_email(message: Union[str, dict], settings: dict[str, Any]):
         # Hard ceiling so a hung/blocked SMTP server can never stall the
         # monitoring loop indefinitely (socket timeout covers individual ops).
         await asyncio.wait_for(asyncio.to_thread(_send), timeout=45)
+        return True
     except asyncio.TimeoutError:
         logger.error("Email error: SMTP send timed out")
+        return False
     except Exception as e:
         logger.error("Email error: %s", e)
+        return False
 
 
-async def send_sms(message: Union[str, dict], settings: dict[str, Any]):
-    """Відправляє SMS через Twilio"""
+async def send_sms(message: Union[str, dict], settings: dict[str, Any]) -> bool:
+    """Відправляє SMS через Twilio. Повертає True при успіху."""
     account_sid = settings.get("account_sid")
     auth_token = settings.get("auth_token")
     from_number = settings.get("from_number")
     to_number = settings.get("to_number")
 
     if not all([account_sid, auth_token, from_number, to_number]):
-        return
+        return False
 
     try:
         url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
@@ -610,19 +641,22 @@ async def send_sms(message: Union[str, dict], settings: dict[str, Any]):
             "To": str(to_number),
             "Body": message[:1600],
         }
-        async with aiohttp.ClientSession() as session:
+        async with session_scope() as session:
             async with session.post(url, data=payload, auth=auth) as response:
                 if response.status not in [200, 201]:
                     logger.error("SMS API error: %s", response.status)
+                    return False
+        return True
     except Exception as e:
         logger.error("SMS error: %s", e)
+        return False
 
 
-async def send_webhook(message: Union[str, dict], settings: dict[str, Any]):
-    """Відправляє кастомне POST-сповіщення (webhook)"""
+async def send_webhook(message: Union[str, dict], settings: dict[str, Any]) -> bool:
+    """Відправляє кастомне POST-сповіщення (webhook). Повертає True при успіху."""
     webhook_url = settings.get("webhook_url")
     if not webhook_url:
-        return
+        return False
 
     try:
         if isinstance(message, dict):
@@ -634,21 +668,24 @@ async def send_webhook(message: Union[str, dict], settings: dict[str, Any]):
                 "checked_at": datetime.now(timezone.utc).isoformat(),
             }
 
-        async with aiohttp.ClientSession() as session:
+        async with session_scope() as session:
             async with session.post(webhook_url, json=payload) as response:
                 if response.status not in [200, 201, 202, 204]:
                     logger.error("Webhook HTTP error: %s", response.status)
+                    return False
+        return True
     except Exception as e:
         logger.error("Webhook error: %s", e)
+        return False
 
 
-async def send_pushover(message: Union[str, dict], settings: dict[str, Any]):
-    """Відправляє Pushover сповіщення"""
+async def send_pushover(message: Union[str, dict], settings: dict[str, Any]) -> bool:
+    """Відправляє Pushover сповіщення. Повертає True при успіху."""
     user_key = settings.get("user_key")
     token = settings.get("token")
 
     if not user_key or not token:
-        return
+        return False
 
     try:
         if isinstance(message, dict):
@@ -665,24 +702,27 @@ async def send_pushover(message: Union[str, dict], settings: dict[str, Any]):
             "message": text,
             "priority": 1,
         }
-        async with aiohttp.ClientSession() as session:
+        async with session_scope() as session:
             async with session.post(
                 "https://api.pushover.net/1/messages.json",
                 data=payload,
             ) as response:
                 if response.status not in [200, 201]:
                     logger.error("Pushover API error: %s", response.status)
+                    return False
+        return True
     except Exception as e:
         logger.error("Pushover error: %s", e)
+        return False
 
 
-async def send_gotify(message: Union[str, dict], settings: dict[str, Any]):
-    """Відправляє Gotify сповіщення"""
+async def send_gotify(message: Union[str, dict], settings: dict[str, Any]) -> bool:
+    """Відправляє Gotify сповіщення. Повертає True при успіху."""
     server_url = settings.get("server_url", "").rstrip("/")
     token = settings.get("token")
 
     if not server_url or not token:
-        return
+        return False
 
     try:
         if isinstance(message, dict):
@@ -693,24 +733,27 @@ async def send_gotify(message: Union[str, dict], settings: dict[str, Any]):
             text = message
 
         payload = {"title": title, "message": text, "priority": 5}
-        async with aiohttp.ClientSession() as session:
+        async with session_scope() as session:
             async with session.post(
                 f"{server_url}/message?token={token}",
                 json=payload,
             ) as response:
                 if response.status not in [200, 201]:
                     logger.error("Gotify API error: %s", response.status)
+                    return False
+        return True
     except Exception as e:
         logger.error("Gotify error: %s", e)
+        return False
 
 
-async def send_ntfy(message: Union[str, dict], settings: dict[str, Any]):
-    """Відправляє ntfy.sh сповіщення"""
+async def send_ntfy(message: Union[str, dict], settings: dict[str, Any]) -> bool:
+    """Відправляє ntfy.sh сповіщення. Повертає True при успіху."""
     topic = settings.get("topic")
     server_url = settings.get("server_url", "https://ntfy.sh").rstrip("/")
 
     if not topic:
-        return
+        return False
 
     try:
         if isinstance(message, dict):
@@ -723,7 +766,7 @@ async def send_ntfy(message: Union[str, dict], settings: dict[str, Any]):
         payload = {"topic": topic, "title": title, "message": text}
         headers = {"Title": title}
 
-        async with aiohttp.ClientSession() as session:
+        async with session_scope() as session:
             async with session.post(
                 f"{server_url}/{topic}",
                 json=payload,
@@ -731,5 +774,8 @@ async def send_ntfy(message: Union[str, dict], settings: dict[str, Any]):
             ) as response:
                 if response.status not in [200, 201, 202]:
                     logger.error("ntfy API error: %s", response.status)
+                    return False
+        return True
     except Exception as e:
         logger.error("ntfy error: %s", e)
+        return False

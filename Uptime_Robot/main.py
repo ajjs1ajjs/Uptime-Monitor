@@ -111,6 +111,9 @@ def initialize_app():
 async def lifespan(app: FastAPI):
     await initialize_app_async()
     yield
+    from .http_client import close_sessions
+
+    await close_sessions()
     await close_db()
 
 

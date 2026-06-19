@@ -9,6 +9,7 @@ from typing import Any, Optional
 import aiohttp
 
 from ..database import get_db_connection
+from ..http_client import get_session
 from ..logger import logger
 from ..metrics_store import increment_metric, update_monitor_heartbeat
 from ..notifications import send_notification
@@ -24,6 +25,49 @@ def normalize_ssl_url(url: str) -> Optional[str]:
     if not url.lower().startswith(("http://", "https://")):
         return f"https://{url}"
     return url
+
+
+def _host_resolves_to_blocked(host: str) -> bool:
+    """True if ``host`` (literal IP or DNS name) maps to an internal address.
+
+    URLs are validated against the same private/loopback/link-local/reserved set
+    at creation time, but DNS is resolved again here at check time — a hostname
+    can be re-pointed at an internal address after creation (DNS rebinding). This
+    re-checks at the moment of use so PING/PORT/DNS probes cannot be turned into
+    an SSRF scan of the internal network. Resolution failures are NOT treated as
+    blocked (let the probe surface them as a normal "down").
+    """
+    import ipaddress
+    import socket
+
+    def _blocked(addr) -> bool:
+        return (
+            addr.is_private
+            or addr.is_loopback
+            or addr.is_link_local
+            or addr.is_reserved
+            or addr.is_multicast
+            or addr.is_unspecified
+        )
+
+    host = (host or "").strip().rstrip(".")
+    if not host:
+        return False
+    try:
+        return _blocked(ipaddress.ip_address(host))
+    except ValueError:
+        pass
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except (OSError, UnicodeError):
+        return False
+    for *_, sockaddr in infos:
+        try:
+            if _blocked(ipaddress.ip_address(sockaddr[0])):
+                return True
+        except ValueError:
+            continue
+    return False
 
 
 async def load_notify_settings_from_db() -> dict[str, Any]:
@@ -46,6 +90,10 @@ async def _check_dns(url: str, start_time: datetime) -> tuple:
     if ":" in host:
         host = host.split(":")[0]
 
+    if _host_resolves_to_blocked(host):
+        response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+        return "down", 1, response_time, "Blocked internal address"
+
     loop = asyncio.get_event_loop()
     try:
         await loop.getaddrinfo(host, None)
@@ -64,6 +112,10 @@ async def _check_ping(url: str, start_time: datetime) -> tuple:
     host = parsed.hostname or parsed.path.split("/")[0]
     if ":" in host:
         host = host.split(":")[0]
+
+    if _host_resolves_to_blocked(host):
+        response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+        return "down", 1, response_time, "Blocked internal address"
 
     is_win = sys.platform == "win32"
     ping_cmd = ["ping", "-n", "1", host] if is_win else ["ping", "-c", "1", "-W", "5", host]
@@ -92,14 +144,22 @@ async def _check_port(url: str, start_time: datetime, timeout: int) -> tuple:
         host = host_port
         port = 80
 
+    if _host_resolves_to_blocked(host):
+        response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+        return "down", port, response_time, "Blocked internal address"
+
     reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=timeout)
-    writer.close()
     try:
-        await writer.wait_closed()
-    except Exception:
-        pass
-    response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
-    return "up", port, response_time, None
+        response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+        return "up", port, response_time, None
+    finally:
+        # Always release the socket, even if the lines above start raising in
+        # future edits — the connection must never leak.
+        writer.close()
+        try:
+            await writer.wait_closed()
+        except Exception:
+            pass
 
 
 async def _check_http(
@@ -109,40 +169,42 @@ async def _check_http(
 
     _os = "Windows NT 10.0; Win64; x64" if sys.platform == "win32" else "X11; Linux x86_64"
     headers = {"User-Agent": f"Mozilla/5.0 ({_os}) AppleWebKit/537.36"}
-    async with aiohttp.ClientSession() as session:
-        async with session.get(
-            url,
-            timeout=aiohttp.ClientTimeout(total=policy["request_timeout_seconds"]),
-            headers=headers,
-            ssl=policy.get("verify_ssl", True),
-            allow_redirects=True,
-        ) as response:
-            status_code = response.status
-            response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+    # Reuse the shared pooled session (keep-alive / connection reuse) instead of
+    # building and tearing down a ClientSession on every single check.
+    session = await get_session()
+    async with session.get(
+        url,
+        timeout=aiohttp.ClientTimeout(total=policy["request_timeout_seconds"]),
+        headers=headers,
+        ssl=policy.get("verify_ssl", True),
+        allow_redirects=True,
+    ) as response:
+        status_code = response.status
+        response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
 
-            if keyword:
+        if keyword:
+            try:
+                body_text = await response.text(errors="ignore")
+            except Exception:
+                body_text = ""
+            if keyword.startswith("regex:"):
+                import re
+
+                pattern = keyword[6:]
                 try:
-                    body_text = await response.text(errors="ignore")
-                except Exception:
-                    body_text = ""
-                if keyword.startswith("regex:"):
-                    import re
-
-                    pattern = keyword[6:]
-                    try:
-                        if not re.search(pattern, body_text):
-                            return "down", status_code, response_time, "Regex pattern not matched"
-                    except Exception as e:
-                        return "down", status_code, response_time, f"Invalid regex pattern: {e}"
-                else:
-                    if keyword not in body_text:
-                        return "down", status_code, response_time, "Keyword not found"
-
-            if policy["treat_4xx_as_down"]:
-                status = "up" if 200 <= status_code < 400 else "down"
+                    if not re.search(pattern, body_text):
+                        return "down", status_code, response_time, "Regex pattern not matched"
+                except Exception as e:
+                    return "down", status_code, response_time, f"Invalid regex pattern: {e}"
             else:
-                status = "up" if status_code < 500 else "down"
-            return status, status_code, response_time, None
+                if keyword not in body_text:
+                    return "down", status_code, response_time, "Keyword not found"
+
+        if policy["treat_4xx_as_down"]:
+            status = "up" if 200 <= status_code < 400 else "down"
+        else:
+            status = "up" if status_code < 500 else "down"
+        return status, status_code, response_time, None
 
 
 _flap_state: dict[int, dict] = {}
@@ -643,6 +705,10 @@ async def monitor_loop(notify_settings: dict[str, Any], default_check_interval: 
     last_cert_check = datetime.now(timezone.utc) - timedelta(hours=25)
     last_notify_settings_reload = datetime.now(timezone.utc)
     notify_settings_reload_interval = 30
+    # Purge expired sessions / stale CSRF tokens periodically so those tables do
+    # not grow without bound. Run shortly after startup, then hourly.
+    last_auth_cleanup = datetime.now(timezone.utc) - timedelta(hours=2)
+    auth_cleanup_interval = 3600
 
     last_check_time = {}
     active_tasks: dict[int, asyncio.Task] = {}
@@ -705,6 +771,17 @@ async def monitor_loop(notify_settings: dict[str, Any], default_check_interval: 
                 logger.info("Checking SSL certificates in background...")
                 await check_all_certificates(notify_settings)
                 last_cert_check = datetime.now(timezone.utc)
+
+            if (
+                datetime.now(timezone.utc) - last_auth_cleanup
+            ).total_seconds() >= auth_cleanup_interval:
+                from ..auth_module import cleanup_expired_sessions
+                from ..csrf import cleanup_expired_csrf_tokens
+                from ..state import DB_PATH
+
+                await cleanup_expired_sessions(DB_PATH)
+                await cleanup_expired_csrf_tokens()
+                last_auth_cleanup = datetime.now(timezone.utc)
 
             await asyncio.sleep(5)
 

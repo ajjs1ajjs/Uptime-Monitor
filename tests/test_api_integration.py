@@ -65,7 +65,10 @@ def patch_db_path(test_db):
 def client(patch_db_path):
     from Uptime_Robot.main import app
 
-    with TestClient(app) as c:
+    # Real browsers always attach a same-origin Origin header on state-changing
+    # fetch() requests; mirror that so the (fail-closed) CSRF middleware behaves
+    # as it would in production. TestClient's default base_url is testserver.
+    with TestClient(app, headers={"Origin": "http://testserver"}) as c:
         yield c
 
 
@@ -550,6 +553,20 @@ class TestSecurityHardening:
         r = client.post("/api/sites", json={
             "name": "xorigin", "url": "https://example.org", "monitor_type": "http",
         }, headers=headers)
+        assert r.status_code == 403
+
+    def test_api_missing_origin_on_cookie_request_denied(self, patch_db_path, admin_session):
+        # Fail-closed: a cookie-authenticated state-changing request with NO
+        # Origin/Referer must be rejected (a real browser always sends one).
+        from fastapi.testclient import TestClient
+
+        from Uptime_Robot.main import app
+
+        with TestClient(app) as bare:  # no default Origin header
+            r = bare.post("/api/sites",
+                          json={"name": "noorigin", "url": "https://example.org",
+                                "monitor_type": "http"},
+                          headers={"Cookie": f"session_id={admin_session}"})
         assert r.status_code == 403
 
     def test_forgot_password_requires_csrf_token(self, client, admin_headers):

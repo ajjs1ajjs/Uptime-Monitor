@@ -49,8 +49,34 @@ def _save_credentials_file(password: str):
                     f.write("Username: admin\n")
                 if os.name != "nt":
                     os.chmod(path, 0o600)
+                else:
+                    _restrict_windows_acl(path)
             except Exception:
                 continue
+    except Exception:
+        pass
+
+
+def _restrict_windows_acl(path: str) -> None:
+    """Best-effort: lock a plaintext-credentials file down to the current user.
+
+    POSIX uses chmod 0o600; on Windows files inherit the parent directory ACL,
+    which may be broader than intended, so strip inheritance and grant only the
+    current user. Failures are non-fatal (the file is still written).
+    """
+    try:
+        import getpass
+        import subprocess
+
+        user = os.environ.get("USERNAME") or getpass.getuser()
+        if not user:
+            return
+        subprocess.run(
+            ["icacls", path, "/inheritance:r", "/grant:r", f"{user}:F"],
+            capture_output=True,
+            timeout=10,
+            check=False,
+        )
     except Exception:
         pass
 
@@ -61,7 +87,7 @@ async def init_auth_tables(db_path):
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
-            role TEXT DEFAULT 'admin',
+            role TEXT DEFAULT 'viewer',
             must_change_password BOOLEAN DEFAULT 0,
             created_at TEXT,
             last_login TEXT
@@ -225,6 +251,21 @@ async def delete_session(session_id: str, db_path: str):
         await conn.commit()
 
 
+async def cleanup_expired_sessions(db_path: str) -> None:
+    """Delete sessions whose expires_at is in the past.
+
+    validate_session already rejects expired sessions but never removes them, so
+    the table would otherwise grow without bound.
+    """
+    try:
+        now = datetime.now(timezone.utc).isoformat()
+        async with get_db_connection(db_path) as conn:
+            await conn.execute("DELETE FROM sessions WHERE expires_at < ?", (now,))
+            await conn.commit()
+    except Exception as e:
+        logger.error("Expired session cleanup failed: %s", e)
+
+
 async def change_password(user_id: int, new_password: str, db_path: str) -> bool:
     """Змінює пароль користувача"""
     try:
@@ -306,16 +347,34 @@ async def create_user(db_path: str, username: str, password: str, role: str = "v
         return False
 
 
-async def update_user_role(db_path: str, username: str, new_role: str) -> bool:
-    """Update user role"""
+async def update_user_role(db_path: str, username: str, new_role: str) -> tuple:
+    """Update user role. Returns (success, error_message).
+
+    Refuses to demote the last remaining admin — doing so would lock everyone
+    out of admin-only functions (there is no self-signup), mirroring the guard
+    in ``delete_user``.
+    """
     try:
         async with get_db_connection(db_path) as conn:
+            async with conn.execute("SELECT role FROM users WHERE username = ?", (username,)) as c:
+                user_row = await c.fetchone()
+            if not user_row:
+                return (False, "User not found")
+
+            if user_row["role"] == "admin" and new_role != "admin":
+                async with conn.execute(
+                    "SELECT COUNT(*) FROM users WHERE role = 'admin'"
+                ) as c:
+                    admin_count = (await c.fetchone())[0]
+                if admin_count <= 1:
+                    return (False, "Cannot demote the last admin user")
+
             await conn.execute("UPDATE users SET role = ? WHERE username = ?", (new_role, username))
             await conn.commit()
-            return True
+            return (True, None)
     except Exception as e:
         logger.error("Error updating user role: %s", e)
-        return False
+        return (False, str(e))
 
 
 async def delete_user(db_path: str, username: str) -> tuple:
@@ -390,7 +449,7 @@ async def validate_api_key(db_path: str, api_key: str) -> dict:
     key_hash = _hash_api_key(api_key)
     async with get_db_connection(db_path) as conn:
         async with conn.execute(
-            """SELECT k.key_id, k.user_id, u.username, u.role
+            """SELECT k.key_id, k.user_id, k.last_used_at, u.username, u.role
                FROM api_keys k JOIN users u ON k.user_id = u.id
                WHERE k.key_hash = ? AND k.is_active = 1""",
             (key_hash,),
@@ -400,12 +459,24 @@ async def validate_api_key(db_path: str, api_key: str) -> dict:
     if not row:
         return None
 
-    async with get_db_connection(db_path) as conn:
-        await conn.execute(
-            "UPDATE api_keys SET last_used_at = ? WHERE key_id = ?",
-            (datetime.now(timezone.utc).isoformat(), row["key_id"]),
-        )
-        await conn.commit()
+    # Throttle the last_used_at write: every API request would otherwise open a
+    # separate write transaction, serialising with the monitor loop's writers
+    # under WAL. A coarse (≥60s) freshness is plenty for an audit timestamp.
+    now = datetime.now(timezone.utc)
+    last_used = row["last_used_at"]
+    should_touch = True
+    if last_used:
+        try:
+            should_touch = (now - datetime.fromisoformat(last_used)).total_seconds() >= 60
+        except (ValueError, TypeError):
+            should_touch = True
+    if should_touch:
+        async with get_db_connection(db_path) as conn:
+            await conn.execute(
+                "UPDATE api_keys SET last_used_at = ? WHERE key_id = ?",
+                (now.isoformat(), row["key_id"]),
+            )
+            await conn.commit()
 
     return {
         "user_id": row["user_id"],

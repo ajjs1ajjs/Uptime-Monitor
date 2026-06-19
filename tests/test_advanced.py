@@ -533,9 +533,11 @@ class TestMoreEdgeCases:
         assert "<test" in h[0]["message_preview"]
 
     @pytest.mark.asyncio
-    async def test_send_notification_disabled_still_logs(self, test_db, sample_site):
+    async def test_send_notification_disabled_not_logged(self, test_db, sample_site):
+        # A disabled method dispatches nothing, so it must NOT be recorded as a
+        # "sent" notification — logging it would falsify the delivery history.
         from Uptime_Robot.models import get_notification_history
-        with patch("Uptime_Robot.notifications.send_telegram", AsyncMock()):
+        with patch("Uptime_Robot.notifications.send_telegram", AsyncMock()) as mock_send:
             from Uptime_Robot.notifications import send_notification
             await send_notification(
                 {"alert_type": "down"},
@@ -543,8 +545,9 @@ class TestMoreEdgeCases:
                 {"telegram": {"enabled": False}},
                 site_id=sample_site, site_name="Test",
             )
+            mock_send.assert_not_awaited()
             h = await get_notification_history(test_db)
-            assert len(h) == 1  # logs even when disabled (correct behavior)
+            assert len(h) == 0
 
     @pytest.mark.asyncio
     async def test_send_notification_multiple_methods(self, test_db, sample_site):
@@ -842,3 +845,48 @@ class TestIncidentHelpers:
         incidents = _build_incidents([r, dict(r)], {})
         assert len(incidents) == 1
         assert incidents[0]["duration"] == "в процесі"
+
+
+class TestRoleManagementGuards:
+    @pytest.mark.asyncio
+    async def test_cannot_demote_last_admin(self, test_db):
+        from Uptime_Robot import auth_module
+        await auth_module.init_auth_tables(test_db)  # creates the default 'admin'
+        ok, err = await auth_module.update_user_role(test_db, "admin", "viewer")
+        assert ok is False
+        assert "last admin" in err.lower()
+
+    @pytest.mark.asyncio
+    async def test_can_demote_admin_when_another_exists(self, test_db):
+        from Uptime_Robot import auth_module
+        await auth_module.init_auth_tables(test_db)
+        assert await auth_module.create_user(test_db, "admin2", "ValidP@ss1234", "admin")
+        ok, err = await auth_module.update_user_role(test_db, "admin", "viewer")
+        assert ok is True
+        assert err is None
+
+    @pytest.mark.asyncio
+    async def test_update_unknown_user_reports_not_found(self, test_db):
+        from Uptime_Robot import auth_module
+        await auth_module.init_auth_tables(test_db)
+        ok, err = await auth_module.update_user_role(test_db, "ghost", "viewer")
+        assert ok is False
+        assert err == "User not found"
+
+    @pytest.mark.asyncio
+    async def test_new_user_defaults_to_viewer(self, test_db):
+        from Uptime_Robot import auth_module
+        await auth_module.init_auth_tables(test_db)
+        from Uptime_Robot.database import get_db_connection
+        # A row inserted without an explicit role must NOT become admin.
+        async with get_db_connection(test_db) as conn:
+            await conn.execute(
+                "INSERT INTO users (username, password_hash) VALUES (?, ?)",
+                ("norole", auth_module.hash_password("ValidP@ss1234")),
+            )
+            await conn.commit()
+            async with conn.execute(
+                "SELECT role FROM users WHERE username = ?", ("norole",)
+            ) as c:
+                row = await c.fetchone()
+        assert row["role"] == "viewer"

@@ -84,9 +84,28 @@ async def validate_csrf_token(session_id: str, token: str) -> bool:
                 "SELECT csrf_token FROM sessions WHERE session_id = ?", (session_id,)
             ) as c:
                 row = await c.fetchone()
-            return row is not None and row["csrf_token"] == token
+            stored = row["csrf_token"] if row else None
+            # Constant-time comparison to avoid leaking the token via timing.
+            return bool(stored) and secrets.compare_digest(str(stored), token)
     except Exception:
         return False
+
+
+async def cleanup_expired_csrf_tokens(max_age_hours: int = 24) -> None:
+    """Delete CSRF tokens older than ``max_age_hours``.
+
+    Unused one-time tokens (every change-password/forgot-password page render)
+    otherwise accumulate forever, so they must be purged periodically.
+    """
+    try:
+        async with get_db_connection() as conn:
+            await conn.execute(
+                "DELETE FROM csrf_tokens WHERE created_at < datetime('now', ?)",
+                (f"-{int(max_age_hours)} hours",),
+            )
+            await conn.commit()
+    except Exception as e:
+        logger.error("CSRF token cleanup failed: %s", e)
 
 
 # Paths that perform their own CSRF handling (validate a one-time token inside
@@ -104,9 +123,15 @@ CSRF_EXEMPT: set[str] = {
 async def csrf_middleware(request: Request, call_next):
     """CSRF defense-in-depth on state-changing methods.
 
-    - ``/api/*``: enforce a same-origin Origin/Referer (the SPA uses fetch, which
-      always sends Origin on non-GET requests; SameSite=Lax cookies are the
-      primary defense and this is the second layer).
+    - ``/api/*`` authenticated by the session cookie: enforce a same-origin
+      Origin/Referer **fail-closed** — a missing Origin/Referer is rejected, not
+      allowed. Browsers always send Origin on non-GET fetches, so the only
+      requests lacking it are non-browser clients, which must authenticate with
+      an API key instead (see below). SameSite=Lax does not block all cross-site
+      top-level POSTs, so this header check is a required second layer.
+    - ``/api/*`` authenticated by ``X-API-Key``: not a CSRF vector (an attacker
+      cannot make the victim's browser attach the key), so the Origin check is
+      skipped.
     - other non-exempt routes: require the token in the ``X-CSRF-Token`` header.
 
     The request body is never read here (see CSRF_EXEMPT note). Form-POST routes
@@ -117,15 +142,21 @@ async def csrf_middleware(request: Request, call_next):
         path = request.url.path
 
         if path.startswith("/api/"):
-            origin = request.headers.get("Origin") or request.headers.get("Referer") or ""
-            if origin:
+            # API-key clients are immune to CSRF and legitimately send no Origin.
+            # Only cookie-authenticated requests are a CSRF vector.
+            if not request.headers.get("X-API-Key") and request.cookies.get("session_id"):
                 from urllib.parse import urlparse
 
+                origin = request.headers.get("Origin") or request.headers.get("Referer") or ""
+                if not origin:
+                    return PlainTextResponse(
+                        "Missing Origin/Referer on state-changing request", status_code=403
+                    )
                 # Compare hostnames only (ignore port): TLS-terminating proxies
                 # often make base_url's port differ from the public Origin.
                 allowed = urlparse(str(request.base_url)).hostname
                 req_origin = urlparse(origin).hostname
-                if req_origin and allowed and req_origin != allowed:
+                if not req_origin or req_origin != allowed:
                     return PlainTextResponse("Cross-origin request denied", status_code=403)
         elif path not in CSRF_EXEMPT:
             session_id = request.cookies.get("session_id")

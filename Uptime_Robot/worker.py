@@ -38,8 +38,14 @@ async def _shutdown():
         await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=10)
     except asyncio.TimeoutError:
         logger.warning("Shutdown timeout — forcing exit")
+    from .http_client import close_sessions
+
+    await close_sessions()
     await close_db()
-    asyncio.get_event_loop().stop()
+    # Stop the loop we explicitly created in run_worker rather than relying on
+    # asyncio.get_event_loop() (deprecated when no loop is bound to the thread).
+    loop = _worker_loop or asyncio.get_running_loop()
+    loop.stop()
 
 
 async def initialize_worker():

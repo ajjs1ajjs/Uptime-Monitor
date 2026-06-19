@@ -13,6 +13,15 @@ from .logger import logger
 
 MASTER_KEY_FILE = "master.key"
 ENC_PREFIX = "__ENC__"
+
+
+class CryptoUnavailableError(RuntimeError):
+    """Raised when a secret cannot be encrypted.
+
+    Encryption MUST fail closed: silently writing a secret in plaintext (only a
+    log line) is worse than refusing to persist it, because the caller — and the
+    operator — would believe the value is encrypted at rest.
+    """
 _FERNET_INSTANCE = None
 _FERNET_LOCK = threading.Lock()
 _SENSITIVE_KEYS = {
@@ -132,17 +141,17 @@ def encrypt_value(plaintext: str) -> str:
     f = get_fernet()
     if f is None:
         logger.error(
-            "encrypt_value: encryption unavailable — secret is being stored in PLAINTEXT. "
+            "encrypt_value: encryption unavailable — refusing to store secret in plaintext. "
             "Ensure the 'cryptography' package is installed and a master key is writable "
             "(set UPTIME_MONITOR_MASTER_KEY or allow %s to be created).",
             _get_master_key_path(),
         )
-        return plaintext
+        raise CryptoUnavailableError("encryption backend unavailable")
     try:
         return f.encrypt(plaintext.encode()).decode()
     except Exception as e:
         logger.error("Encryption failed: %s", e)
-        return plaintext
+        raise CryptoUnavailableError(f"encryption failed: {e}") from e
 
 
 def decrypt_value(ciphertext: str) -> str:

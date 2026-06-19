@@ -288,12 +288,21 @@ def update_user_role(db_path, username, role):
     conn = sqlite3.connect(db_path)
     c = conn.cursor()
 
-    c.execute("UPDATE users SET role = ? WHERE username = ?", (role, username))
-
-    if c.rowcount == 0:
+    c.execute("SELECT role FROM users WHERE username = ?", (username,))
+    existing = c.fetchone()
+    if existing is None:
         print(f"[ERROR] User '{username}' not found")
         conn.close()
         sys.exit(1)
+
+    if existing[0] == "admin" and role != "admin":
+        c.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'")
+        if c.fetchone()[0] <= 1:
+            print("[ERROR] Cannot demote the last admin user")
+            conn.close()
+            sys.exit(1)
+
+    c.execute("UPDATE users SET role = ? WHERE username = ?", (role, username))
 
     conn.commit()
     conn.close()
