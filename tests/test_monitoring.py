@@ -40,8 +40,12 @@ class TestSsrfCheckTimeGuard:
     def test_literal_loopback_blocked(self):
         assert _host_resolves_to_blocked("127.0.0.1") is True
 
-    def test_literal_private_blocked(self):
-        assert _host_resolves_to_blocked("10.0.0.5") is True
+    def test_literal_private_allowed(self):
+        # Private RFC 1918 targets are the primary use case for an internal
+        # monitor and must NOT be blocked.
+        assert _host_resolves_to_blocked("10.0.0.5") is False
+        assert _host_resolves_to_blocked("172.16.32.16") is False
+        assert _host_resolves_to_blocked("192.168.1.1") is False
 
     def test_cloud_metadata_link_local_blocked(self):
         assert _host_resolves_to_blocked("169.254.169.254") is True
@@ -49,9 +53,9 @@ class TestSsrfCheckTimeGuard:
     def test_public_literal_allowed(self):
         assert _host_resolves_to_blocked("8.8.8.8") is False
 
-    def test_hostname_resolving_to_private_blocked(self):
+    def test_hostname_resolving_to_private_allowed(self):
         with patch("socket.getaddrinfo", return_value=[(2, 1, 6, "", ("10.0.0.5", 0))]):
-            assert _host_resolves_to_blocked("internal.example.com") is True
+            assert _host_resolves_to_blocked("internal.example.com") is False
 
     def test_resolution_failure_not_blocked(self):
         # DNS failures must surface as a normal "down", not as a block.
@@ -181,14 +185,21 @@ class TestNormalizeAndValidateURL:
         url = _normalize_and_validate_url("8.8.8.8:8080", "http")
         assert "8.8.8.8" in url
 
-    def test_private_ip_rejected(self):
+    def test_private_ip_accepted(self):
+        # Private targets are allowed for the internal monitor.
+        from Uptime_Robot.routers.api import _normalize_and_validate_url
+
+        url = _normalize_and_validate_url("192.168.1.1", "http")
+        assert "192.168.1.1" in url
+
+    def test_loopback_ip_rejected(self):
         import pytest
         from fastapi import HTTPException
 
         from Uptime_Robot.routers.api import _normalize_and_validate_url
 
         with pytest.raises(HTTPException) as exc:
-            _normalize_and_validate_url("192.168.1.1", "http")
+            _normalize_and_validate_url("127.0.0.1", "http")
         assert exc.value.status_code == 400
 
 

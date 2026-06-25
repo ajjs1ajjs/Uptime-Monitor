@@ -30,20 +30,25 @@ def normalize_ssl_url(url: str) -> Optional[str]:
 def _host_resolves_to_blocked(host: str) -> bool:
     """True if ``host`` (literal IP or DNS name) maps to an internal address.
 
-    URLs are validated against the same private/loopback/link-local/reserved set
-    at creation time, but DNS is resolved again here at check time — a hostname
+    URLs are validated against the same loopback/link-local/reserved set at
+    creation time, but DNS is resolved again here at check time — a hostname
     can be re-pointed at an internal address after creation (DNS rebinding). This
     re-checks at the moment of use so PING/PORT/DNS probes cannot be turned into
-    an SSRF scan of the internal network. Resolution failures are NOT treated as
+    an SSRF scan of dangerous targets. Resolution failures are NOT treated as
     blocked (let the probe surface them as a normal "down").
+
+    NOTE: private RFC 1918 ranges (10/8, 172.16/12, 192.168/16) are intentionally
+    allowed — this is an internal corporate monitor whose primary job is to watch
+    services on the private network. Only loopback, link-local (incl. the
+    169.254.169.254 cloud-metadata IP), reserved, multicast and unspecified
+    addresses remain blocked.
     """
     import ipaddress
     import socket
 
     def _blocked(addr) -> bool:
         return (
-            addr.is_private
-            or addr.is_loopback
+            addr.is_loopback
             or addr.is_link_local
             or addr.is_reserved
             or addr.is_multicast

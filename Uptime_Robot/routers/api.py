@@ -117,9 +117,11 @@ def _normalize_and_validate_url(raw_url: str, monitor_type: str) -> str:
     from urllib.parse import urlparse
 
     def _is_blocked_ip(addr) -> bool:
+        # Private RFC 1918 ranges are intentionally NOT blocked: this is an
+        # internal corporate monitor and its targets live on the private network.
+        # Only loopback/link-local/reserved/multicast/unspecified stay blocked.
         return (
-            addr.is_private
-            or addr.is_loopback
+            addr.is_loopback
             or addr.is_link_local
             or addr.is_reserved
             or addr.is_multicast
@@ -127,9 +129,9 @@ def _normalize_and_validate_url(raw_url: str, monitor_type: str) -> str:
         )
 
     def _resolves_to_blocked(hostname: str) -> bool:
-        # SSRF defense: a public-looking hostname can still resolve to a private
+        # SSRF defense: a public-looking hostname can still resolve to a blocked
         # address (e.g. 127.0.0.1 or the 169.254.169.254 cloud-metadata IP).
-        # Reject the URL if ANY resolved address is internal.
+        # Reject the URL if ANY resolved address is blocked.
         try:
             infos = socket.getaddrinfo(hostname, None)
         except (socket.gaierror, UnicodeError):

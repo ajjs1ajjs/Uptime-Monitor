@@ -524,9 +524,9 @@ class TestRateLimiting:
 class TestSecurityHardening:
     """CSRF, Origin and SSRF protections added in security hardening."""
 
-    def test_ssrf_literal_private_ip_rejected(self, client, admin_headers):
+    def test_ssrf_loopback_ip_rejected(self, client, admin_headers):
         r = client.post("/api/sites", json={
-            "name": "ssrf-private", "url": "http://127.0.0.1", "monitor_type": "http",
+            "name": "ssrf-loopback", "url": "http://127.0.0.1", "monitor_type": "http",
         }, headers=admin_headers)
         assert r.status_code == 400
 
@@ -537,12 +537,22 @@ class TestSecurityHardening:
         }, headers=admin_headers)
         assert r.status_code == 400
 
-    def test_ssrf_hostname_resolving_to_private_rejected(self, client, admin_headers):
-        # A public-looking hostname that resolves to a private address must be
-        # blocked (DNS-based SSRF).
+    def test_hostname_resolving_to_private_accepted(self, client, admin_headers):
+        # A hostname that resolves to a private RFC 1918 address is a valid
+        # internal monitoring target and must be accepted.
         with patch("socket.getaddrinfo", return_value=[(2, 1, 6, "", ("10.0.0.5", 0))]):
             r = client.post("/api/sites", json={
-                "name": "ssrf-dns", "url": "http://internal.example.com",
+                "name": "internal-svc", "url": "http://internal.example.com",
+                "monitor_type": "http",
+            }, headers=admin_headers)
+        assert r.status_code == 200
+
+    def test_ssrf_hostname_resolving_to_loopback_rejected(self, client, admin_headers):
+        # A public-looking hostname that resolves to loopback must still be
+        # blocked (DNS-based SSRF).
+        with patch("socket.getaddrinfo", return_value=[(2, 1, 6, "", ("127.0.0.1", 0))]):
+            r = client.post("/api/sites", json={
+                "name": "ssrf-dns", "url": "http://evil.example.com",
                 "monitor_type": "http",
             }, headers=admin_headers)
         assert r.status_code == 400
