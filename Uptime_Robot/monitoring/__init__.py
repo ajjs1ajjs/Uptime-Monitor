@@ -76,11 +76,13 @@ def _host_resolves_to_blocked(host: str) -> bool:
 
 async def load_notify_settings_from_db() -> dict[str, Any]:
     try:
+        from ..crypto_utils import decrypt_notify_secrets
+
         async with get_db_connection() as conn:
             async with conn.execute("SELECT config FROM notify_config WHERE id = 1") as c:
                 row = await c.fetchone()
                 if row:
-                    return json.loads(row["config"])
+                    return decrypt_notify_secrets(json.loads(row["config"]))
     except Exception as e:
         logger.error("Failed to load notify settings from DB: %s", e)
     return {}

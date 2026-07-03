@@ -40,12 +40,14 @@ async def initialize_worker():
     await models.init_database(DB_PATH)
     logger.info("Database initialized")
 
+    from .crypto_utils import decrypt_notify_secrets
+
     async with get_db_connection() as conn:
         async with conn.execute("SELECT config FROM notify_config WHERE id = 1") as c:
             row = await c.fetchone()
             if row:
                 try:
-                    loaded = json.loads(row["config"])
+                    loaded = decrypt_notify_secrets(json.loads(row["config"]))
                     NOTIFY_SETTINGS.update(loaded)
                     logger.info("Loaded notification settings from DB")
                 except Exception as e:

@@ -63,12 +63,16 @@ async def initialize_app_async():
 
     # Load settings from DB
     try:
+        from .crypto_utils import decrypt_notify_secrets
+
         async with get_db_connection() as conn:
             async with conn.execute("SELECT config FROM notify_config WHERE id = 1") as c:
                 row = await c.fetchone()
                 if row:
                     try:
-                        app_state.NOTIFY_SETTINGS.update(json.loads(row["config"]))
+                        app_state.NOTIFY_SETTINGS.update(
+                            decrypt_notify_secrets(json.loads(row["config"]))
+                        )
                     except json.JSONDecodeError:
                         pass
             async with conn.execute("SELECT * FROM app_settings WHERE id = 1") as c:
