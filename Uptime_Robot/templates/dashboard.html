@@ -422,21 +422,6 @@
                     <input type="number" id="alertSslInterval" min="1" max="168" value="6"
                         class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
                 </div>
-                <div>
-                    <label class="text-xs text-slate-400 block mb-1" data-i18n="alert_flapping_threshold">Поріг флапінгу (змін статусу)</label>
-                    <input type="number" id="alertFlappingThreshold" min="2" max="20" value="3"
-                        class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
-                </div>
-                <div>
-                    <label class="text-xs text-slate-400 block mb-1" data-i18n="alert_flapping_window">Вікно флапінгу (сек)</label>
-                    <input type="number" id="alertFlappingWindow" min="60" max="3600" value="300"
-                        class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
-                </div>
-                <div>
-                    <label class="text-xs text-slate-400 block mb-1" data-i18n="alert_flapping_suppress">Придушення флапінгу (сек)</label>
-                    <input type="number" id="alertFlappingSuppress" min="60" max="7200" value="600"
-                        class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
-                </div>
                 <div class="flex items-center gap-3">
                     <input type="checkbox" id="alertTreat4xx" checked
                         class="w-5 h-5 rounded bg-[#0f172a] border border-slate-700/50 text-accent focus:ring-accent outline-none transition">
@@ -1350,9 +1335,6 @@ async function loadAlertPolicy() {
         document.getElementById('alertSslDays').value = (data.ssl_notification_days || [30,14,7,5,3,1]).join(', ');
         document.getElementById('alertSslCooldown').value = data.ssl_notification_cooldown_seconds ?? 21600;
         document.getElementById('alertSslInterval').value = data.ssl_check_interval_hours ?? 6;
-        document.getElementById('alertFlappingThreshold').value = data.flapping_threshold ?? 3;
-        document.getElementById('alertFlappingWindow').value = data.flapping_window_seconds ?? 300;
-        document.getElementById('alertFlappingSuppress').value = data.flapping_suppression_seconds ?? 600;
         document.getElementById('alertTreat4xx').checked = data.treat_4xx_as_down !== false;
         document.getElementById('alertVerifySsl').checked = data.verify_ssl !== false;
     } catch(e) { console.error('loadAlertPolicy', e); }
@@ -1371,9 +1353,6 @@ async function saveAlertPolicy() {
         ssl_notification_days: parseCsv('alertSslDays'),
         ssl_notification_cooldown_seconds: getNum('alertSslCooldown'),
         ssl_check_interval_hours: getNum('alertSslInterval'),
-        flapping_threshold: getNum('alertFlappingThreshold'),
-        flapping_window_seconds: getNum('alertFlappingWindow'),
-        flapping_suppression_seconds: getNum('alertFlappingSuppress'),
         treat_4xx_as_down: getChecked('alertTreat4xx'),
         verify_ssl: getChecked('alertVerifySsl'),
     };

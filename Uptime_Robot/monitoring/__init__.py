@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
@@ -260,56 +259,6 @@ async def _check_http(
     return "down", None, response_time, "Too many redirects"
 
 
-_flap_state: dict[int, dict] = {}
-_LAST_FLAP_CLEANUP = time.time()
-
-
-def _cleanup_flap_state():
-    global _LAST_FLAP_CLEANUP
-    now = time.time()
-    if now - _LAST_FLAP_CLEANUP < 3600:
-        return
-    _LAST_FLAP_CLEANUP = now
-    cutoff = now - 3600
-    for sid in list(_flap_state.keys()):
-        if _flap_state[sid]["last_time"] < cutoff:
-            del _flap_state[sid]
-
-
-def _check_flapping(site_id: int, prev_status: str, status: str, policy: dict) -> bool:
-    _cleanup_flap_state()
-    now = time.time()
-    state = _flap_state.get(site_id)
-    if state is None:
-        state = {"count": 0, "last_time": now, "suppressed_until": 0}
-        _flap_state[site_id] = state
-
-    if state["suppressed_until"] > now:
-        if (now - state["last_time"]) >= policy["flapping_suppression_seconds"]:
-            state["count"] = 0
-            state["suppressed_until"] = 0
-        else:
-            return True
-
-    if prev_status in ("up", "down") and status in ("up", "down") and prev_status != status:
-        if (now - state["last_time"]) <= policy["flapping_window_seconds"]:
-            state["count"] += 1
-        else:
-            state["count"] = 1
-        state["last_time"] = now
-
-        if state["count"] >= policy["flapping_threshold"]:
-            state["suppressed_until"] = now + policy["flapping_suppression_seconds"]
-            logger.warning(
-                "Site %d flapping detected — alerts suppressed for %ss",
-                site_id,
-                policy["flapping_suppression_seconds"],
-            )
-            return True
-
-    return False
-
-
 def _process_alerting(
     status,
     prev_status,
@@ -323,7 +272,6 @@ def _process_alerting(
     success_attempts,
     last_down_alert_str,
     first_failure_at_str,
-    skip_alert,
 ):
     """Pure decision step: compute the new counters/alert-state and the list of
     alert messages to dispatch.
@@ -370,7 +318,7 @@ def _process_alerting(
                     should_alert = True
                     alert_type = "REPEAT"
 
-        if should_alert and notify_methods and not skip_alert:
+        if should_alert and notify_methods:
             alerts.append(
                 {
                     "alert_type": "down" if alert_type == "NEW" else "still_down",
@@ -390,7 +338,6 @@ def _process_alerting(
             prev_status == "down"
             and notify_methods
             and success_attempts >= policy["up_success_threshold"]
-            and not skip_alert
         ):
             alerts.append(
                 {
@@ -558,7 +505,6 @@ async def check_site_status(
             last_down_alert_str = row["last_down_alert"] if row else None
             first_failure_at_str = row["first_failure_at"] if row else None
 
-            skip_alert = _check_flapping(site_id, prev_status, status, policy)
             (
                 failed_attempts,
                 success_attempts,
@@ -578,7 +524,6 @@ async def check_site_status(
                 success_attempts,
                 last_down_alert_str,
                 first_failure_at_str,
-                skip_alert,
             )
 
             # Record EVERY check (not only transitions) so uptime % = up/total is

@@ -95,9 +95,6 @@ class AlertPolicyModel(BaseModel):
     verify_ssl: Optional[bool] = None
     retry_delays: Optional[list[int]] = None
     max_retries: Optional[int] = None
-    flapping_threshold: Optional[int] = None
-    flapping_window_seconds: Optional[int] = None
-    flapping_suppression_seconds: Optional[int] = None
 
 
 class UserCreate(BaseModel):
