@@ -91,9 +91,6 @@ DEFAULT_CONFIG = {
         "ssl_check_interval_hours": 6,
         "retry_delays": [30, 30],
         "max_retries": 2,
-        "flapping_threshold": 3,
-        "flapping_window_seconds": 300,
-        "flapping_suppression_seconds": 600,
     },
     "backup": {
         "enabled": True,

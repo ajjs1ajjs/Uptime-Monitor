@@ -15,9 +15,6 @@ SENSITIVE_DEFAULTS = {
     "verify_ssl": True,
     "retry_delays": [30, 30],
     "max_retries": 2,
-    "flapping_threshold": 3,
-    "flapping_window_seconds": 300,
-    "flapping_suppression_seconds": 600,
 }
 
 _cache: dict[str, Any] | None = None
@@ -71,11 +68,6 @@ def get_alert_policy() -> dict[str, Any]:
         result.get("ssl_notification_cooldown_seconds"), 300, 86400, 21600
     )
     result["ssl_check_interval_hours"] = _clamp(result.get("ssl_check_interval_hours"), 1, 168, 6)
-    result["flapping_threshold"] = _clamp(result.get("flapping_threshold"), 2, 20, 3)
-    result["flapping_window_seconds"] = _clamp(result.get("flapping_window_seconds"), 60, 3600, 300)
-    result["flapping_suppression_seconds"] = _clamp(
-        result.get("flapping_suppression_seconds"), 60, 7200, 600
-    )
     result["max_retries"] = _clamp(result.get("max_retries"), 0, 10, 2)
 
     delays = result.get("retry_delays")

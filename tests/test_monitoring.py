@@ -84,8 +84,7 @@ SENSITIVE_KEYS = {
     "request_timeout_seconds", "grace_period_seconds", "up_success_threshold",
     "still_down_repeat_seconds", "treat_4xx_as_down", "ssl_notification_days",
     "ssl_notification_cooldown_seconds", "ssl_check_interval_hours", "verify_ssl",
-    "retry_delays", "max_retries", "flapping_threshold",
-    "flapping_window_seconds", "flapping_suppression_seconds",
+    "retry_delays", "max_retries",
 }
 
 
