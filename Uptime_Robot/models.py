@@ -22,7 +22,8 @@ async def _create_tables(conn):
         error_message TEXT, monitor_type TEXT DEFAULT 'http',
         failed_attempts INTEGER DEFAULT 0, success_attempts INTEGER DEFAULT 0,
         last_down_alert TEXT, first_failure_at TEXT, keyword TEXT DEFAULT NULL,
-        tags TEXT DEFAULT '[]'
+        tags TEXT DEFAULT '[]', silenced_until TEXT DEFAULT NULL,
+        acknowledged INTEGER DEFAULT 0
     )""")
     await conn.execute("""CREATE TABLE IF NOT EXISTS status_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER, status TEXT,
@@ -119,6 +120,8 @@ async def _run_migrations(conn):
         "first_failure_at",
         "keyword",
         "tags",
+        "silenced_until",
+        "acknowledged",
     ):
         if col not in site_cols:
             col_type = (
@@ -126,19 +129,11 @@ async def _run_migrations(conn):
                 if col == "tags"
                 else (
                     "TEXT DEFAULT NULL"
-                    if col in ("last_down_alert", "keyword", "first_failure_at")
+                    if col in ("last_down_alert", "keyword", "first_failure_at", "silenced_until")
                     else "INTEGER DEFAULT 0"
                 )
             )
-            if col in (
-                "failed_attempts",
-                "success_attempts",
-                "last_down_alert",
-                "first_failure_at",
-                "keyword",
-                "tags",
-            ):
-                await conn.execute(f"ALTER TABLE sites ADD COLUMN {col} {col_type}")
+            await conn.execute(f"ALTER TABLE sites ADD COLUMN {col} {col_type}")
 
     async with conn.execute("PRAGMA table_info(app_settings)") as c:
         settings_cols = {r[1] for r in await c.fetchall()}

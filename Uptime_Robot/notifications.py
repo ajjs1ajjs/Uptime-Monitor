@@ -484,25 +484,22 @@ async def send_telegram(message: Union[str, dict], settings: dict[str, Any]) -> 
         if settings.get("message_thread_id"):
             payload["message_thread_id"] = int(settings["message_thread_id"])
 
-        if alert_type in ("down", "still_down") and isinstance(message, dict):
+        site_id = message.get("site_id") if isinstance(message, dict) else None
+        if alert_type in ("down", "still_down") and site_id is not None:
             payload["reply_markup"] = {
                 "inline_keyboard": [
                     [
                         {
                             "text": "✅ Acknowledge",
-                            "callback_data": _telegram_cb(f"ack_{message.get('site_name', '')}"),
+                            "callback_data": _telegram_cb(f"ack_{site_id}"),
                         },
                         {
                             "text": "🔇 Silence 1h",
-                            "callback_data": _telegram_cb(
-                                f"silence1h_{message.get('site_name', '')}"
-                            ),
+                            "callback_data": _telegram_cb(f"silence1h_{site_id}"),
                         },
                         {
                             "text": "🔕 Silence 6h",
-                            "callback_data": _telegram_cb(
-                                f"silence6h_{message.get('site_name', '')}"
-                            ),
+                            "callback_data": _telegram_cb(f"silence6h_{site_id}"),
                         },
                     ]
                 ]

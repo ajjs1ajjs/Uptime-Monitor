@@ -59,11 +59,19 @@ async def main_async():
     _main_task = asyncio.current_task()
     await initialize_worker()
     logger.info("Starting monitoring loop...")
+    from .telegram_bot import poll_telegram_updates
+
+    poller_task = asyncio.create_task(poll_telegram_updates(lambda: NOTIFY_SETTINGS))
     try:
         await monitoring.monitor_loop(NOTIFY_SETTINGS, CHECK_INTERVAL)
     except asyncio.CancelledError:
         logger.info("Worker shutdown requested, stopping monitoring loop...")
     finally:
+        poller_task.cancel()
+        try:
+            await poller_task
+        except (asyncio.CancelledError, Exception):
+            pass
         # Cancel any in-flight site-check tasks, then release shared resources.
         pending = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
         for t in pending:
