@@ -35,7 +35,31 @@ _SENSITIVE_KEYS = {
 }
 
 
+def _get_stable_config_dir() -> str:
+    """Directory that survives an app-code reinstall (e.g. install.sh's
+    ``rm -rf $INSTALL_DIR/Uptime_Robot`` on every update).
+
+    Mirrors config_manager's own CONFIG_PATH resolution without importing it
+    (config_manager imports crypto_utils, so importing back would cycle).
+    """
+    config_path = os.environ.get("CONFIG_PATH")
+    if config_path:
+        return os.path.dirname(config_path)
+    if sys.platform != "win32":
+        return "/etc/uptime-monitor"
+    return os.path.join(os.environ.get("USERPROFILE", ""), "UptimeMonitor")
+
+
 def _get_master_key_path() -> str:
+    """Primary location for the master key: a directory outside the
+    application source tree, so the key survives ``install.sh`` re-extracting
+    ``Uptime_Robot/`` on every update. A key that lived only in the app
+    directory would be silently deleted on the next update, permanently
+    breaking decryption of every secret encrypted with it.
+    """
+    stable_dir = _get_stable_config_dir()
+    if stable_dir:
+        return os.path.join(stable_dir, MASTER_KEY_FILE)
     app_dir = os.path.dirname(os.path.abspath(__file__))
     if getattr(sys, "frozen", False):
         app_dir = os.path.dirname(sys.executable)
@@ -43,9 +67,17 @@ def _get_master_key_path() -> str:
 
 
 def _get_alternative_key_paths() -> list:
+    """Legacy/fallback locations, checked in order if the primary path has no
+    key yet — covers installs whose key was generated before this file moved
+    the primary path out of the app directory.
+    """
     paths = []
+    app_dir = os.path.dirname(os.path.abspath(__file__))
+    if getattr(sys, "frozen", False):
+        app_dir = os.path.dirname(sys.executable)
+    paths.append(os.path.join(app_dir, MASTER_KEY_FILE))
     etc_path = "/etc/uptime-monitor/master.key"
-    if sys.platform != "win32":
+    if sys.platform != "win32" and etc_path != _get_master_key_path():
         paths.append(etc_path)
     user_home = os.environ.get("HOME") or os.environ.get("USERPROFILE", "")
     if user_home:
