@@ -265,6 +265,7 @@ def _process_alerting(
     status,
     prev_status,
     notify_methods,
+    site_id,
     site_name,
     url,
     status_code,
@@ -274,21 +275,31 @@ def _process_alerting(
     success_attempts,
     last_down_alert_str,
     first_failure_at_str,
+    silenced_until_str=None,
+    acknowledged=False,
 ):
     """Pure decision step: compute the new counters/alert-state and the list of
     alert messages to dispatch.
 
     It performs NO network or DB I/O so it can run inside the single write
     transaction in check_site_status. The caller sends `alerts` AFTER the commit.
-    Returns (failed_attempts, success_attempts, last_down_alert, first_failure_at, alerts).
+    Returns (failed_attempts, success_attempts, last_down_alert, first_failure_at,
+    silenced_until, acknowledged, alerts).
     """
     checked_at_dt = checked_at
     last_down_alert = datetime.fromisoformat(last_down_alert_str) if last_down_alert_str else None
     first_failure_at = (
         datetime.fromisoformat(first_failure_at_str) if first_failure_at_str else None
     )
+    silenced_until = (
+        datetime.fromisoformat(silenced_until_str) if silenced_until_str else None
+    )
     policy = get_alert_policy()
     alerts: list[dict] = []
+    # A manual Telegram silence/acknowledge only makes sense for the incident
+    # that triggered it — once the site recovers, clear both so the next
+    # outage alerts normally instead of staying silenced forever.
+    suppressed = acknowledged or (silenced_until is not None and checked_at_dt < silenced_until)
 
     if status == "down":
         # Consecutive-failure bookkeeping must run for EVERY down result, not
@@ -320,10 +331,11 @@ def _process_alerting(
                     should_alert = True
                     alert_type = "REPEAT"
 
-        if should_alert and notify_methods:
+        if should_alert and notify_methods and not suppressed:
             alerts.append(
                 {
                     "alert_type": "down" if alert_type == "NEW" else "still_down",
+                    "site_id": site_id,
                     "site_name": site_name,
                     "url": url,
                     "status_code": status_code or "N/A",
@@ -336,6 +348,10 @@ def _process_alerting(
         failed_attempts = 0
         first_failure_at = None
         success_attempts += 1
+        if prev_status == "down":
+            # Recovery ends the incident the silence/ack applied to.
+            silenced_until = None
+            acknowledged = False
         if (
             prev_status == "down"
             and notify_methods
@@ -344,6 +360,7 @@ def _process_alerting(
             alerts.append(
                 {
                     "alert_type": "up",
+                    "site_id": site_id,
                     "site_name": site_name,
                     "url": url,
                     "status_code": status_code,
@@ -355,7 +372,15 @@ def _process_alerting(
     else:
         success_attempts = 0
 
-    return failed_attempts, success_attempts, last_down_alert, first_failure_at, alerts
+    return (
+        failed_attempts,
+        success_attempts,
+        last_down_alert,
+        first_failure_at,
+        silenced_until,
+        acknowledged,
+        alerts,
+    )
 
 
 async def check_site_status(
@@ -491,7 +516,8 @@ async def check_site_status(
             # instantly with a stale-snapshot "database is locked" under WAL.
             await conn.execute("BEGIN IMMEDIATE")
             async with conn.execute(
-                "SELECT name, status, failed_attempts, success_attempts, last_down_alert, first_failure_at FROM sites WHERE id = ?",
+                "SELECT name, status, failed_attempts, success_attempts, last_down_alert, "
+                "first_failure_at, silenced_until, acknowledged FROM sites WHERE id = ?",
                 (site_id,),
             ) as c:
                 row = await c.fetchone()
@@ -506,17 +532,22 @@ async def check_site_status(
             )
             last_down_alert_str = row["last_down_alert"] if row else None
             first_failure_at_str = row["first_failure_at"] if row else None
+            silenced_until_str = row["silenced_until"] if row else None
+            acknowledged = bool(row["acknowledged"]) if row else False
 
             (
                 failed_attempts,
                 success_attempts,
                 last_down_alert,
                 first_failure_at,
+                silenced_until,
+                acknowledged,
                 alerts,
             ) = _process_alerting(
                 status,
                 prev_status,
                 notify_methods,
+                site_id,
                 site_name,
                 url,
                 status_code,
@@ -526,6 +557,8 @@ async def check_site_status(
                 success_attempts,
                 last_down_alert_str,
                 first_failure_at_str,
+                silenced_until_str,
+                acknowledged,
             )
 
             # Record EVERY check (not only transitions) so uptime % = up/total is
@@ -540,7 +573,7 @@ async def check_site_status(
                 """UPDATE sites SET
                    status = ?, status_code = ?, response_time = ?,
                    failed_attempts = ?, success_attempts = ?, last_down_alert = ?,
-                   first_failure_at = ?
+                   first_failure_at = ?, silenced_until = ?, acknowledged = ?
                    WHERE id = ?""",
                 (
                     status,
@@ -550,6 +583,8 @@ async def check_site_status(
                     success_attempts,
                     last_down_alert.isoformat() if last_down_alert else None,
                     first_failure_at.isoformat() if first_failure_at else None,
+                    silenced_until.isoformat() if silenced_until else None,
+                    1 if acknowledged else 0,
                     site_id,
                 ),
             )
