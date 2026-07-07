@@ -1,11 +1,12 @@
 """Tests for monitoring module pure functions"""
-from datetime import timezone
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from Uptime_Robot.monitoring import (
     _host_resolves_to_blocked,
+    _process_alerting,
     get_alert_policy,
     normalize_ssl_url,
 )
@@ -117,6 +118,57 @@ class TestAlertPolicy:
         assert policy["up_success_threshold"] >= 1
         assert policy["grace_period_seconds"] >= 0
         assert all(d > 0 for d in policy["retry_delays"])
+
+
+class TestUpAlertAfterMultiCheckThreshold:
+    """Regression test: with up_success_threshold > 1, `sites.status` in the
+    DB flips to "up" after the FIRST successful check, so by the time
+    success_attempts reaches the threshold, prev_status read back from the DB
+    is already "up" — the recovery alert must not depend on prev_status."""
+
+    def test_up_alert_fires_on_second_consecutive_success(self):
+        assert get_alert_policy()["up_success_threshold"] == 2
+
+        t0 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+
+        # Check 1: site goes down, NEW alert sent, last_down_alert set.
+        (
+            failed, success, last_down_alert, first_failure_at, silenced, ack, alerts
+        ) = _process_alerting(
+            "down", "up", ["telegram"], 1, "Site", "http://x", 500, "err", t0,
+            0, 0, None, None,
+        )
+        assert len(alerts) == 1 and alerts[0]["alert_type"] == "down"
+        assert last_down_alert == t0
+
+        # Check 2: first successful check after the outage. prev_status is
+        # still "down" (matches the DB row before this check's own write).
+        # success_attempts reaches 1 — below the threshold of 2 — no alert yet.
+        t1 = t0.replace(minute=1)
+        (
+            failed, success, last_down_alert, first_failure_at, silenced, ack, alerts
+        ) = _process_alerting(
+            "up", "down", ["telegram"], 1, "Site", "http://x", 200, None, t1,
+            failed, success, last_down_alert.isoformat(), None,
+        )
+        assert alerts == []
+        assert last_down_alert is not None
+        assert success == 1
+
+        # Check 3: second consecutive successful check. The caller now reads
+        # prev_status="up" from the DB (check 2 already wrote it), but the
+        # incident is still open (last_down_alert not yet cleared) and
+        # success_attempts hits the threshold — the "up" alert must fire.
+        t2 = t0.replace(minute=2)
+        (
+            failed, success, last_down_alert, first_failure_at, silenced, ack, alerts
+        ) = _process_alerting(
+            "up", "up", ["telegram"], 1, "Site", "http://x", 200, None, t2,
+            failed, success, last_down_alert.isoformat(), None,
+        )
+        assert len(alerts) == 1
+        assert alerts[0]["alert_type"] == "up"
+        assert last_down_alert is None
 
 
 class TestNormalizeSSLUrl:
