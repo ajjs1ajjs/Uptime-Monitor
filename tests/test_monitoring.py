@@ -133,7 +133,7 @@ class TestUpAlertAfterMultiCheckThreshold:
 
         # Check 1: site goes down, NEW alert sent, last_down_alert set.
         (
-            failed, success, last_down_alert, first_failure_at, silenced, ack, alerts
+            failed, success, last_down_alert, first_failure_at, alerts
         ) = _process_alerting(
             "down", "up", ["telegram"], 1, "Site", "http://x", 500, "err", t0,
             0, 0, None, None,
@@ -146,7 +146,7 @@ class TestUpAlertAfterMultiCheckThreshold:
         # success_attempts reaches 1 — below the threshold of 2 — no alert yet.
         t1 = t0.replace(minute=1)
         (
-            failed, success, last_down_alert, first_failure_at, silenced, ack, alerts
+            failed, success, last_down_alert, first_failure_at, alerts
         ) = _process_alerting(
             "up", "down", ["telegram"], 1, "Site", "http://x", 200, None, t1,
             failed, success, last_down_alert.isoformat(), None,
@@ -161,7 +161,7 @@ class TestUpAlertAfterMultiCheckThreshold:
         # success_attempts hits the threshold — the "up" alert must fire.
         t2 = t0.replace(minute=2)
         (
-            failed, success, last_down_alert, first_failure_at, silenced, ack, alerts
+            failed, success, last_down_alert, first_failure_at, alerts
         ) = _process_alerting(
             "up", "up", ["telegram"], 1, "Site", "http://x", 200, None, t2,
             failed, success, last_down_alert.isoformat(), None,

@@ -290,6 +290,18 @@ def decrypt_notify_secrets(settings: dict) -> dict:
     return _transform_secrets(settings, _dec_field)
 
 
+def redact_notify_secrets(settings: dict) -> dict:
+    """Blank out sensitive fields (tokens, webhook URLs, passwords) while
+    keeping the surrounding shape (channel ids/names/enabled flags) intact.
+
+    Used for any audience that isn't allowed to see the raw secret — e.g. the
+    dashboard is reachable by viewer-role accounts, but only admins may edit
+    notification channels, so a viewer has no legitimate reason to receive
+    the decrypted bot token / SMTP password / webhook URL in the page source.
+    """
+    return _transform_secrets(settings, lambda v: "" if v else v)
+
+
 def decrypt_config_sensitive(config: dict) -> dict:
     config = config.copy()
     notifications = config.get("notifications", {})

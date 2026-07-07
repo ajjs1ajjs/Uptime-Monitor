@@ -4,6 +4,8 @@ import ssl
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
+from cryptography import x509
+
 from .logger import logger
 
 
@@ -17,9 +19,12 @@ def _check_ssl_certificate_sync(url: str):
     fields are pulled from the raw DER cert via `cryptography`, since
     ssl.SSLSocket.getpeercert() returns an empty dict when verification is
     disabled instead of populating notAfter/notBefore/issuer/subject.
-    """
-    from cryptography import x509
 
+    `cryptography` is imported at module level (not inside the try/except
+    below) so a missing/broken install fails loudly at startup instead of
+    being swallowed by the broad except and misreported as a per-site SSL
+    check failure for every single monitor.
+    """
     try:
         parsed = urlparse(url)
         hostname = parsed.hostname
