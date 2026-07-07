@@ -8,9 +8,19 @@ from .logger import logger
 
 
 def _check_ssl_certificate_sync(url: str):
-    """Перевіряє SSL сертифікат сайту (синхронно)"""
+    """Перевіряє SSL сертифікат сайту (синхронно).
+
+    Uses CERT_NONE so the handshake completes (and the certificate can still
+    be read) even when it's expired, self-signed, or otherwise fails
+    validation — the point of this check is to REPORT those problems, not to
+    silently disappear the site from the SSL list because of them. Cert
+    fields are pulled from the raw DER cert via `cryptography`, since
+    ssl.SSLSocket.getpeercert() returns an empty dict when verification is
+    disabled instead of populating notAfter/notBefore/issuer/subject.
+    """
+    from cryptography import x509
+
     try:
-        # Парсимо URL
         parsed = urlparse(url)
         hostname = parsed.hostname
         port = parsed.port or 443
@@ -18,59 +28,36 @@ def _check_ssl_certificate_sync(url: str):
         if not hostname:
             return None
 
-        # Створюємо SSL контекст
-        context = ssl.create_default_context()
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
 
-        # Отримуємо сертифікат
         with socket.create_connection((hostname, port), timeout=10) as sock:
             with context.wrap_socket(sock, server_hostname=hostname) as ssock:
-                cert = ssock.getpeercert()
+                der_cert = ssock.getpeercert(binary_form=True)
 
-                if not cert:
-                    return None
+        if not der_cert:
+            return None
 
-                # Парсимо дати
-                not_after = cert.get("notAfter")
-                not_before = cert.get("notBefore")
+        cert = x509.load_der_x509_certificate(der_cert)
+        expire_date = getattr(cert, "not_valid_after_utc", None) or cert.not_valid_after.replace(
+            tzinfo=timezone.utc
+        )
+        start_date = getattr(cert, "not_valid_before_utc", None) or cert.not_valid_before.replace(
+            tzinfo=timezone.utc
+        )
+        days_until_expire = (expire_date - datetime.now(timezone.utc)).days
 
-                if not_after:
-                    # Конвертуємо дату закінчення
-                    expire_date = datetime.strptime(not_after, "%b %d %H:%M:%S %Y %Z")
-
-                    # Конвертуємо дату початку
-                    start_date = (
-                        datetime.strptime(not_before, "%b %d %H:%M:%S %Y %Z")
-                        if not_before
-                        else None
-                    )
-
-                    expire_date_utc = expire_date.replace(tzinfo=timezone.utc)
-                    days_until_expire = (expire_date_utc - datetime.now(timezone.utc)).days
-
-                    # Отримуємо issuer
-                    issuer = cert.get("issuer", [])
-                    issuer_str = (
-                        ", ".join(["=".join(x[0]) for x in issuer]) if issuer else "Unknown"
-                    )
-
-                    # Отримуємо subject
-                    subject = cert.get("subject", [])
-                    subject_str = (
-                        ", ".join(["=".join(x[0]) for x in subject]) if subject else "Unknown"
-                    )
-
-                    return {
-                        "hostname": hostname,
-                        "subject": subject_str,
-                        "issuer": issuer_str,
-                        "start_date": start_date.isoformat() if start_date else None,
-                        "expire_date": expire_date.isoformat(),
-                        "days_until_expire": days_until_expire,
-                        "is_valid": days_until_expire > 0,
-                        "checked_at": datetime.now(timezone.utc).isoformat(),
-                    }
-
-        return None
+        return {
+            "hostname": hostname,
+            "subject": cert.subject.rfc4514_string(),
+            "issuer": cert.issuer.rfc4514_string(),
+            "start_date": start_date.isoformat(),
+            "expire_date": expire_date.isoformat(),
+            "days_until_expire": days_until_expire,
+            "is_valid": days_until_expire > 0,
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+        }
     except Exception as e:
         logger.error("SSL check error for %s: %s", url, e)
         return None
