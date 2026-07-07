@@ -352,8 +352,15 @@ def _process_alerting(
             # Recovery ends the incident the silence/ack applied to.
             silenced_until = None
             acknowledged = False
+        # Whether there's a still-open, previously-alerted incident to close
+        # out. `prev_status` is NOT reliable here when up_success_threshold > 1:
+        # `sites.status` flips to "up" after the FIRST successful check, so by
+        # the time success_attempts reaches the threshold, prev_status already
+        # reads "up" and the alert would never fire. `last_down_alert` stays
+        # set across the whole run of successful checks until this branch
+        # clears it, so it correctly survives past the first recovery check.
         if (
-            prev_status == "down"
+            last_down_alert is not None
             and notify_methods
             and success_attempts >= policy["up_success_threshold"]
         ):
