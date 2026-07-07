@@ -283,8 +283,13 @@ def _process_alerting(
 
     It performs NO network or DB I/O so it can run inside the single write
     transaction in check_site_status. The caller sends `alerts` AFTER the commit.
-    Returns (failed_attempts, success_attempts, last_down_alert, first_failure_at,
-    silenced_until, acknowledged, alerts).
+    `silenced_until_str`/`acknowledged` are read-only inputs here (used only to
+    decide whether to suppress `alerts`) — the caller does NOT persist this
+    function's view of them back to the DB, since a Telegram button press
+    (telegram_bot.py's `_apply_action`) writes those two columns in its own
+    independent transaction and blindly rewriting them here on every check
+    would silently clobber a button press that landed in between.
+    Returns (failed_attempts, success_attempts, last_down_alert, first_failure_at, alerts).
     """
     checked_at_dt = checked_at
     last_down_alert = datetime.fromisoformat(last_down_alert_str) if last_down_alert_str else None
@@ -348,10 +353,6 @@ def _process_alerting(
         failed_attempts = 0
         first_failure_at = None
         success_attempts += 1
-        if prev_status == "down":
-            # Recovery ends the incident the silence/ack applied to.
-            silenced_until = None
-            acknowledged = False
         # Whether there's a still-open, previously-alerted incident to close
         # out. `prev_status` is NOT reliable here when up_success_threshold > 1:
         # `sites.status` flips to "up" after the FIRST successful check, so by
@@ -384,8 +385,6 @@ def _process_alerting(
         success_attempts,
         last_down_alert,
         first_failure_at,
-        silenced_until,
-        acknowledged,
         alerts,
     )
 
@@ -547,8 +546,6 @@ async def check_site_status(
                 success_attempts,
                 last_down_alert,
                 first_failure_at,
-                silenced_until,
-                acknowledged,
                 alerts,
             ) = _process_alerting(
                 status,
@@ -580,7 +577,7 @@ async def check_site_status(
                 """UPDATE sites SET
                    status = ?, status_code = ?, response_time = ?, error_message = ?,
                    failed_attempts = ?, success_attempts = ?, last_down_alert = ?,
-                   first_failure_at = ?, silenced_until = ?, acknowledged = ?
+                   first_failure_at = ?
                    WHERE id = ?""",
                 (
                     status,
@@ -591,11 +588,31 @@ async def check_site_status(
                     success_attempts,
                     last_down_alert.isoformat() if last_down_alert else None,
                     first_failure_at.isoformat() if first_failure_at else None,
-                    silenced_until.isoformat() if silenced_until else None,
-                    1 if acknowledged else 0,
                     site_id,
                 ),
             )
+
+            # silenced_until/acknowledged are written in a SEPARATE, narrower
+            # statement — and only once recovery is actually confirmed — for
+            # two reasons:
+            # 1. A Telegram button press (telegram_bot.py's _apply_action)
+            #    writes those two columns in its own independent transaction.
+            #    If this UPDATE always rewrote them (even with the unchanged
+            #    value it read at the top of this transaction), a button
+            #    press landing between that read and this commit would be
+            #    silently clobbered back to the stale pre-press value.
+            # 2. Gating on `prev_status == "down"` (the naive check) has the
+            #    exact same staleness bug the up-alert fix addressed above:
+            #    `sites.status` flips to "up" after the FIRST successful
+            #    check, so with up_success_threshold > 1 this would clear an
+            #    admin's silence/ack after one good ping — before the site
+            #    has actually satisfied the recovery threshold — letting the
+            #    very next flap re-alert inside the window they silenced.
+            if status == "up" and success_attempts >= policy["up_success_threshold"]:
+                await conn.execute(
+                    "UPDATE sites SET silenced_until = NULL, acknowledged = 0 WHERE id = ?",
+                    (site_id,),
+                )
             await conn.commit()
         except Exception:
             await conn.rollback()

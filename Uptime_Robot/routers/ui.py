@@ -226,11 +226,22 @@ async def dashboard(request: Request, user: dict = Depends(get_current_user)):
             row = await c.fetchone()
             down_sites = row[0]
 
+    from .. import auth_module
+    from ..crypto_utils import redact_notify_secrets
+
+    # Only admins may view/edit notification channels (POST /api/notify-settings
+    # is admin-only), so a viewer-role account has no legitimate reason to
+    # receive the decrypted bot tokens / SMTP passwords / webhook URLs that
+    # would otherwise be embedded verbatim in this page's HTML/JS.
+    visible_notify_settings = (
+        NOTIFY_SETTINGS if auth_module.is_admin(user) else redact_notify_secrets(NOTIFY_SETTINGS)
+    )
+
     notify_cards_template = templates.get_template("partials/notification_cards.html")
     notification_cards = notify_cards_template.render(
-        {"request": request, "notify_settings": NOTIFY_SETTINGS}
+        {"request": request, "notify_settings": visible_notify_settings}
     )
-    notify_config_json = json.dumps(NOTIFY_SETTINGS).replace("</", "<\\/")
+    notify_config_json = json.dumps(visible_notify_settings).replace("</", "<\\/")
 
     return templates.TemplateResponse(
         request,
@@ -243,7 +254,7 @@ async def dashboard(request: Request, user: dict = Depends(get_current_user)):
             "down_sites": down_sites,
             "notification_cards": notification_cards,
             "notify_config_json": notify_config_json,
-            "notify_settings": NOTIFY_SETTINGS,
+            "notify_settings": visible_notify_settings,
         },
     )
 
