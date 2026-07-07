@@ -578,7 +578,7 @@ async def check_site_status(
 
             await conn.execute(
                 """UPDATE sites SET
-                   status = ?, status_code = ?, response_time = ?,
+                   status = ?, status_code = ?, response_time = ?, error_message = ?,
                    failed_attempts = ?, success_attempts = ?, last_down_alert = ?,
                    first_failure_at = ?, silenced_until = ?, acknowledged = ?
                    WHERE id = ?""",
@@ -586,6 +586,7 @@ async def check_site_status(
                     status,
                     status_code,
                     rt_rounded,
+                    error_message,
                     failed_attempts,
                     success_attempts,
                     last_down_alert.isoformat() if last_down_alert else None,

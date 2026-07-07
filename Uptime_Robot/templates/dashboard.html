@@ -975,6 +975,7 @@ function renderMonitors() {
                     <a href="${esc(site.url)}" target="_blank" class="text-xs text-slate-400 hover:text-accent hover:underline truncate mt-0.5 block" title="${safeUrl}">${safeUrl}</a>
                     ${keywordHtml}
                     ${tagsHtml}
+                    ${statusClass === 'down' && site.error_message ? `<div class="text-[11px] text-red-400 mt-1 truncate" title="${esc(site.error_message)}">⚠️ ${esc(site.error_message)}</div>` : ''}
                                     </div>
                 <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-accent/10 text-accent">${site.monitor_type}</span>
             </div>
