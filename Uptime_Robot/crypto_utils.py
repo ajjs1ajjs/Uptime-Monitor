@@ -1,6 +1,5 @@
 import os
 import sys
-import threading
 from typing import Optional
 
 try:
@@ -23,7 +22,7 @@ class CryptoUnavailableError(RuntimeError):
     operator — would believe the value is encrypted at rest.
     """
 _FERNET_INSTANCE = None
-_FERNET_LOCK = threading.Lock()
+_FERNET_LOCK = None
 _SENSITIVE_KEYS = {
     "email_password",
     "password",
@@ -172,22 +171,21 @@ def get_fernet() -> Optional[object]:
     if Fernet is None:
         return None
 
-    with _FERNET_LOCK:
-        if _FERNET_INSTANCE is not None:
-            return _FERNET_INSTANCE
+    if _FERNET_INSTANCE is not None:
+        return _FERNET_INSTANCE
 
-        key = load_master_key()
+    key = load_master_key()
+    if not key:
+        key = generate_master_key()
         if not key:
-            key = generate_master_key()
-            if not key:
-                return None
-
-        try:
-            _FERNET_INSTANCE = Fernet(key.encode())
-            return _FERNET_INSTANCE
-        except Exception as e:
-            logger.error("Failed to initialize Fernet: %s", e)
             return None
+
+    try:
+        _FERNET_INSTANCE = Fernet(key.encode())
+        return _FERNET_INSTANCE
+    except Exception as e:
+        logger.error("Failed to initialize Fernet: %s", e)
+        return None
 
 
 def is_sensitive_key(key: str) -> bool:

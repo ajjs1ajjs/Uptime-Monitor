@@ -100,7 +100,7 @@ async def _check_dns(url: str, start_time: datetime) -> tuple:
         response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
         return "down", 1, response_time, "Blocked internal address"
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     try:
         await loop.getaddrinfo(host, None)
         response_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
@@ -124,7 +124,7 @@ async def _check_ping(url: str, start_time: datetime) -> tuple:
         return "down", 1, response_time, "Blocked internal address"
 
     is_win = sys.platform == "win32"
-    ping_cmd = ["ping", "-n", "1", host] if is_win else ["ping", "-c", "1", "-W", "5", host]
+    ping_cmd = ["ping", "-n", "1", "-w", "5000", host] if is_win else ["ping", "-c", "1", "-W", "5", host]
     proc = await asyncio.create_subprocess_exec(
         *ping_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
@@ -766,6 +766,7 @@ async def monitor_loop(notify_settings: dict[str, Any], default_check_interval: 
 
     last_check_time = {}
     active_tasks: dict[int, asyncio.Task] = {}
+    loop_error_count = 0
 
     while True:
         try:
@@ -785,11 +786,12 @@ async def monitor_loop(notify_settings: dict[str, Any], default_check_interval: 
             ).total_seconds() >= notify_settings_reload_interval:
                 db_settings = await load_notify_settings_from_db()
                 if db_settings:
-                    for key, value in db_settings.items():
-                        notify_settings[key] = value
+                    from ..state import NOTIFY_SETTINGS_LOCK
+
+                    async with NOTIFY_SETTINGS_LOCK:
+                        for key, value in db_settings.items():
+                            notify_settings[key] = value
                     logger.debug("Reloaded notification settings from DB")
-                # Advance the marker regardless of result, otherwise an empty
-                # config makes us re-query the DB on every 5s loop iteration.
                 last_notify_settings_reload = current_time
 
             async with get_db_connection() as conn:
@@ -829,12 +831,10 @@ async def monitor_loop(notify_settings: dict[str, Any], default_check_interval: 
             if (
                 datetime.now(timezone.utc) - last_auth_cleanup
             ).total_seconds() >= auth_cleanup_interval:
-                from ..auth_module import cleanup_expired_sessions
-                from ..csrf import cleanup_expired_csrf_tokens
-                from ..state import DB_PATH
+                from ..models import _cleanup_old_data
 
-                await cleanup_expired_sessions(DB_PATH)
-                await cleanup_expired_csrf_tokens()
+                async with get_db_connection() as cleanup_conn:
+                    await _cleanup_old_data(cleanup_conn)
                 last_auth_cleanup = datetime.now(timezone.utc)
 
             await asyncio.sleep(5)
@@ -843,5 +843,9 @@ async def monitor_loop(notify_settings: dict[str, Any], default_check_interval: 
             logger.info("Monitor loop cancelled, shutting down...")
             raise
         except Exception as e:
-            logger.error("Error in monitor_loop: %s", e)
-            await asyncio.sleep(5)
+            loop_error_count += 1
+            backoff = min(5 * (2 ** (loop_error_count - 1)), 300)
+            logger.error("Error in monitor_loop (attempt %d, backoff %ds): %s", loop_error_count, backoff, e, exc_info=True)
+            await asyncio.sleep(backoff)
+        else:
+            loop_error_count = 0

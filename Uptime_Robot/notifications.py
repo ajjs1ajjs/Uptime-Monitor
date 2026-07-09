@@ -513,7 +513,7 @@ async def send_telegram(message: Union[str, dict], settings: dict[str, Any]) -> 
                     return False
         return True
     except Exception as e:
-        logger.error("Telegram error: %s", e)
+        logger.error("Telegram error: %s", e, exc_info=True)
         return False
 
 
@@ -541,7 +541,7 @@ async def send_teams(message: Union[str, dict], settings: dict[str, Any]) -> boo
                     return False
         return True
     except Exception as e:
-        logger.error("Teams error: %s", e)
+        logger.error("Teams error: %s", e, exc_info=True)
         return False
 
 
@@ -569,7 +569,7 @@ async def send_discord(message: Union[str, dict], settings: dict[str, Any]) -> b
                     return False
         return True
     except Exception as e:
-        logger.error("Discord error: %s", e)
+        logger.error("Discord error: %s", e, exc_info=True)
         return False
 
 
@@ -603,7 +603,7 @@ async def send_slack(message: Union[str, dict], settings: dict[str, Any]) -> boo
                     return False
         return True
     except Exception as e:
-        logger.error("Slack error: %s", e)
+        logger.error("Slack error: %s", e, exc_info=True)
         return False
 
 
@@ -640,7 +640,7 @@ async def send_email(message: Union[str, dict], settings: dict[str, Any]) -> boo
         logger.error("Email error: SMTP send timed out")
         return False
     except Exception as e:
-        logger.error("Email error: %s", e)
+        logger.error("Email error: %s", e, exc_info=True)
         return False
 
 
@@ -680,7 +680,7 @@ async def send_sms(message: Union[str, dict], settings: dict[str, Any]) -> bool:
                     return False
         return True
     except Exception as e:
-        logger.error("SMS error: %s", e)
+        logger.error("SMS error: %s", e, exc_info=True)
         return False
 
 
@@ -707,7 +707,7 @@ async def send_webhook(message: Union[str, dict], settings: dict[str, Any]) -> b
                     return False
         return True
     except Exception as e:
-        logger.error("Webhook error: %s", e)
+        logger.error("Webhook error: %s", e, exc_info=True)
         return False
 
 
@@ -744,7 +744,7 @@ async def send_pushover(message: Union[str, dict], settings: dict[str, Any]) -> 
                     return False
         return True
     except Exception as e:
-        logger.error("Pushover error: %s", e)
+        logger.error("Pushover error: %s", e, exc_info=True)
         return False
 
 
@@ -767,15 +767,16 @@ async def send_gotify(message: Union[str, dict], settings: dict[str, Any]) -> bo
         payload = {"title": title, "message": text, "priority": 5}
         async with session_scope() as session:
             async with session.post(
-                f"{server_url}/message?token={token}",
+                f"{server_url}/message",
                 json=payload,
+                headers={"X-Gotify-Key": token},
             ) as response:
                 if response.status not in [200, 201]:
                     logger.error("Gotify API error: %s", response.status)
                     return False
         return True
     except Exception as e:
-        logger.error("Gotify error: %s", e)
+        logger.error("Gotify error: %s", e, exc_info=True)
         return False
 
 
@@ -809,5 +810,5 @@ async def send_ntfy(message: Union[str, dict], settings: dict[str, Any]) -> bool
                     return False
         return True
     except Exception as e:
-        logger.error("ntfy error: %s", e)
+        logger.error("ntfy error: %s", e, exc_info=True)
         return False

@@ -45,12 +45,14 @@ def _check_ssl_certificate_sync(url: str):
             return None
 
         cert = x509.load_der_x509_certificate(der_cert)
-        expire_date = getattr(cert, "not_valid_after_utc", None) or cert.not_valid_after.replace(
-            tzinfo=timezone.utc
-        )
-        start_date = getattr(cert, "not_valid_before_utc", None) or cert.not_valid_before.replace(
-            tzinfo=timezone.utc
-        )
+        expire_date = getattr(cert, "not_valid_after_utc", None)
+        if expire_date is None:
+            dt = cert.not_valid_after
+            expire_date = dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+        start_date = getattr(cert, "not_valid_before_utc", None)
+        if start_date is None:
+            dt = cert.not_valid_before
+            start_date = dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
         days_until_expire = (expire_date - datetime.now(timezone.utc)).days
 
         return {

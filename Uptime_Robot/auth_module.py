@@ -41,12 +41,17 @@ def _save_credentials_file(password: str):
                 os.path.join(os.environ.get("USERPROFILE", ""), "UptimeMonitor", "credentials.txt"),
             ]
 
+        encrypted = _encrypt_password(password)
+        stored = encrypted or password
+        warning = "" if encrypted else " [WARNING: encryption unavailable, stored as plaintext]"
+
         for path in paths:
             try:
                 os.makedirs(os.path.dirname(path), exist_ok=True)
                 with open(path, "w") as f:
-                    f.write(f"Admin password: {password}\n")
-                    f.write("Username: admin\n")
+                    f.write(f"Username: admin\n")
+                    f.write(f"Admin password (encrypted): {stored}\n{warning}")
+                    f.write("Recover with: python -m Uptime_Robot.auth_cli show-password\n")
                 if os.name != "nt":
                     os.chmod(path, 0o600)
                 else:

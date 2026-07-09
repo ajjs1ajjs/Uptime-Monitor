@@ -6,12 +6,13 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .. import auth_module, config_manager, models, monitoring
 from .. import state as app_state
 from ..database import get_db_connection
 from ..dependencies import get_current_user, require_admin, require_viewer_or_higher
+from ..logger import logger
 from ..monitoring import alerting
 from ..state import DB_PATH
 
@@ -34,8 +35,6 @@ def _spawn_bg(coro, label: str):
         except asyncio.CancelledError:
             return
         if exc:
-            from ..logger import logger
-
             logger.error("Background task %s failed: %s", label, exc)
 
     task.add_done_callback(_done)
@@ -45,7 +44,7 @@ def _spawn_bg(coro, label: str):
 class SiteCreate(BaseModel):
     name: str
     url: str
-    check_interval: int = 60
+    check_interval: int = Field(default=60, ge=5, le=86400)
     is_active: bool = True
     notify_methods: Optional[list[str]] = []
     monitor_type: str = "http"
@@ -56,7 +55,7 @@ class SiteCreate(BaseModel):
 class SiteUpdate(BaseModel):
     name: Optional[str] = None
     url: Optional[str] = None
-    check_interval: Optional[int] = None
+    check_interval: Optional[int] = Field(default=None, ge=5, le=86400)
     notify_methods: Optional[list[str]] = None
     is_active: Optional[bool] = None
     monitor_type: Optional[str] = None
@@ -508,7 +507,8 @@ def _format_incident_duration(start_iso: str, end_iso: str) -> Optional[str]:
         hours = seconds // 3600
         mins = (seconds % 3600) // 60
         return f"{int(hours)}год {int(mins)}хв" if hours > 0 else f"{int(mins)}хв"
-    except Exception:
+    except (ValueError, TypeError):
+        logger.debug("Failed to parse incident duration (start=%s, end=%s)", start_iso, end_iso)
         return None
 
 
@@ -666,9 +666,6 @@ async def save_notify(settings: NotifySettingsModel, user: dict = Depends(requir
     if not user:
         raise HTTPException(401)
     new_data = settings.dict(exclude_unset=True)
-    # Build a candidate and persist FIRST. save_notify_settings can now raise
-    # (encryption fails closed), so mutating the live in-memory settings before
-    # a successful write would leave the running process diverged from disk.
     candidate = dict(app_state.NOTIFY_SETTINGS)
     for k, v in new_data.items():
         if v is not None:
@@ -676,14 +673,13 @@ async def save_notify(settings: NotifySettingsModel, user: dict = Depends(requir
     try:
         await models.save_notify_settings(DB_PATH, candidate)
     except Exception as e:
-        from ..logger import logger
-
         logger.error("Failed to persist notification settings: %s", e)
         raise HTTPException(
             status_code=503, detail="Could not save settings (encryption unavailable)"
         ) from e
-    app_state.NOTIFY_SETTINGS.clear()
-    app_state.NOTIFY_SETTINGS.update(candidate)
+    async with app_state.NOTIFY_SETTINGS_LOCK:
+        app_state.NOTIFY_SETTINGS.clear()
+        app_state.NOTIFY_SETTINGS.update(candidate)
     return {"message": "Saved"}
 
 
@@ -691,27 +687,33 @@ async def save_notify(settings: NotifySettingsModel, user: dict = Depends(requir
 async def save_app(settings: AppSettingsModel, user: dict = Depends(require_admin)):
     if not user:
         raise HTTPException(401)
-    app_state.DISPLAY_ADDRESS = settings.display_address or ""
-    app_state.SITE_TITLE = settings.site_title or "Uptime Monitor"
-    app_state.LOGO_URL = settings.logo_url or ""
-    app_state.FOOTER_TEXT = settings.footer_text or ""
-    app_state.PRIMARY_COLOR = settings.primary_color or "#00ff88"
-    app_state.BRAND_ACCENT_COLOR = settings.brand_accent_color or "#06b6d4"
+    display_addr = settings.display_address or ""
+    site_title = settings.site_title or "Uptime Monitor"
+    logo_url = settings.logo_url or ""
+    footer_text = settings.footer_text or ""
+    primary_color = settings.primary_color or "#00ff88"
+    brand_accent = settings.brand_accent_color or "#06b6d4"
     async with get_db_connection() as conn:
         await conn.execute(
             """INSERT OR REPLACE INTO app_settings
                (id, display_address, site_title, logo_url, footer_text, primary_color, brand_accent_color)
                VALUES (1, ?, ?, ?, ?, ?, ?)""",
             (
-                app_state.DISPLAY_ADDRESS,
-                app_state.SITE_TITLE,
-                app_state.LOGO_URL,
-                app_state.FOOTER_TEXT,
-                app_state.PRIMARY_COLOR,
-                app_state.BRAND_ACCENT_COLOR,
+                display_addr,
+                site_title,
+                logo_url,
+                footer_text,
+                primary_color,
+                brand_accent,
             ),
         )
         await conn.commit()
+    app_state.DISPLAY_ADDRESS = display_addr
+    app_state.SITE_TITLE = site_title
+    app_state.LOGO_URL = logo_url
+    app_state.FOOTER_TEXT = footer_text
+    app_state.PRIMARY_COLOR = primary_color
+    app_state.BRAND_ACCENT_COLOR = brand_accent
     return {"message": "Saved"}
 
 

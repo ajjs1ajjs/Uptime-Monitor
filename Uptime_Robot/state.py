@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from . import config_manager
@@ -16,6 +17,8 @@ if "notifications" in CONFIG:
     for k, v in CONFIG["notifications"].items():
         if k in NOTIFY_SETTINGS and isinstance(v, dict):
             NOTIFY_SETTINGS[k].update(v)
+
+NOTIFY_SETTINGS_LOCK: asyncio.Lock = asyncio.Lock()
 
 DISPLAY_ADDRESS: str = ""
 SITE_TITLE: str = "Uptime Monitor"

@@ -23,6 +23,41 @@ async def generate_sla_report(days: int = 30) -> dict:
             sites_raw = await c.fetchall()
             sites = [dict(s) for s in sites_raw]
 
+        window = f"-{days} days"
+
+        async with conn.execute(
+            """SELECT site_id,
+                    COUNT(*) as total,
+                    SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count,
+                    AVG(response_time) as avg_rt
+                  FROM status_history
+                  WHERE checked_at >= datetime('now', ?)
+                  GROUP BY site_id""",
+            (window,),
+        ) as c:
+            stats_rows = await c.fetchall()
+
+        stats_map = {}
+        for r in stats_rows:
+            stats_map[r["site_id"]] = r
+
+        # Bulk incident count: count transitions into down/slow per site
+        async with conn.execute(
+            """SELECT site_id, COUNT(*) as incidents FROM (
+                   SELECT site_id, status,
+                          LAG(status) OVER (PARTITION BY site_id ORDER BY checked_at) AS prev
+                   FROM status_history
+                   WHERE checked_at >= datetime('now', ?)
+               ) sub
+               WHERE sub.status IN ('down', 'slow')
+                 AND (sub.prev IS NULL OR sub.prev NOT IN ('down', 'slow'))
+               GROUP BY site_id""",
+            (window,),
+        ) as c:
+            incidents_rows = await c.fetchall()
+
+        incidents_map = {r["site_id"]: r["incidents"] for r in incidents_rows}
+
         report_sites = []
         total_incidents = 0
         uptime_sum = 0.0
@@ -30,39 +65,12 @@ async def generate_sla_report(days: int = 30) -> dict:
 
         for s in sites:
             sid = s["id"]
-            async with conn.execute(
-                """SELECT
-                    COUNT(*) as total,
-                    SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count,
-                    AVG(response_time) as avg_rt
-                  FROM status_history
-                  WHERE site_id = ? AND checked_at >= datetime('now', ?)""",
-                (sid, f"-{days} days"),
-            ) as c:
-                stats = await c.fetchone()
-
-            # An incident is a distinct OUTAGE, i.e. each transition INTO a
-            # down/slow streak — not every down check row (status_history now
-            # records every check, so COUNT(*) would inflate one outage into
-            # dozens of "incidents").
-            async with conn.execute(
-                """SELECT COUNT(*) FROM (
-                       SELECT status,
-                              LAG(status) OVER (ORDER BY checked_at) AS prev
-                       FROM status_history
-                       WHERE site_id = ? AND checked_at >= datetime('now', ?)
-                   )
-                   WHERE status IN ('down', 'slow')
-                     AND (prev IS NULL OR prev NOT IN ('down', 'slow'))""",
-                (sid, f"-{days} days"),
-            ) as c:
-                incidents_row = await c.fetchone()
-                incidents = incidents_row[0] if incidents_row else 0
-
+            stats = stats_map.get(sid)
             total = (stats["total"] if stats else 0) or 0
             up_count = (stats["up_count"] if stats else 0) or 0
             uptime = (up_count / total * 100) if total > 0 else 100.0
             avg_rt = (stats["avg_rt"] if stats else 0) or 0
+            incidents = incidents_map.get(sid, 0)
 
             report_sites.append(
                 {
