@@ -234,20 +234,11 @@ async def forgot_password_action(
         await conn.execute("UPDATE users SET must_change_password = 1 WHERE id = ?", (user["id"],))
         await conn.commit()
 
-    try:
-        from ..notifications import send_notification
-        from ..state import NOTIFY_SETTINGS
-        await send_notification(
-            f"Password reset for {username}. Temporary password: {temporary_password}. User must change on next login.",
-            ["telegram", "email"],
-            NOTIFY_SETTINGS,
-        )
-    except Exception:
-        pass
     success_html = (
         '<div class="success">'
         f"Password reset for {html.escape(username)} — user must change on next login. "
-        "Temporary password was sent via notification channels."
+        f"Temporary password: <code>{html.escape(temporary_password)}</code> "
+        f"<button onclick=\"setTimeout(function(){{ document.getElementById('temp-pw').style.display='none'; }},60000)\" class=\"text-xs text-slate-400\">(hide in 60s)</button>"
         "</div>"
     )
     response = templates.TemplateResponse(
