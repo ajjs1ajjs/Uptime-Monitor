@@ -137,24 +137,8 @@
                 <div class="flex flex-wrap gap-1.5 mt-2" id="existingTagsContainer"></div>
             </div>
             <div class="mt-4">
-                <label class="text-slate-400 text-sm mb-2 block" data-i18n="notifications_lbl">Способи сповіщень</label>
-                <div class="flex flex-wrap gap-3" id="siteNotifyOptions">
-                    <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
-                        <input type="checkbox" value="telegram" class="accent-accent w-4 h-4"> 📱 Telegram
-                    </label>
-                    <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
-                        <input type="checkbox" value="discord" class="accent-accent w-4 h-4"> 🎮 Discord
-                    </label>
-                    <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
-                        <input type="checkbox" value="teams" class="accent-accent w-4 h-4"> 🏢 MS Teams
-                    </label>
-                    <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
-                        <input type="checkbox" value="email" class="accent-accent w-4 h-4"> 📧 Email
-                    </label>
-                    <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
-                        <input type="checkbox" value="webhook" class="accent-accent w-4 h-4"> 🔗 Webhook
-                    </label>
-                </div>
+                <label class="text-slate-400 text-sm mb-2 block">📨 Канали сповіщень</label>
+                <div id="siteNotifyOptions" class="space-y-1 max-h-64 overflow-y-auto pr-1"></div>
             </div>
             <button onclick="addSite()" class="mt-6 w-full py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition" data-i18n="add_monitor_btn">➕ Додати монітор</button>
         </div>
@@ -486,24 +470,8 @@
                 <div class="flex flex-wrap gap-1.5 mt-2" id="editExistingTagsContainer"></div>
             </div>
             <div>
-                <label class="text-slate-400 text-sm mb-2 block">Сповіщення</label>
-                <div class="flex flex-wrap gap-3" id="editSiteNotify">
-                    <label class="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
-                        <input type="checkbox" value="telegram" class="accent-accent"> 📱 Telegram
-                    </label>
-                    <label class="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
-                        <input type="checkbox" value="discord" class="accent-accent"> 🎮 Discord
-                    </label>
-                    <label class="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
-                        <input type="checkbox" value="teams" class="accent-accent"> 🏢 MS Teams
-                    </label>
-                    <label class="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
-                        <input type="checkbox" value="email" class="accent-accent"> 📧 Email
-                    </label>
-                    <label class="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-sm">
-                        <input type="checkbox" value="webhook" class="accent-accent"> 🔗 Webhook
-                    </label>
-                </div>
+                <label class="text-slate-400 text-sm mb-2 block">📨 Канали сповіщень</label>
+                <div id="editSiteNotify" class="space-y-1 max-h-64 overflow-y-auto pr-1"></div>
             </div>
         </div>
         <div class="flex gap-3 mt-8">
@@ -605,6 +573,77 @@ document.addEventListener('DOMContentLoaded', function() {
 <script>
 var notifyConfig = {{ notify_settings | tojson }};
 let currentFilter = 'all';
+
+function renderNotifyChannelOptions(containerId, selectedChannels) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const selected = selectedChannels || [];
+    const methodIcons = {telegram:'📱', discord:'🎮', teams:'🏢', email:'📧', slack:'💬', sms:'📱', webhook:'🔗', pushover:'📲', gotify:'🔔', ntfy:'📡'};
+    const methodNames = {telegram:'Telegram', discord:'Discord', teams:'MS Teams', email:'Email', slack:'Slack', sms:'SMS', webhook:'Webhook', pushover:'Pushover', gotify:'Gotify', ntfy:'Ntfy'};
+    let html = '';
+    for (const [method, config] of Object.entries(notifyConfig)) {
+        if (!config.enabled) continue;
+        const channels = config.channels || [];
+        if (channels.length === 0) continue;
+        const icon = methodIcons[method] || '🔔';
+        const name = methodNames[method] || method;
+        html += `<div class="mb-1.5">
+            <div class="text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wider">${icon} ${name}</div>
+            <div class="flex flex-wrap gap-1.5">`;
+        channels.forEach(ch => {
+            const chId = ch.id || '';
+            const chName = ch.name || chId;
+            const checked = selected.includes(chId);
+            const cls = checked
+                ? 'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-accent/10 border border-accent/40 cursor-pointer hover:border-accent transition text-xs'
+                : 'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-xs';
+            html += `<label class="${cls}">
+                <input type="checkbox" value="${chId}" data-method="${method}" class="accent-accent w-3 h-3" ${checked ? 'checked' : ''}> ${chName}
+            </label>`;
+        });
+        html += `</div></div>`;
+    }
+    container.innerHTML = html || '<div class="text-xs text-slate-500 py-2">Спочатку налаштуйте канали в розділі Налаштування</div>';
+    container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener('change', function() {
+            const lbl = this.closest('label');
+            if (this.checked) {
+                lbl.className = 'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-accent/10 border border-accent/40 cursor-pointer hover:border-accent transition text-xs';
+            } else {
+                lbl.className = 'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-xs';
+            }
+        });
+    });
+}
+
+function getSelectedNotifyMethods(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return [];
+    const methodMap = {};
+    container.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => {
+        const method = cb.dataset.method;
+        const chId = cb.value;
+        if (!methodMap[method]) methodMap[method] = [];
+        if (!methodMap[method].includes(chId)) methodMap[method].push(chId);
+    });
+    return Object.entries(methodMap).map(([method, channels]) => ({method, channels}));
+}
+
+function channelIdsFromMethods(methods) {
+    if (!Array.isArray(methods)) return [];
+    const ids = new Set();
+    methods.forEach(item => {
+        if (typeof item === 'string') {
+            const config = notifyConfig[item];
+            if (config && config.enabled && config.channels) {
+                config.channels.forEach(ch => { if (ch.id) ids.add(ch.id); });
+            }
+        } else if (typeof item === 'object' && item !== null) {
+            (item.channels || []).forEach(id => ids.add(id));
+        }
+    });
+    return [...ids];
+}
 
 function toggleKeywordField(selectId, containerId) {
     const select = document.getElementById(selectId);
@@ -1046,8 +1085,7 @@ async function addSite() {
     const keyword = document.getElementById('siteKeyword').value;
     const tags = selectedAddTags;
     const check_interval = parseInt(document.getElementById('siteCheckInterval').value) || 60;
-    const container = document.getElementById('siteNotifyOptions');
-    const notify_methods = container ? Array.from(container.querySelectorAll('input:checked')).map(o => o.value) : [];
+    const notify_methods = getSelectedNotifyMethods('siteNotifyOptions');
     if (!name || !url) return alert('Заповніть назву та URL');
     try {
         const resp = await fetch('/api/sites', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, url, monitor_type, check_interval, notify_methods, keyword, tags})});
@@ -1409,8 +1447,8 @@ function openEditModal(id, name, url, notifyMethods, checkInterval, monitorType,
     updateExistingTagsSuggest('editExistingTagsContainer', 'editSiteTagsInput', 'edit');
 
     const methods = typeof notifyMethods === 'string' ? JSON.parse(decodeURIComponent(notifyMethods)) : notifyMethods || [];
-    const container = document.getElementById('editSiteNotify');
-    if (container) container.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = methods.includes(cb.value));
+    const editChannelIds = channelIdsFromMethods(methods);
+    renderNotifyChannelOptions('editSiteNotify', editChannelIds);
     document.getElementById('editModal').classList.remove('hidden');
     document.getElementById('editModal').classList.add('flex');
 }
@@ -1425,8 +1463,7 @@ async function saveEdit() {
     
     const tags = selectedEditTags;
 
-    const container = document.getElementById('editSiteNotify');
-    const notify_methods = container ? Array.from(container.querySelectorAll('input:checked')).map(o => o.value) : [];
+    const notify_methods = getSelectedNotifyMethods('editSiteNotify');
     if (!name || !url) return alert('Fill all fields!');
     try {
         await fetch('/api/sites/' + id, {
@@ -1707,6 +1744,7 @@ toggleKeywordField('monitorType', 'keywordFieldContainer');
 setupTagsEventListeners();
 renderTagsWidget('add');
 renderTagsWidget('edit');
+renderNotifyChannelOptions('siteNotifyOptions', []);
 loadSites();
 </script>
 {% endblock %}

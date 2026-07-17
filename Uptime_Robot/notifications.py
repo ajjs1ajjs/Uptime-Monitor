@@ -364,35 +364,45 @@ async def send_notification(
     def _add(method: str, coro):
         method_tasks.setdefault(method, []).append(coro)
 
-    for method in methods:
+    for item in methods:
+        if isinstance(item, dict):
+            method = item.get("method", "")
+            channel_ids = item.get("channels", []) or []
+        else:
+            method = item
+            channel_ids = []
+
         method_config = notify_settings.get(method, {})
 
         if not method_config.get("enabled", False):
             continue
 
+        def _ch_filter(ch):
+            return not channel_ids or ch.get("id") in channel_ids
+
         if method == "telegram":
             for channel in method_config.get("channels", []):
-                if channel.get("token") and channel.get("chat_id"):
+                if _ch_filter(channel) and channel.get("token") and channel.get("chat_id"):
                     _add(method, send_telegram(message, channel))
 
         elif method == "discord":
             for channel in method_config.get("channels", []):
-                if channel.get("webhook_url"):
+                if _ch_filter(channel) and channel.get("webhook_url"):
                     _add(method, send_discord(message, channel))
 
         elif method == "teams":
             for channel in method_config.get("channels", []):
-                if channel.get("webhook_url"):
+                if _ch_filter(channel) and channel.get("webhook_url"):
                     _add(method, send_teams(message, channel))
 
         elif method == "email":
             for channel in method_config.get("channels", []):
-                if channel.get("smtp_server") and channel.get("username"):
+                if _ch_filter(channel) and channel.get("smtp_server") and channel.get("username"):
                     _add(method, send_email(message, channel))
 
         elif method == "slack":
             for channel in method_config.get("channels", []):
-                if channel.get("webhook_url"):
+                if _ch_filter(channel) and channel.get("webhook_url"):
                     _add(method, send_slack(message, channel))
 
         elif method == "sms":
@@ -400,22 +410,22 @@ async def send_notification(
 
         elif method == "webhook":
             for channel in method_config.get("channels", []):
-                if channel.get("webhook_url"):
+                if _ch_filter(channel) and channel.get("webhook_url"):
                     _add(method, send_webhook(message, channel))
 
         elif method == "pushover":
             for channel in method_config.get("channels", []):
-                if channel.get("user_key") and channel.get("token"):
+                if _ch_filter(channel) and channel.get("user_key") and channel.get("token"):
                     _add(method, send_pushover(message, channel))
 
         elif method == "gotify":
             for channel in method_config.get("channels", []):
-                if channel.get("server_url") and channel.get("token"):
+                if _ch_filter(channel) and channel.get("server_url") and channel.get("token"):
                     _add(method, send_gotify(message, channel))
 
         elif method == "ntfy":
             for channel in method_config.get("channels", []):
-                if channel.get("topic"):
+                if _ch_filter(channel) and channel.get("topic"):
                     _add(method, send_ntfy(message, channel))
 
     # Preserve a stable method ordering so results map back deterministically.

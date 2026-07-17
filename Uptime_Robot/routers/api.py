@@ -46,7 +46,7 @@ class SiteCreate(BaseModel):
     url: str
     check_interval: int = Field(default=60, ge=5, le=86400)
     is_active: bool = True
-    notify_methods: Optional[list[str]] = []
+    notify_methods: Optional[list] = []
     monitor_type: str = "http"
     keyword: Optional[str] = None
     tags: Optional[list[str]] = []
@@ -56,7 +56,7 @@ class SiteUpdate(BaseModel):
     name: Optional[str] = None
     url: Optional[str] = None
     check_interval: Optional[int] = Field(default=None, ge=5, le=86400)
-    notify_methods: Optional[list[str]] = None
+    notify_methods: Optional[list] = None
     is_active: Optional[bool] = None
     monitor_type: Optional[str] = None
     keyword: Optional[str] = None

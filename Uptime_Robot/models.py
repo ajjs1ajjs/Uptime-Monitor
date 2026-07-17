@@ -394,7 +394,7 @@ async def add_site(
     name: str,
     url: str,
     check_interval: int = 60,
-    notify_methods: Optional[list[str]] = None,
+    notify_methods: Optional[list] = None,
     monitor_type: str = "http",
     keyword: Optional[str] = None,
     tags: Optional[list[str]] = None,
