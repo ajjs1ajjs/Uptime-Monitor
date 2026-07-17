@@ -164,11 +164,35 @@ async def init_auth_tables(db_path):
             logger.info("Default admin user created (password printed once to stdout, not logged)")
             print(msg)
         else:
-            # Never re-print the stored password on restart — that would leak it
-            # into the journal on every service start. Use the `show-password`
-            # CLI command for on-demand recovery instead.
-            logger.info("Admin user 'admin' already exists")
-            print("\n[OK] Admin user 'admin' already exists\n")
+            # If UPTIME_MONITOR_FORCE_ADMIN_PASSWORD is set, ALWAYS reset the
+            # admin password on startup (even if admin already exists).
+            # Useful for recovery when you've lost access.
+            # Regular UPTIME_MONITOR_ADMIN_PASSWORD only applies for first creation.
+            env_reset = os.environ.get("UPTIME_MONITOR_FORCE_ADMIN_PASSWORD")
+            if env_reset:
+                from .crypto_utils import encrypt_value
+                new_hash = hash_password(env_reset)
+                new_encrypted = encrypt_value(env_reset)
+                # Invalidate all existing sessions so the reset takes effect immediately
+                await conn.execute(
+                    "DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE username = ?)",
+                    ("admin",),
+                )
+                await conn.execute(
+                    "UPDATE users SET password_hash = ?, password_encrypted = ?, must_change_password = 1 WHERE username = ?",
+                    (new_hash, new_encrypted or None, "admin"),
+                )
+                await conn.commit()
+                _save_credentials_file(env_reset)
+                msg = f"\n{'='*50}\nADMIN PASSWORD RESET VIA ENV VAR\nUsername: admin\nPassword: {env_reset}\nNOTE: You will be asked to change it on next login\n{'='*50}\n"
+                print(msg)
+                logger.info("Admin password reset via UPTIME_MONITOR_FORCE_ADMIN_PASSWORD")
+            else:
+                # Never re-print the stored password on restart — that would leak it
+                # into the journal on every service start. Use the `show-password`
+                # CLI command for on-demand recovery instead.
+                logger.info("Admin user 'admin' already exists")
+                print("\n[OK] Admin user 'admin' already exists\n")
 
         # Note: legacy admin passwords cannot be recovered into the encrypted
         # backup because only the bcrypt hash is stored. Such accounts will
