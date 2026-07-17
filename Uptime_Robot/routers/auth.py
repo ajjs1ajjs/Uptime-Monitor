@@ -175,11 +175,9 @@ async def forgot_password_page(
     success: str = None,
     user: dict = Depends(get_current_user),
 ):
-    if not user:
-        return RedirectResponse(url="/login", status_code=302)
-    if not auth_module.is_admin(user):
-        raise HTTPException(status_code=403, detail="Admin access required")
-
+    # Allow access without login — a user who forgot their password
+    # cannot log in to reset it. Only admins can reset other users.
+    # If not logged in, show the form without user-specific data.
     error_html = f'<div class="error">{error}</div>' if error else ""
     success_html = f'<div class="success">{success}</div>' if success else ""
 
@@ -194,6 +192,7 @@ async def forgot_password_page(
             "error_message": error_html,
             "success_message": success_html,
             "csrf_token": csrf_token,
+            "is_admin": auth_module.is_admin(user) if user else False,
         },
     )
 
@@ -203,9 +202,12 @@ async def forgot_password_action(
     request: Request,
     username: str = Form(...),
     csrf_token: str = Form(default=""),
-    current_user: dict = Depends(require_admin),
+    current_user: dict = Depends(get_current_user),
     _rate_ok: bool = Depends(_rate_limit_dependency("forgot_password", 3, 1800)),
 ):
+    if not current_user or not auth_module.is_admin(current_user):
+        return RedirectResponse(url="/login?error=Admin access required", status_code=302)
+
     session_id = request.cookies.get("session_id", "")
     if not await validate_csrf_token(session_id, csrf_token):
         return RedirectResponse(

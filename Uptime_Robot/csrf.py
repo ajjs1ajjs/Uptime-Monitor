@@ -142,9 +142,12 @@ async def csrf_middleware(request: Request, call_next):
         path = request.url.path
 
         if path.startswith("/api/"):
-            # API-key clients are immune to CSRF and legitimately send no Origin.
-            # Only cookie-authenticated requests are a CSRF vector.
-            if not request.headers.get("X-API-Key") and request.cookies.get("session_id"):
+            # Origin/Referer check for ALL cookie-authenticated requests.
+            # The X-API-Key header is NOT a reliable CSRF defense because it is
+            # not a forbidden header name — a browser fetch with credentials can
+            # set it. API-key clients don't send cookies, so checking cookies is
+            # the correct discriminator.
+            if request.cookies.get("session_id"):
                 from urllib.parse import urlparse
 
                 origin = request.headers.get("Origin") or request.headers.get("Referer") or ""

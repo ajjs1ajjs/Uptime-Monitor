@@ -30,8 +30,9 @@ CONFIG = app_state.CONFIG
 DB_PATH = app_state.DB_PATH
 CHECK_INTERVAL = app_state.CHECK_INTERVAL
 
-# Add cache-busting version for static assets
-APP_VERSION = datetime.now().strftime("%Y%m%d%H%M%S")
+# Cache-busting version — uses the package version instead of a per-start timestamp
+# so browsers can effectively cache static assets between restarts.
+APP_VERSION = __version__
 
 DEFAULT_HOST = CONFIG.get("server", {}).get("host", "auto")
 DEFAULT_PORT = CONFIG.get("server", {}).get("port", 8080)
@@ -94,21 +95,18 @@ async def initialize_app_async():
 
 
 def initialize_app():
-    """Синхронна обгортка для ініціалізації (використовується в Windows-сервісі)"""
-    config_manager.init_paths()
-    try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    except RuntimeError:
-        pass
+    """Синхронна обгортка для ініціалізації (використовується в Windows-сервісі).
 
+    Створює новий event loop, виконує асинхронну ініціалізацію до кінця,
+    потім закриває loop. Не створює orphan-таски.
+    """
+    config_manager.init_paths()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        loop = asyncio.get_running_loop()
-        asyncio.create_task(initialize_app_async())
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
         loop.run_until_complete(initialize_app_async())
+    finally:
+        loop.close()
 
 
 @asynccontextmanager
@@ -298,21 +296,16 @@ async def prometheus_metrics(request: Request):
 
     try:
         async with get_db_connection() as conn:
-            async with conn.execute("SELECT COUNT(*) FROM sites") as c:
-                row = await c.fetchone()
-                total = row[0] or 0
-            async with conn.execute("SELECT COUNT(*) FROM sites WHERE status = 'up'") as c:
-                row = await c.fetchone()
-                up = row[0] or 0
-            async with conn.execute("SELECT COUNT(*) FROM sites WHERE status = 'down'") as c:
-                row = await c.fetchone()
-                down = row[0] or 0
-            async with conn.execute("SELECT COUNT(*) FROM sites WHERE status = 'maintenance'") as c:
-                row = await c.fetchone()
-                maint = row[0] or 0
-            async with conn.execute("SELECT COUNT(*) FROM sites WHERE status = 'paused'") as c:
-                row = await c.fetchone()
-                paused = row[0] or 0
+            # Single GROUP BY query instead of 5 separate COUNT(*) queries
+            async with conn.execute(
+                "SELECT status, COUNT(*) as cnt FROM sites GROUP BY status"
+            ) as c:
+                status_counts = {r["status"]: r["cnt"] for r in await c.fetchall()}
+            total = sum(status_counts.values())
+            up = status_counts.get("up", 0)
+            down = status_counts.get("down", 0)
+            maint = status_counts.get("maintenance", 0)
+            paused = status_counts.get("paused", 0)
     except Exception:
         total = up = down = maint = paused = 0
 

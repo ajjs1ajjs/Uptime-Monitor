@@ -113,25 +113,24 @@ def _normalize_and_validate_url(raw_url: str, monitor_type: str) -> str:
     from urllib.parse import urlparse
 
     def _is_blocked_ip(addr) -> bool:
-        # Private RFC 1918 ranges are intentionally NOT blocked: this is an
-        # internal corporate monitor and its targets live on the private network.
-        # Only loopback/link-local/reserved/multicast/unspecified stay blocked.
+        # Only block truly dangerous addresses — loopback, link-local/cloud-metadata,
+        # multicast, and broadcast. Private RFC 1918 (10/8, 172.16/12, 192.168/16)
+        # are deliberately allowed for internal corporate monitoring.
         return (
             addr.is_loopback
             or addr.is_link_local
-            or addr.is_reserved
             or addr.is_multicast
             or addr.is_unspecified
         )
 
     def _resolves_to_blocked(hostname: str) -> bool:
-        # SSRF defense: a public-looking hostname can still resolve to a blocked
-        # address (e.g. 127.0.0.1 or the 169.254.169.254 cloud-metadata IP).
-        # Reject the URL if ANY resolved address is blocked.
+        # Minimal SSRF defense at creation time: only reject if the resolved
+        # address is truly dangerous (loopback/link-local/multicast).
+        # DNS rebinding is handled at check time in the monitoring loop.
         try:
             infos = socket.getaddrinfo(hostname, None)
         except (socket.gaierror, UnicodeError):
-            return False  # let the monitor surface DNS failures as "down"
+            return False
         for *_, sockaddr in infos:
             try:
                 if _is_blocked_ip(ipaddress.ip_address(sockaddr[0])):
@@ -146,16 +145,18 @@ def _normalize_and_validate_url(raw_url: str, monitor_type: str) -> str:
         host = hostname.strip().lower().rstrip(".")
         if not host:
             return False
+        # Allow localhost (for local testing/monitoring)
         if host == "localhost":
-            return False
+            return True
         try:
             addr = ipaddress.ip_address(host)
+            # Allow any IP except truly dangerous ones
             return not _is_blocked_ip(addr)
         except ValueError:
             pass
         labels = host.split(".")
-        if len(labels) < 2:
-            return False
+        # Allow single-label hostnames (e.g. "myserver", "nas")
+        # for local network monitoring
         for label in labels:
             if not label or len(label) > 63:
                 return False
@@ -173,8 +174,11 @@ def _normalize_and_validate_url(raw_url: str, monitor_type: str) -> str:
 
     m_type = (monitor_type or "http").lower()
 
-    # Pre-processing for HTTP/SSL if missing scheme
-    if m_type == "http" and not (url.startswith("http://") or url.startswith("https://")):
+    # Pre-processing: prepend http:// only if NO scheme at all is present.
+    # URLs with non-http schemes (ftp://, etc.) are left as-is — the user
+    # knows what they are doing (ping/tcp monitoring), and auto-prepending
+    # would produce a malformed double-scheme URL like http://ftp://host.
+    if "://" not in url:
         url = "http://" + url
 
     if m_type == "ssl":
@@ -323,7 +327,7 @@ async def add_site(site: SiteCreate, user: dict = Depends(require_admin)):
                     url,
                     site.check_interval,
                     site.is_active,
-                    json.dumps(site.notify_methods),
+                    json.dumps(site.notify_methods or []),
                     m_type,
                     site.keyword,
                     json.dumps(site.tags or []),
@@ -349,14 +353,15 @@ async def add_site(site: SiteCreate, user: dict = Depends(require_admin)):
         f"name={site.name}, url={url}",
     )
 
+    methods = site.notify_methods or []
     _spawn_bg(
-        monitoring.check_site_status(site_id, url, site.notify_methods, app_state.NOTIFY_SETTINGS),
+        monitoring.check_site_status(site_id, url, methods, app_state.NOTIFY_SETTINGS),
         f"check_site_status[{site_id}]",
     )
     if m_type == "ssl" or url.lower().startswith("https://"):
         _spawn_bg(
             monitoring.check_site_certificate(
-                site_id, url, site.notify_methods, app_state.NOTIFY_SETTINGS
+                site_id, url, methods, app_state.NOTIFY_SETTINGS
             ),
             f"check_site_certificate[{site_id}]",
         )

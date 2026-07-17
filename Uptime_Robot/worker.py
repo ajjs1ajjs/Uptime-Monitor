@@ -39,19 +39,8 @@ def _handle_signal(signum, frame):
 async def initialize_worker():
     await models.init_database(DB_PATH)
     logger.info("Database initialized")
-
-    from .crypto_utils import decrypt_notify_secrets
-
-    async with get_db_connection() as conn:
-        async with conn.execute("SELECT config FROM notify_config WHERE id = 1") as c:
-            row = await c.fetchone()
-            if row:
-                try:
-                    loaded = decrypt_notify_secrets(json.loads(row["config"]))
-                    NOTIFY_SETTINGS.update(loaded)
-                    logger.info("Loaded notification settings from DB")
-                except Exception as e:
-                    logger.error("Failed to parse notification settings: %s", e)
+    # Notification settings are loaded lazily by monitor_loop
+    # (every 30 seconds), so no need to pre-load them here.
 
 
 async def main_async():
@@ -61,6 +50,8 @@ async def main_async():
     logger.info("Starting monitoring loop...")
     from .telegram_bot import poll_telegram_updates
 
+    # Pass a lambda so the poller always reads the current live settings
+    # (NOTIFY_SETTINGS is mutated by monitor_loop's periodic DB reload).
     poller_task = asyncio.create_task(poll_telegram_updates(lambda: NOTIFY_SETTINGS))
     try:
         await monitoring.monitor_loop(NOTIFY_SETTINGS, CHECK_INTERVAL)

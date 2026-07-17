@@ -359,11 +359,26 @@ async def init_database(db_path: str):
 
 
 async def get_all_sites(db_path: str) -> list[dict[str, Any]]:
-    """Отримує всі сайти"""
+    """Отримує всі сайти з десеріалізованими JSON-полями"""
     async with get_db_connection(db_path) as conn:
         async with conn.execute("SELECT * FROM sites ORDER BY id DESC") as c:
             rows = await c.fetchall()
-            return [dict(row) for row in rows]
+        result = []
+        for row in rows:
+            site = dict(row)
+            # Deserialize JSON fields for convenience
+            if isinstance(site.get("notify_methods"), str):
+                try:
+                    site["notify_methods"] = json.loads(site["notify_methods"])
+                except (json.JSONDecodeError, TypeError):
+                    site["notify_methods"] = []
+            if isinstance(site.get("tags"), str):
+                try:
+                    site["tags"] = json.loads(site["tags"])
+                except (json.JSONDecodeError, TypeError):
+                    site["tags"] = []
+            result.append(site)
+        return result
 
 
 async def get_active_sites(db_path: str) -> list[dict[str, Any]]:
@@ -437,8 +452,10 @@ async def update_site(db_path: str, site_id: int, **kwargs):
 
     params.append(site_id)
 
-    # Column names come from a fixed allow-list above; values are bound params.
-    sql = f"UPDATE sites SET {', '.join(updates)} WHERE id = ?"  # nosec B608
+    # Column names come from a fixed allow-list above (whitelist of known columns);
+    # values are bound params. Concatenation is used instead of parameterised
+    # column names because SQLite does not support ? for identifiers.
+    sql = "UPDATE sites SET " + ", ".join(updates) + " WHERE id = ?"
     async with get_db_connection(db_path) as conn:
         await conn.execute(sql, params)
         await conn.commit()
@@ -677,9 +694,9 @@ async def log_audit_event(
     user_id: int,
     username: str,
     action: str,
-    target_type: str = None,
-    target_id: str = None,
-    details: str = None,
+    target_type: Optional[str] = None,
+    target_id: Optional[str] = None,
+    details: Optional[str] = None,
 ):
     """Log an audit event."""
     async with get_db_connection(db_path) as conn:

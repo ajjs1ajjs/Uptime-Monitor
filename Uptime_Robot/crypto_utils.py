@@ -171,9 +171,6 @@ def get_fernet() -> Optional[object]:
     if Fernet is None:
         return None
 
-    if _FERNET_INSTANCE is not None:
-        return _FERNET_INSTANCE
-
     key = load_master_key()
     if not key:
         key = generate_master_key()

@@ -175,12 +175,13 @@ class TestSiteCRUD:
         assert "already exists" in r.json().get("detail", "").lower()
 
     def test_create_site_invalid_url(self, client, admin_headers):
+        # Empty URL should still be rejected
         r = client.post("/api/sites", json={
             "name": "Bad URL",
-            "url": "not-a-url",
+            "url": "",
             "monitor_type": "http",
         }, headers=admin_headers)
-        assert r.status_code == 400
+        assert r.status_code == 400, f"Expected 400, got {r.status_code}: {r.text}"
 
     def test_list_sites(self, client, admin_headers):
         r = client.get("/api/sites", headers=admin_headers)

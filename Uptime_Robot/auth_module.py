@@ -35,10 +35,14 @@ def _save_credentials_file(password: str):
     try:
         paths = ["/etc/uptime-monitor/credentials.txt"]
         if os.name == "nt":
-            app_dir = os.path.dirname(os.path.abspath(__file__))
+            # Store in a system-wide location, NOT inside the source tree.
+            # The app directory gets wiped on every update (install.sh rm -rf),
+            # and committing/secrets-in-source-tree is a security risk.
+            base = os.environ.get("PROGRAMDATA", "")
+            if not base:
+                base = os.environ.get("ALLUSERSPROFILE", os.environ.get("USERPROFILE", ""))
             paths = [
-                os.path.join(app_dir, "credentials.txt"),
-                os.path.join(os.environ.get("USERPROFILE", ""), "UptimeMonitor", "credentials.txt"),
+                os.path.join(base, "UptimeMonitor", "credentials.txt"),
             ]
 
         encrypted = _encrypt_password(password)

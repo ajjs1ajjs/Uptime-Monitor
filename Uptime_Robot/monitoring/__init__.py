@@ -27,20 +27,13 @@ def normalize_ssl_url(url: str) -> Optional[str]:
 
 
 def _host_resolves_to_blocked(host: str) -> bool:
-    """True if ``host`` (literal IP or DNS name) maps to an internal address.
+    """True if ``host`` resolves to a dangerous internal address at check time.
 
-    URLs are validated against the same loopback/link-local/reserved set at
-    creation time, but DNS is resolved again here at check time — a hostname
-    can be re-pointed at an internal address after creation (DNS rebinding). This
-    re-checks at the moment of use so PING/PORT/DNS probes cannot be turned into
-    an SSRF scan of dangerous targets. Resolution failures are NOT treated as
-    blocked (let the probe surface them as a normal "down").
-
-    NOTE: private RFC 1918 ranges (10/8, 172.16/12, 192.168/16) are intentionally
-    allowed — this is an internal corporate monitor whose primary job is to watch
-    services on the private network. Only loopback, link-local (incl. the
-    169.254.169.254 cloud-metadata IP), reserved, multicast and unspecified
-    addresses remain blocked.
+    DNS rebinding defense: a hostname created with a safe public IP could be
+    re-pointed to an internal address later. This re-checks at probe time.
+    Only truly dangerous addresses (loopback, link-local/cloud-metadata,
+    multicast) are blocked — private RFC 1918 and all other addresses are
+    allowed for internal corporate monitoring.
     """
     import ipaddress
     import socket
@@ -49,7 +42,6 @@ def _host_resolves_to_blocked(host: str) -> bool:
         return (
             addr.is_loopback
             or addr.is_link_local
-            or addr.is_reserved
             or addr.is_multicast
             or addr.is_unspecified
         )
@@ -825,7 +817,9 @@ async def monitor_loop(notify_settings: dict[str, Any], default_check_interval: 
 
             if (datetime.now(timezone.utc) - last_cert_check).total_seconds() >= ssl_check_interval:
                 logger.info("Checking SSL certificates in background...")
-                await check_all_certificates(notify_settings)
+                # Fire and forget — don't block the main monitor loop while
+                # checking SSL certs for dozens of sites (each has a 1s sleep).
+                asyncio.create_task(check_all_certificates(notify_settings))
                 last_cert_check = datetime.now(timezone.utc)
 
             if (
