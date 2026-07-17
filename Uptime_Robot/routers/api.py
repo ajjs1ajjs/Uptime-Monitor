@@ -782,7 +782,7 @@ async def create_user_api(user_data: UserCreate, current_user: dict = Depends(re
     if user_data.role not in ["admin", "viewer"]:
         raise HTTPException(status_code=400, detail="Invalid role. Must be 'admin' or 'viewer'")
 
-    success = await auth_module.create_user(
+    success, err = await auth_module.create_user(
         DB_PATH, user_data.username, user_data.password, user_data.role
     )
 
@@ -798,7 +798,7 @@ async def create_user_api(user_data: UserCreate, current_user: dict = Depends(re
         )
         return {"message": f"User '{user_data.username}' created with role '{user_data.role}'"}
     else:
-        raise HTTPException(status_code=400, detail="User already exists or error creating user")
+        raise HTTPException(status_code=400, detail=err or "Error creating user")
 
 
 @router.put("/users/{username}")

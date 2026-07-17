@@ -369,28 +369,33 @@ def is_viewer_or_higher(user: dict) -> bool:
     return user.get("role") in ["admin", "viewer"]
 
 
-async def create_user(db_path: str, username: str, password: str, role: str = "viewer") -> bool:
-    """Create a new user with specified role"""
+async def create_user(db_path: str, username: str, password: str, role: str = "viewer") -> tuple:
+    """Create a new user with specified role.
+    Returns (success: bool, error_message: str | None)."""
+    if not username or not username.strip():
+        return (False, "Username is required")
     is_valid, err = validate_password_strength(password)
     if not is_valid:
-        logger.error("Cannot create user '%s': %s", username, err)
-        return False
+        return (False, err)
     try:
         async with get_db_connection(db_path) as conn:
             password_hash = hash_password(password)
             try:
                 await conn.execute(
                     "INSERT INTO users (username, password_hash, role, created_at) VALUES (?, ?, ?, ?)",
-                    (username, password_hash, role, datetime.now(timezone.utc).isoformat()),
+                    (username.strip(), password_hash, role, datetime.now(timezone.utc).isoformat()),
                 )
                 await conn.commit()
-                return True
+                return (True, None)
             except Exception as e:
+                err_msg = str(e)
+                if "UNIQUE" in err_msg:
+                    return (False, f"User '{username}' already exists")
                 logger.error("Error creating user db: %s", e)
-                return False
+                return (False, f"Database error: {err_msg}")
     except Exception as e:
         logger.error("Error creating user: %s", e)
-        return False
+        return (False, str(e))
 
 
 async def update_user_role(db_path: str, username: str, new_role: str) -> tuple:
