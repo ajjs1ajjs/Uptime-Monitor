@@ -4,17 +4,17 @@ from typing import Any
 from ..config_manager import load_config
 
 SENSITIVE_DEFAULTS = {
-    "request_timeout_seconds": 30,
+    "request_timeout_seconds": 15,
     "grace_period_seconds": 0,
-    "up_success_threshold": 2,
+    "up_success_threshold": 1,
     "still_down_repeat_seconds": 600,
     "treat_4xx_as_down": True,
     "ssl_notification_days": [30, 14, 7, 5, 3, 1],
     "ssl_notification_cooldown_seconds": 21600,
     "ssl_check_interval_hours": 6,
     "verify_ssl": True,
-    "retry_delays": [30, 30],
-    "max_retries": 2,
+    "retry_delays": [5],
+    "max_retries": 1,
 }
 
 _cache: dict[str, Any] | None = None
