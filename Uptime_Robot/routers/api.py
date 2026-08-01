@@ -421,6 +421,21 @@ async def update_site(site_id: int, site: SiteUpdate, user: dict = Depends(requi
             ),
         )
         await conn.commit()
+
+    if is_active:
+        methods_list = json.loads(notify_methods) if notify_methods else []
+        _spawn_bg(
+            monitoring.check_site_status(site_id, url, methods_list, app_state.NOTIFY_SETTINGS),
+            f"check_site_status[{site_id}]",
+        )
+        if monitor_type == "ssl" or url.lower().startswith("https://"):
+            _spawn_bg(
+                monitoring.check_site_certificate(
+                    site_id, url, methods_list, app_state.NOTIFY_SETTINGS
+                ),
+                f"check_site_certificate[{site_id}]",
+            )
+
     return {"message": "Updated"}
 
 
