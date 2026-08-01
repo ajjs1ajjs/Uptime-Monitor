@@ -138,55 +138,59 @@ wait_for_apt() {
 }
 
 # Install system dependencies
-echo -e "${BLUE}Installing system dependencies...${NC}"
-case "$OS_NAME" in
-    "Ubuntu"|"Debian GNU/Linux")
-        wait_for_apt
-        
-        # Try running apt-get update with retries
-        success=false
-        for i in {1..5}; do
-            if apt-get update -qq; then
-                success=true
-                break
-            fi
-            echo -e "${YELLOW}apt-get update failed, retrying in 5 seconds ($i/5)...${NC}"
-            sleep 5
+if [ "$IS_UPDATE" = true ]; then
+    echo -e "${GREEN}Update mode detected: Skipping apt system dependencies update...${NC}"
+else
+    echo -e "${BLUE}Installing system dependencies...${NC}"
+    case "$OS_NAME" in
+        "Ubuntu"|"Debian GNU/Linux")
             wait_for_apt
-        done
-        
-        if [ "$success" = false ]; then
-            echo -e "${RED}Error: apt-get update failed repeatedly. Please check your internet connection or package manager status.${NC}"
-            exit 1
-        fi
-        
-        # Try running apt-get install with retries
-        success=false
-        for i in {1..5}; do
-            if apt-get install -y -qq python3-pip python3-venv python3-full sqlite3 curl > /dev/null; then
-                success=true
-                break
+            
+            # Try running apt-get update with retries
+            success=false
+            for i in {1..5}; do
+                if apt-get update -qq; then
+                    success=true
+                    break
+                fi
+                echo -e "${YELLOW}apt-get update failed, retrying in 5 seconds ($i/5)...${NC}"
+                sleep 5
+                wait_for_apt
+            done
+            
+            if [ "$success" = false ]; then
+                echo -e "${RED}Error: apt-get update failed repeatedly. Please check your internet connection or package manager status.${NC}"
+                exit 1
             fi
-            echo -e "${YELLOW}apt-get install failed, retrying in 5 seconds ($i/5)...${NC}"
-            sleep 5
-            wait_for_apt
-        done
-        
-        if [ "$success" = false ]; then
-            echo -e "${RED}Error: Failed to install system dependencies.${NC}"
+            
+            # Try running apt-get install with retries
+            success=false
+            for i in {1..5}; do
+                if apt-get install -y -qq python3-pip python3-venv python3-full sqlite3 curl > /dev/null; then
+                    success=true
+                    break
+                fi
+                echo -e "${YELLOW}apt-get install failed, retrying in 5 seconds ($i/5)...${NC}"
+                sleep 5
+                wait_for_apt
+            done
+            
+            if [ "$success" = false ]; then
+                echo -e "${RED}Error: Failed to install system dependencies.${NC}"
+                exit 1
+            fi
+            ;;
+        "CentOS Linux"|"Red Hat Enterprise Linux"|"Fedora")
+            yum install -y -q python3-pip sqlite curl > /dev/null 2>&1 || \
+            dnf install -y -q python3-pip sqlite curl > /dev/null 2>&1
+            ;;
+        *)
+            echo -e "${RED}Unsupported OS: $OS_NAME${NC}"
+            echo "Supported: Ubuntu, Debian, CentOS, RHEL, Fedora"
             exit 1
-        fi
-        ;;
-    "CentOS Linux"|"Red Hat Enterprise Linux"|"Fedora")
-        yum install -y -q python3-pip sqlite curl > /dev/null 2>&1 || \
-        dnf install -y -q python3-pip sqlite curl > /dev/null 2>&1
-        ;;
-    *)
-        echo -e "${RED}Unsupported OS: $OS_NAME${NC}"
-        echo "Supported: Ubuntu, Debian, CentOS, RHEL, Fedora"
-        exit 1
-        ;;
-esac
+            ;;
+    esac
+fi
 
 # Create user
 if ! id "$APP_USER" &>/dev/null; then
