@@ -449,7 +449,6 @@ cat > /etc/systemd/system/$SERVICE_NAME-worker.service << EOF
 [Unit]
 Description=Uptime Monitor Background Worker
 After=network.target $SERVICE_NAME.service
-PartOf=$SERVICE_NAME.service
 
 [Service]
 Type=simple
@@ -461,7 +460,8 @@ Environment="CONFIG_PATH=$CONFIG_DIR/config.json"
 Environment="UPTIME_MONITOR_LOG=$LOG_DIR/uptime-monitor-worker.log"
 ExecStart=$INSTALL_DIR/venv/bin/python -m Uptime_Robot.worker
 Restart=always
-RestartSec=10
+RestartSec=5
+TimeoutStopSec=15
 StandardOutput=journal
 StandardError=journal
 
