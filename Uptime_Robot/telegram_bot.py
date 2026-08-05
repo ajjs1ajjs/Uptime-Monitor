@@ -120,6 +120,12 @@ async def poll_telegram_updates(get_notify_settings: Callable[[], dict[str, Any]
     while True:
         try:
             tokens = _collect_telegram_tokens(get_notify_settings())
+            # No configured tokens (e.g. settings not loaded from DB yet):
+            # yield the event loop instead of busy-spinning at 100% CPU,
+            # which would starve monitor_loop running on the same loop.
+            if not tokens:
+                await asyncio.sleep(1)
+                continue
             for token in tokens:
                 if token not in _known_tokens:
                     _known_tokens.add(token)
