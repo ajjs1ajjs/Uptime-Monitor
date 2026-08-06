@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import re
 import sqlite3
 from datetime import datetime, timezone
 from typing import Optional
@@ -94,6 +95,44 @@ class AlertPolicyModel(BaseModel):
     verify_ssl: Optional[bool] = None
     retry_delays: Optional[list[int]] = None
     max_retries: Optional[int] = None
+
+
+_HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def _safe_color(value, default: str) -> str:
+    """Accept only strict #RRGGBB hex colors.
+
+    Values are interpolated verbatim into a CSS rule (--brand-primary),
+    so anything else would let an admin inject arbitrary CSS.
+    """
+    if isinstance(value, str) and _HEX_COLOR_RE.match(value.strip()):
+        return value.strip()
+    return default
+
+
+def _safe_logo_url(value) -> str:
+    """Allow only http(s) logo URLs.
+
+    The logo is rendered into an <img src="...">; allowing data: or
+    javascript: schemes would embed arbitrary content into the public status
+    page served to unauthenticated visitors.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return ""
+    from urllib.parse import urlparse
+
+    parsed = urlparse(value.strip())
+    if parsed.scheme in ("http", "https") and parsed.netloc:
+        return value.strip()
+    return ""
+
+
+def _clip_text(value, default: str, max_len: int) -> str:
+    if not isinstance(value, str):
+        return default
+    text = value.strip()
+    return (text[:max_len]) if text else default
 
 
 class UserCreate(BaseModel):
@@ -707,12 +746,12 @@ async def save_notify(settings: NotifySettingsModel, user: dict = Depends(requir
 async def save_app(settings: AppSettingsModel, user: dict = Depends(require_admin)):
     if not user:
         raise HTTPException(401)
-    display_addr = settings.display_address or ""
-    site_title = settings.site_title or "Uptime Monitor"
-    logo_url = settings.logo_url or ""
-    footer_text = settings.footer_text or ""
-    primary_color = settings.primary_color or "#00ff88"
-    brand_accent = settings.brand_accent_color or "#06b6d4"
+    display_addr = (settings.display_address or "").strip()[:500]
+    site_title = _clip_text(settings.site_title, "Uptime Monitor", 120)
+    logo_url = _safe_logo_url(settings.logo_url)
+    footer_text = _clip_text(settings.footer_text, "", 500)
+    primary_color = _safe_color(settings.primary_color, "#00ff88")
+    brand_accent = _safe_color(settings.brand_accent_color, "#06b6d4")
     async with get_db_connection() as conn:
         await conn.execute(
             """INSERT OR REPLACE INTO app_settings
@@ -1044,6 +1083,15 @@ async def export_sla_pdf(days: int = 30, user: dict = Depends(require_viewer_or_
 async def create_api_key_endpoint(name: str, user: dict = Depends(get_current_user)):
     """Create a new API key (admin only). Returns the key once."""
     key_id, raw_key = await auth_module.create_api_key(DB_PATH, user["user_id"], name)
+    await models.log_audit_event(
+        DB_PATH,
+        user["user_id"],
+        user["username"],
+        "api_key_created",
+        "api_key",
+        key_id,
+        f"name={name}",
+    )
     return {"key_id": key_id, "api_key": raw_key, "name": name}
 
 
@@ -1055,9 +1103,18 @@ async def list_api_keys_endpoint():
 
 
 @router.delete("/api-keys/{key_id}", dependencies=[Depends(require_admin)])
-async def revoke_api_key_endpoint(key_id: str):
+async def revoke_api_key_endpoint(key_id: str, user: dict = Depends(get_current_user)):
     """Revoke an API key (admin only)."""
     await auth_module.revoke_api_key(DB_PATH, key_id)
+    await models.log_audit_event(
+        DB_PATH,
+        user["user_id"],
+        user["username"],
+        "api_key_revoked",
+        "api_key",
+        key_id,
+        None,
+    )
     return {"status": "revoked"}
 
 

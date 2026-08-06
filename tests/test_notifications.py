@@ -190,6 +190,40 @@ class TestNotificationDispatcher:
         mock_telegram.assert_awaited_once()
         mock_discord.assert_awaited_once()
 
+    @patch("Uptime_Robot.notifications.send_telegram", new_callable=AsyncMock)
+    @patch("Uptime_Robot.notifications.send_discord", new_callable=AsyncMock)
+    async def test_channel_filter_per_method_not_leaked(self, mock_discord, mock_telegram):
+        # Regression: a nested closure capturing the loop variable used the
+        # LAST item's channel_ids for every method, so a per-channel filter on
+        # one method could wrongly suppress (or widen) another method.
+        from Uptime_Robot.notifications import send_notification
+
+        settings = {
+            "telegram": {
+                "enabled": True,
+                "channels": [
+                    {"id": "chan-a", "token": "ta", "chat_id": "1"},
+                    {"id": "chan-b", "token": "tb", "chat_id": "2"},
+                ],
+            },
+            "discord": {
+                "enabled": True,
+                "channels": [{"id": "chan-a", "webhook_url": "https://discord.com"}],
+            },
+        }
+        # Telegram restricted to chan-b, Discord to chan-a (its only channel).
+        methods = [
+            {"method": "telegram", "channels": ["chan-b"]},
+            {"method": "discord", "channels": ["chan-a"]},
+        ]
+        await send_notification("test", methods, settings)
+        # Telegram must hit chan-b ONLY.
+        assert mock_telegram.await_count == 1
+        call_args = mock_telegram.await_args.args
+        assert call_args[1].get("chat_id") == "2", f"wrong channel picked: {call_args[1]}"
+        # Discord's own filter must still match its channel (not Telegram's set).
+        mock_discord.assert_awaited_once()
+
 
 class TestParseMessage:
     def test_parse_down_message(self):

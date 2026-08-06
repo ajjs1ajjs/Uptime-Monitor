@@ -392,6 +392,26 @@ class TestApiKeyAuth:
         r = client.get("/api/sites", headers={"X-API-Key": api_key})
         assert r.status_code == 401
 
+    def test_api_key_creation_logged_in_audit(self, client, admin_headers):
+        r = client.post("/api/api-keys?name=AuditKey", headers=admin_headers)
+        assert r.status_code == 200
+        key_id = r.json()["key_id"]
+
+        r = client.get("/api/audit-log", headers=admin_headers)
+        entries = r.json()
+        created = [e for e in entries if e["action"] == "api_key_created" and e["target_id"] == key_id]
+        assert len(created) == 1, f"expected one api_key_created entry, got {created}"
+
+    def test_api_key_revocation_logged_in_audit(self, client, admin_headers):
+        r = client.post("/api/api-keys?name=RevokeAudit", headers=admin_headers)
+        key_id = r.json()["key_id"]
+        client.delete(f"/api/api-keys/{key_id}", headers=admin_headers)
+
+        r = client.get("/api/audit-log", headers=admin_headers)
+        entries = r.json()
+        revoked = [e for e in entries if e["action"] == "api_key_revoked" and e["target_id"] == key_id]
+        assert len(revoked) == 1, f"expected one api_key_revoked entry, got {revoked}"
+
 
 class TestAuditLog:
     def test_audit_log_exists(self, client, admin_headers):
@@ -603,6 +623,50 @@ class TestSecurityHardening:
         # 302 "Session expired" redirect.
         assert r.status_code == 200
         assert "User not found" in r.text
+
+    def test_app_settings_rejects_css_injection_color(self, client, admin_headers):
+        # A non-hex color must not be stored verbatim (would be interpolated
+        # into a CSS rule on the public status page).
+        r = client.post("/api/app-settings", json={
+            "primary_color": "red; } * { background: url(https://evil.example) } .x {",
+            "brand_accent_color": "url(#x)",
+        }, headers=admin_headers)
+        assert r.status_code == 200
+
+        r = client.get("/api/app-settings", headers=admin_headers)
+        data = r.json()
+        assert data["primary_color"] == "#00ff88", f"got {data['primary_color']}"
+        assert data["brand_accent_color"] == "#06b6d4"
+
+    def test_app_settings_valid_hex_color_accepted(self, client, admin_headers):
+        r = client.post("/api/app-settings", json={
+            "primary_color": "#ff0000",
+            "brand_accent_color": "#00FFAA",
+        }, headers=admin_headers)
+        assert r.status_code == 200
+
+        r = client.get("/api/app-settings", headers=admin_headers)
+        data = r.json()
+        assert data["primary_color"] == "#ff0000"
+        assert data["brand_accent_color"] == "#00FFAA"
+
+    def test_app_settings_rejects_unsafe_logo_url(self, client, admin_headers):
+        r = client.post("/api/app-settings", json={
+            "logo_url": "javascript:alert(1)",
+        }, headers=admin_headers)
+        assert r.status_code == 200
+
+        r = client.get("/api/app-settings", headers=admin_headers)
+        assert r.json()["logo_url"] == ""
+
+    def test_app_settings_accepts_https_logo_url(self, client, admin_headers):
+        r = client.post("/api/app-settings", json={
+            "logo_url": "https://example.com/logo.png",
+        }, headers=admin_headers)
+        assert r.status_code == 200
+
+        r = client.get("/api/app-settings", headers=admin_headers)
+        assert r.json()["logo_url"] == "https://example.com/logo.png"
 
 
 class TestDnsMonitorApi:
