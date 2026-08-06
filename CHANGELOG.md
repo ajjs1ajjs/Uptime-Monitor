@@ -1,3 +1,18 @@
+## [3.0.0] - 2026-08-06
+
+### Змінено (повне переписування Python -> Go)
+
+- **Бекенд переписано на Go 1.25** — один статичний бінар, нижче споживання ресурсів.
+- **SQLite через modernc.org/sqlite** (pure-Go, WAL), схема БД сумісна.
+- **Шаблони Jinja2 рендеряться через pongo2** (embedded через go:embed).
+- **Той самий API та поведінка**: сесії, ролі admin/viewer, must_change_password, CSRF, rate-limit, API-ключі.
+- **10 каналів сповіщень**: Telegram, Discord, Slack, Teams, Email, SMS/Twilio, Webhook, Pushover, Gotify, ntfy.
+- **Секрети** каналів шифруються (AES-GCM, master.key поруч із конфігом — не в робочій директорії).
+- **CLI**: server / reset-admin / has-admin / --version.
+- **Одна команда встановлення/оновлення**: оновлення зберігає конфіг, БД і паролі; перша інсталяція друкує пароль.
+- **Тести**: API-флоу (логін, must_change, CSRF, RBAC), порожні списки як [], статика, detail-помилки.
+
+---
 # Changelog
 
 All notable changes to Uptime Monitor will be documented in this file.

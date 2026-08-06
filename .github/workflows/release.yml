@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 permissions:
   contents: write
@@ -13,48 +13,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Get version
-        id: ver
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-      
-      - name: Create tarball
-        run: |
-          cd Uptime_Robot
-          tar -czvf ../uptime-monitor-${{ steps.ver.outputs.VERSION }}.tar.gz \
-            --exclude='*.pyc' \
-            --exclude='__pycache__' \
-            --exclude='*.db' \
-            --exclude='*.log' \
-            --exclude='UptimeMonitor_EXE' \
-            __init__.py __main__.py main.py main_service.py worker.py \
-            auth_module.py auth_cli.py database.py logger.py \
-            models.py notifications.py ssl_checker.py \
-            config_manager.py state.py crypto_utils.py csrf.py \
-            dependencies.py metrics_store.py reporting.py \
-            monitoring/ routers/ wss/ scripts/ \
-            templates/ static/ default_sites.json requirements.txt
-      
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
-          body: |
-            # Uptime Monitor ${{ steps.ver.outputs.VERSION }}
-            
-            ## Installation
-            
-            ### Linux (CURL)
-            ```
-            curl -fsSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
-            ```
-            
-            ## Default Credentials
-            - Username: admin
-            - Password: auto-generated (check terminal output or run `sudo journalctl -u uptime-monitor -n 100`)
-            
-            **Please change password after first login!**
-          files: uptime-monitor-*.tar.gz
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          go-version: "1.25"
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build binaries
+        run: |
+          mkdir -p dist
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/uptime-monitor-linux-amd64 ./cmd/uptime-monitor
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/uptime-monitor-linux-arm64 ./cmd/uptime-monitor
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/uptime-monitor-windows-amd64.exe ./cmd/uptime-monitor
+          GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/uptime-monitor-darwin-amd64 ./cmd/uptime-monitor
+          cd dist
+          sha256sum * > checksums.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

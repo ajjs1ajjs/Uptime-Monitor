@@ -1,232 +1,41 @@
-# =============================================================================
-# Uptime Monitor .gitignore
-# Comprehensive ignore file for Python/FastAPI project
-# =============================================================================
-
-# -----------------------------------------------------------------------------
-# Python
-# -----------------------------------------------------------------------------
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-
-# C extensions
-*.c
-*.cpp
-*.o
-*.a
-*.dll
-*.lib
-*.exp
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
+# Go
+/bin/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+/uptime-monitor
+/uptime-monitor.exe
+*.test
+*.out
 
-# PyInstaller
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-
-# Translations
-*.mo
-*.pot
-
-# -----------------------------------------------------------------------------
-# Virtual environments
-# -----------------------------------------------------------------------------
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-ENV.bak/
-
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# pytype static type analyzer
-.pytype/
-
-# Cython debug symbols
-cython_debug/
-
-# -----------------------------------------------------------------------------
-# IDEs
-# -----------------------------------------------------------------------------
-# JetBrains IDEs
-.idea/
-*.iml
-*.ipr
-*.iws
-
-# VS Code
+# IDE
 .vscode/
-*.code-workspace
-.opencode/
-
-# PyCharm
 .idea/
+*.swp
 
-# -----------------------------------------------------------------------------
-# Databases & Data
-# -----------------------------------------------------------------------------
-# SQLite databases
+# Database
 *.db
 *.sqlite
 *.sqlite3
-sites.db
-sites.db-journal
-sites.db-shm
-sites.db-wal
 
-# Config backups
-*.bak
-*.backup
-config.backups/
-
-# -----------------------------------------------------------------------------
 # Logs
-# -----------------------------------------------------------------------------
 *.log
 logs/
-uptime_monitor.log
 
-# -----------------------------------------------------------------------------
-# OS generated files
-# -----------------------------------------------------------------------------
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-._*
-
-# Windows
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
-@eaDir/
-
-# -----------------------------------------------------------------------------
-# Project specific
-# -----------------------------------------------------------------------------
-# Test files
-cookies*.txt
-c[0-9].txt
-port.txt
-
-# Build artifacts
-UptimeMonitor.exe
-get-pip.py
-installer/build/
-*.tar.gz
-
-# Temporary files
-tmp/
-temp/
-*.tmp
-*.swp
-*.swo
-*~
-
-# Secrets & credentials
-.secrets/
-*.key
-*.pem
-*.crt
-ssl/
-!ssl/.gitkeep
-
-# Environment variables
+# Environment
+.env
 .env.local
-.env.*.local
 
-# -----------------------------------------------------------------------------
-# Documentation
-# -----------------------------------------------------------------------------
-# Generated documentation
-docs/_build/
-site/
+# OS
+.DS_Store
+Thumbs.db
 
-# -----------------------------------------------------------------------------
-# CI/CD
-# -----------------------------------------------------------------------------
-# GitHub Actions
-.github/workflows/test-results/
+# Backups
+backups/
+*.bak
+*.backup
 
-# -----------------------------------------------------------------------------
-# Docker
-# -----------------------------------------------------------------------------
-.dockerignore
-
-# -----------------------------------------------------------------------------
-# Security & Encryption
-# -----------------------------------------------------------------------------
+# Config
+config.json
 master.key
-.uptime-monitor-master.key
 
-# -----------------------------------------------------------------------------
-# Stray files
-# -----------------------------------------------------------------------------
-qc
-
-# -----------------------------------------------------------------------------
-# Production config & database tracking
-# -----------------------------------------------------------------------------
-!Uptime_Robot/config.json
-!Uptime_Robot/sites.db
-
-credentials.txt
+# Secrets
+admin_password.txt

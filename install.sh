@@ -1,698 +1,225 @@
 #!/bin/bash
+# Uptime Monitor (Go) - one-line installer/updater (Linux/macOS)
+# The SAME command installs on first run and safely UPDATES on subsequent runs:
+#   - keeps config, database, users and admin password
+#   - replaces only the binary and restarts the service
+# Usage: curl -sSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 
 set -e
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-# Configuration
-GITHUB_REPO="ajjs1ajjs/Uptime-Monitor"
 INSTALL_DIR="/opt/uptime-monitor"
 CONFIG_DIR="/etc/uptime-monitor"
 DATA_DIR="/var/lib/uptime-monitor"
 LOG_DIR="/var/log/uptime-monitor"
 SERVICE_NAME="uptime-monitor"
-APP_USER="uptime-monitor"
-APP_VERSION="v2.0.0"
+VERSION="${UPTIME_MONITOR_VERSION:-latest}"
+REPO="ajjs1ajjs/Uptime-Monitor"
+CONFIG_FILE="$CONFIG_DIR/config.json"
 
-echo -e "${GREEN}"
-echo "=========================================="
-echo "   Uptime Monitor - Installation Script"
-echo "=========================================="
-echo -e "${NC}"
-
-# Check if running as root
-if [ "$EUID" -ne 0 ]; then
-    echo -e "${RED}Error: Please run as root (use sudo)${NC}"
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Please run as root (sudo ./install.sh)"
     exit 1
 fi
 
-# Detect if this is an update
-IS_UPDATE=false
-UPDATE_BACKUP_TS=""
-if [ -f "$DATA_DIR/sites.db" ] && [ -d "$INSTALL_DIR/Uptime_Robot" ]; then
-    IS_UPDATE=true
+# --- Detect existing installation -------------------------------------------
+IS_UPDATE=0
+if [ -f "/etc/systemd/system/$SERVICE_NAME.service" ] || [ -x "$INSTALL_DIR/uptime-monitor" ] || [ -f "$DATA_DIR/sites.db" ]; then
+    IS_UPDATE=1
+fi
+if [ "$IS_UPDATE" = "1" ]; then MODE="Оновлення (update)"; else MODE="Встановлення (install)"; fi
+
+echo "=============================================="
+echo "   Uptime Monitor - $MODE"
+echo "=============================================="
+echo ""
+
+OLD_VERSION=""
+if [ -x "$INSTALL_DIR/uptime-monitor" ] && [ ! -d "$INSTALL_DIR/uptime-monitor" ]; then
+    OLD_VERSION="$("$INSTALL_DIR/uptime-monitor" --version 2>/dev/null || true)"
 fi
 
-# Parse arguments
-PORT=8080
-INSTALL_VERSION="main"
-
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --port)
-            PORT="$2"
-            shift 2
-            ;;
-        --version)
-            INSTALL_VERSION="$2"
-            shift 2
-            ;;
-        --help)
-            echo "Usage: $0 [OPTIONS]"
-            echo ""
-            echo "Options:"
-            echo "  --port PORT       Set port (default: 8080)"
-            echo "  --version VERSION Install specific version (e.g., v1.0.0 or main)"
-            echo "  --help            Show this help message"
-            exit 0
-            ;;
-        --local)
-            LOCAL_INSTALL=true
-            shift
-            ;;
-        *)
-            echo -e "${RED}Unknown option: $1${NC}"
-            exit 1
-            ;;
-    esac
-done
-
-if [ "$IS_UPDATE" = true ]; then
-    echo -e "${YELLOW}=========================================="
-    echo "   Update Mode Detected"
-    echo -e "==========================================${NC}"
-    echo ""
-fi
-
-# Determine download URL based on version
-if [[ "$INSTALL_VERSION" == "main" ]]; then
-    DOWNLOAD_URL="https://github.com/$GITHUB_REPO/archive/refs/heads/main.tar.gz"
-    APP_VERSION="latest (main branch)"
-elif [[ "$INSTALL_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    DOWNLOAD_URL="https://github.com/$GITHUB_REPO/archive/refs/tags/$INSTALL_VERSION.tar.gz"
-    APP_VERSION="$INSTALL_VERSION"
-else
-    echo -e "${RED}Error: Invalid version format. Use 'main' or 'v1.0.0' format${NC}"
-    exit 1
-fi
-
-# Detect OS
-if [ -f /etc/os-release ]; then
-    . /etc/os-release
-    OS_NAME=$NAME
-    OS_VERSION=$VERSION_ID
-else
-    echo -e "${RED}Error: Cannot detect OS${NC}"
-    exit 1
-fi
-
-echo -e "${YELLOW}Detected OS: $OS_NAME $OS_VERSION${NC}"
-
-# Check Python version
-PYTHON_CMD=""
-if command -v python3.12 &> /dev/null; then
-    PYTHON_CMD="python3.12"
-elif command -v python3.11 &> /dev/null; then
-    PYTHON_CMD="python3.11"
-elif command -v python3.10 &> /dev/null; then
-    PYTHON_CMD="python3.10"
-elif command -v python3 &> /dev/null; then
-    PYTHON_CMD="python3"
-else
-    echo -e "${RED}Error: Python 3.10+ is required${NC}"
-    exit 1
-fi
-
-PYTHON_VER=$($PYTHON_CMD --version 2>&1 | awk '{print $2}')
-echo -e "${YELLOW}Using Python: $PYTHON_VER${NC}"
-
-# Helper function to wait for apt locks to be released
-wait_for_apt() {
-    local count=0
-    while pgrep -x dpkg >/dev/null 2>&1 || pgrep -x apt-get >/dev/null 2>&1 || pgrep -x aptitude >/dev/null 2>&1 || pgrep -f unattended-upgrades >/dev/null 2>&1 || (command -v fuser >/dev/null 2>&1 && fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1); do
-        if [ $count -eq 0 ]; then
-            echo -e "${YELLOW}Another package manager process (e.g. automatic updates) is running. Waiting for it to release the lock...${NC}"
-        fi
-        sleep 5
-        count=$((count + 5))
-        if [ $count -ge 300 ]; then
-            echo -e "${RED}Warning: Package manager lock is still held after 5 minutes. Attempting to proceed...${NC}"
-            break
-        fi
-    done
-}
-
-# Install system dependencies
-if [ "$IS_UPDATE" = true ]; then
-    echo -e "${GREEN}Update mode detected: Skipping apt system dependencies update...${NC}"
-else
-    echo -e "${BLUE}Installing system dependencies...${NC}"
-    case "$OS_NAME" in
-        "Ubuntu"|"Debian GNU/Linux")
-            wait_for_apt
-            
-            # Try running apt-get update with retries
-            success=false
-            for i in {1..5}; do
-                if apt-get update -qq; then
-                    success=true
-                    break
-                fi
-                echo -e "${YELLOW}apt-get update failed, retrying in 5 seconds ($i/5)...${NC}"
-                sleep 5
-                wait_for_apt
-            done
-            
-            if [ "$success" = false ]; then
-                echo -e "${RED}Error: apt-get update failed repeatedly. Please check your internet connection or package manager status.${NC}"
-                exit 1
-            fi
-            
-            # Try running apt-get install with retries
-            success=false
-            for i in {1..5}; do
-                if apt-get install -y -qq python3-pip python3-venv python3-full sqlite3 curl > /dev/null; then
-                    success=true
-                    break
-                fi
-                echo -e "${YELLOW}apt-get install failed, retrying in 5 seconds ($i/5)...${NC}"
-                sleep 5
-                wait_for_apt
-            done
-            
-            if [ "$success" = false ]; then
-                echo -e "${RED}Error: Failed to install system dependencies.${NC}"
-                exit 1
-            fi
-            ;;
-        "CentOS Linux"|"Red Hat Enterprise Linux"|"Fedora")
-            yum install -y -q python3-pip sqlite curl > /dev/null 2>&1 || \
-            dnf install -y -q python3-pip sqlite curl > /dev/null 2>&1
-            ;;
-        *)
-            echo -e "${RED}Unsupported OS: $OS_NAME${NC}"
-            echo "Supported: Ubuntu, Debian, CentOS, RHEL, Fedora"
-            exit 1
-            ;;
-    esac
-fi
-
-# Create user
-if ! id "$APP_USER" &>/dev/null; then
-    echo -e "${BLUE}Creating user: $APP_USER${NC}"
-    useradd -r -s /bin/false -d "$DATA_DIR" "$APP_USER"
-fi
-
-# Create directories
-echo -e "${BLUE}Creating directories...${NC}"
-mkdir -p "$INSTALL_DIR" "$CONFIG_DIR" "$DATA_DIR" "$LOG_DIR"
-
-# Backup existing data if updating
-if [ "$IS_UPDATE" = true ]; then
-    UPDATE_BACKUP_TS=$(date +%Y%m%d-%H%M%S)
-    echo -e "${YELLOW}Backing up current data...${NC}"
-    if [ -f "$DATA_DIR/sites.db" ]; then
-        cp "$DATA_DIR/sites.db" "/tmp/sites.db.backup.$UPDATE_BACKUP_TS"
-        echo -e "${GREEN}  ✓ Database backed up: /tmp/sites.db.backup.$UPDATE_BACKUP_TS${NC}"
-    fi
-    if [ -f "$CONFIG_DIR/config.json" ]; then
-        cp "$CONFIG_DIR/config.json" "/tmp/config.json.backup.$UPDATE_BACKUP_TS"
-        echo -e "${GREEN}  ✓ Config backed up: /tmp/config.json.backup.$UPDATE_BACKUP_TS${NC}"
-    fi
-    echo -e "${YELLOW}Stopping services...${NC}"
-    systemctl stop "$SERVICE_NAME" 2>/dev/null || true
-    systemctl stop "$SERVICE_NAME-worker" 2>/dev/null || true
-    sleep 2
-    echo ""
-fi
-
-# Download or use local files
-if [ "$LOCAL_INSTALL" = true ]; then
-    echo -e "${YELLOW}Installing from local files...${NC}"
-    # Use current directory
-    EXTRACT_DIR="$(pwd)"
-else
-    # Download from source archive
-    echo -e "${BLUE}Downloading version $INSTALL_VERSION from GitHub...${NC}"
-    TMP_WORKDIR=$(mktemp -d /tmp/uptime-monitor-install.XXXXXX)
-    ARCHIVE_PATH="$TMP_WORKDIR/uptime-monitor.tar.gz"
-    trap 'rm -rf "$TMP_WORKDIR"' EXIT
-
-    if ! curl -fsSL "$DOWNLOAD_URL" -o "$ARCHIVE_PATH" 2>/dev/null; then
-        echo -e "${RED}Error: Failed to download from GitHub${NC}"
+# --- Architecture -----------------------------------------------------------
+case "$(uname -m)" in
+    x86_64|amd64)  ARCH="amd64" ;;
+    aarch64|arm64) ARCH="arm64" ;;
+    *)
+        echo "ERROR: unsupported architecture: $(uname -m)"
         exit 1
-    fi
+        ;;
+esac
+OS="linux"
+[ "$(uname -s)" = "Darwin" ] && OS="darwin"
+BINARY_NAME="uptime-monitor-${OS}-${ARCH}"
+case "$OS:$ARCH" in
+    linux:amd64) BINARY_NAME="uptime-monitor-linux-amd64" ;;
+    linux:arm64) BINARY_NAME="uptime-monitor-linux-arm64" ;;
+    darwin:*)    BINARY_NAME="uptime-monitor-darwin-amd64" ;;
+esac
 
-    echo -e "${BLUE}Extracting...${NC}"
-    tar -xzf "$ARCHIVE_PATH" -C "$TMP_WORKDIR"
-
-    # Find extracted directory
-    EXTRACT_DIR=$(find "$TMP_WORKDIR" -mindepth 1 -maxdepth 1 -type d -name "Uptime-Monitor*" | head -1)
+if [ "$VERSION" = "latest" ]; then
+    DOWNLOAD_URL="https://github.com/${REPO}/releases/latest/download/${BINARY_NAME}"
+    VERSION_URL="latest/download/"
+else
+    DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${BINARY_NAME}"
+    VERSION_URL="download/${VERSION}/"
 fi
 
-if [ -z "$EXTRACT_DIR" ]; then
-    echo -e "${RED}Error: Could not find extracted files${NC}"
+# --- Download ----------------------------------------------------------------
+echo "[1/4] Downloading Uptime Monitor ${VERSION} (${BINARY_NAME})..."
+TMP_BIN="$(mktemp)"
+if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$DOWNLOAD_URL" -o "$TMP_BIN" || { echo "ERROR: download failed. Is release ${VERSION} published?"; rm -f "$TMP_BIN"; exit 1; }
+elif command -v wget >/dev/null 2>&1; then
+    wget -q -O "$TMP_BIN" "$DOWNLOAD_URL" || { echo "ERROR: download failed. Is release ${VERSION} published?"; rm -f "$TMP_BIN"; exit 1; }
+else
+    echo "ERROR: neither curl nor wget is installed."
+    rm -f "$TMP_BIN"
     exit 1
 fi
 
-echo -e "${BLUE}Found: $EXTRACT_DIR${NC}"
-
-# Install entire Uptime_Robot package (preserves relative imports)
-echo -e "${BLUE}Installing application...${NC}"
-
-# Determine source root
-if [ -d "$EXTRACT_DIR/Uptime_Robot" ]; then
-    PROJECT_ROOT="$EXTRACT_DIR"
-    SRC_DIR="$EXTRACT_DIR/Uptime_Robot"
-else
-    PROJECT_ROOT="$EXTRACT_DIR"
-    SRC_DIR="$EXTRACT_DIR"
+# --- Checksum ----------------------------------------------------------------
+echo "Verifying checksum..."
+TMP_SUM="$(mktemp)"
+if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "https://github.com/${REPO}/releases/${VERSION_URL}checksums.txt" -o "$TMP_SUM" 2>/dev/null || true
+elif command -v wget >/dev/null 2>&1; then
+    wget -q -O "$TMP_SUM" "https://github.com/${REPO}/releases/${VERSION_URL}checksums.txt" 2>/dev/null || true
 fi
-
-# Copy the entire Uptime_Robot package (keeps __init__.py, subpackages, relative imports working)
-rm -rf "$INSTALL_DIR/Uptime_Robot"
-cp -r "$SRC_DIR" "$INSTALL_DIR/Uptime_Robot/"
-
-# Copy root-level files (README, pyproject.toml, Dockerfile, docker-compose.yml, etc.)
-if [ -f "$PROJECT_ROOT/README.md" ]; then cp "$PROJECT_ROOT/README.md" "$INSTALL_DIR/" 2>/dev/null || true; fi
-if [ -f "$PROJECT_ROOT/pyproject.toml" ]; then cp "$PROJECT_ROOT/pyproject.toml" "$INSTALL_DIR/" 2>/dev/null || true; fi
-if [ -f "$PROJECT_ROOT/Dockerfile" ]; then cp "$PROJECT_ROOT/Dockerfile" "$INSTALL_DIR/" 2>/dev/null || true; fi
-if [ -f "$PROJECT_ROOT/docker-compose.yml" ]; then cp "$PROJECT_ROOT/docker-compose.yml" "$INSTALL_DIR/" 2>/dev/null || true; fi
-
-# Copy templates and static
-for d in templates static; do
-    if [ -d "$SRC_DIR/$d" ]; then
-        rm -rf "$INSTALL_DIR/$d"
-        cp -r "$SRC_DIR/$d" "$INSTALL_DIR/"
-    elif [ -d "$PROJECT_ROOT/$d" ]; then
-        rm -rf "$INSTALL_DIR/$d"
-        cp -r "$PROJECT_ROOT/$d" "$INSTALL_DIR/"
+if [ -s "$TMP_SUM" ]; then
+    EXPECTED="$(grep "${BINARY_NAME}$" "$TMP_SUM" | awk '{print $1}')"
+    if [ -n "$EXPECTED" ]; then
+        if command -v sha256sum >/dev/null 2>&1; then ACTUAL="$(sha256sum "$TMP_BIN" | awk '{print $1}')"
+        elif command -v shasum >/dev/null 2>&1; then ACTUAL="$(shasum -a 256 "$TMP_BIN" | awk '{print $1}')"
+        else ACTUAL=""; fi
+        if [ -n "$ACTUAL" ] && [ "$EXPECTED" != "$ACTUAL" ]; then
+            echo "ERROR: checksum mismatch for ${BINARY_NAME}."
+            rm -f "$TMP_BIN" "$TMP_SUM"
+            exit 1
+        fi
+        echo "Checksum OK."
     fi
-done
+fi
+rm -f "$TMP_SUM"
+chmod +x "$TMP_BIN"
+"$TMP_BIN" --version >/dev/null 2>&1 || { echo "ERROR: downloaded file is not a valid binary"; rm -f "$TMP_BIN"; exit 1; }
+NEW_VERSION="$("$TMP_BIN" --version 2>/dev/null || echo "?")"
 
-# Copy scripts to top-level (references like $INSTALL_DIR/scripts/backup.sh)
-if [ -d "$SRC_DIR/scripts" ]; then
-    rm -rf "$INSTALL_DIR/scripts"
-    cp -r "$SRC_DIR/scripts" "$INSTALL_DIR/"
-    chmod +x "$INSTALL_DIR/scripts/"*.sh 2>/dev/null || true
-    chmod +x "$INSTALL_DIR/scripts/"*.py 2>/dev/null || true
+# --- Install binary ----------------------------------------------------------
+echo "[2/4] Installing binary..."
+mkdir -p "$INSTALL_DIR" "$CONFIG_DIR" "$DATA_DIR" "$LOG_DIR"
+if [ -d "$INSTALL_DIR/uptime-monitor" ]; then rm -rf "$INSTALL_DIR/uptime-monitor"; fi
+if [ "$IS_UPDATE" = "1" ] && [ -f "$INSTALL_DIR/uptime-monitor" ]; then
+    cp -f "$INSTALL_DIR/uptime-monitor" "$INSTALL_DIR/uptime-monitor.old" 2>/dev/null || true
+fi
+install -m 0755 "$TMP_BIN" "$INSTALL_DIR/uptime-monitor"
+rm -f "$TMP_BIN"
+if ! "$INSTALL_DIR/uptime-monitor" --version >/dev/null 2>&1; then
+    echo "ERROR: installed binary is not runnable. Restoring previous version..."
+    [ -f "$INSTALL_DIR/uptime-monitor.old" ] && install -m 0755 "$INSTALL_DIR/uptime-monitor.old" "$INSTALL_DIR/uptime-monitor" || true
+    exit 1
 fi
 
-# Copy requirements (prefer Linux-specific file on Linux)
-if [ -f "$SRC_DIR/requirements-linux.txt" ]; then
-    cp "$SRC_DIR/requirements-linux.txt" "$INSTALL_DIR/requirements.txt"
-elif [ -f "$PROJECT_ROOT/requirements-linux.txt" ]; then
-    cp "$PROJECT_ROOT/requirements-linux.txt" "$INSTALL_DIR/requirements.txt"
-elif [ -f "$PROJECT_ROOT/requirements.txt" ]; then
-    cp "$PROJECT_ROOT/requirements.txt" "$INSTALL_DIR/"
-elif [ -f "$SRC_DIR/requirements.txt" ]; then
-    cp "$SRC_DIR/requirements.txt" "$INSTALL_DIR/"
-    # Remove Windows-specific packages on Linux
-    sed -i '/pywin32/d' "$INSTALL_DIR/requirements.txt"
-fi
-
-# Create virtual environment
-echo -e "${BLUE}Creating virtual environment...${NC}"
-cd "$INSTALL_DIR"
-$PYTHON_CMD -m venv venv
-
-# Install Python dependencies in venv
-echo -e "${BLUE}Installing Python packages...${NC}"
-./venv/bin/pip install --upgrade pip > /dev/null
-./venv/bin/pip install -r requirements.txt
-
-# Get server IP for auto-detection
-SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "0.0.0.0")
-
-# Create configuration
-echo -e "${BLUE}Creating configuration...${NC}"
-if [ ! -f "$CONFIG_DIR/config.json" ]; then
-    cat > "$CONFIG_DIR/config.json" << EOF
+# --- Config (kept on update, created on first install) -----------------------
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo "Creating default config at $CONFIG_FILE ..."
+    cat > "$CONFIG_FILE" <<'EOF'
 {
-    "server": {
-        "port": $PORT,
-        "host": "0.0.0.0",
-        "domain": "$SERVER_IP"
-    },
-    "ssl": {
-        "enabled": false,
-        "type": "custom",
-        "cert_path": "$CONFIG_DIR/ssl/cert.pem",
-        "key_path": "$CONFIG_DIR/ssl/key.pem",
-        "redirect_http": true,
-        "hsts": true,
-        "hsts_max_age": 31536000
-    },
-    "data_dir": "$DATA_DIR",
-    "log_dir": "$LOG_DIR",
-    "check_interval": 60,
-    "notifications": {
-        "email_enabled": false,
-        "email_smtp_server": "",
-        "email_smtp_port": 587,
-        "email_username": "",
-        "email_password": "",
-        "email_to": ""
-    },
-    "alert_policy": {
-        "request_timeout_seconds": 60,
-        "down_failures_threshold": 1,
-        "up_success_threshold": 1,
-        "still_down_repeat_seconds": 600,
-        "treat_4xx_as_down": true,
-        "ssl_notification_days": 7,
-        "ssl_notification_cooldown_seconds": 21600
-    },
-    "backup": {
-        "enabled": true,
-        "max_backups": 10,
-        "backup_dir": "$CONFIG_DIR/config.backups"
-    }
+  "server": { "port": 8080, "host": "0.0.0.0" },
+  "data_dir": "/var/lib/uptime-monitor",
+  "log_dir": "/var/log/uptime-monitor"
 }
 EOF
 fi
 
-# Create SSL directory
-mkdir -p "$CONFIG_DIR/ssl"
-mkdir -p "$CONFIG_DIR/config.backups"
-
-# Create default backup directory
-echo -e "${BLUE}Creating backup directories...${NC}"
-mkdir -p "/backup/uptime-monitor"
-chown -R "$APP_USER:$APP_USER" "/backup/uptime-monitor" 2>/dev/null || true
-
-# Initialize database and default user credentials
-echo -e "${BLUE}Initializing database and default credentials...${NC}"
-INIT_OUT=$(export CONFIG_PATH="$CONFIG_DIR/config.json"; ./venv/bin/python -c "
-import asyncio, sys
-sys.path.insert(0, '$INSTALL_DIR')
-from Uptime_Robot import models, auth_module, crypto_utils
-# Generate the encryption master key once (skip if one already exists, so an
-# update never invalidates already-encrypted secrets).
-if not crypto_utils.load_master_key():
-    crypto_utils.generate_master_key('$CONFIG_DIR/master.key')
-async def main():
-    await models.init_database('$DATA_DIR/sites.db')
-    await auth_module.init_auth_tables('$DATA_DIR/sites.db')
-asyncio.run(main())
-" 2>&1 || true)
-
-# Master key must be readable by the service user (created as root above).
-if [ -f "$CONFIG_DIR/master.key" ]; then
-    chown "$APP_USER:$APP_USER" "$CONFIG_DIR/master.key" 2>/dev/null || true
-    chmod 600 "$CONFIG_DIR/master.key" 2>/dev/null || true
+# --- User + service -----------------------------------------------------------
+echo "[3/4] Configuring system user and service..."
+if ! id uptime >/dev/null 2>&1; then
+    useradd -r -s /bin/false -d "$INSTALL_DIR" uptime
 fi
+chown -R uptime:uptime "$INSTALL_DIR" "$CONFIG_DIR" "$DATA_DIR" "$LOG_DIR"
+systemctl stop $SERVICE_NAME 2>/dev/null || true
 
-# Print initialization output
-if echo "$INIT_OUT" | grep -q "DEFAULT ADMIN USER CREATED"; then
-    echo -e "${GREEN}Database initialized successfully:${NC}"
-    echo "$INIT_OUT"
-elif echo "$INIT_OUT" | grep -qi "Current password:"; then
-    echo -e "${GREEN}Database initialized. Admin user already exists:${NC}"
-    echo "$INIT_OUT"
-elif echo "$INIT_OUT" | grep -qi "error"; then
-    echo -e "${RED}Warning during database initialization:${NC}"
-    echo "$INIT_OUT"
-else
-    echo -e "${GREEN}Database initialized. User 'admin' already exists.${NC}"
-fi
-
-# Extract the password if available
-ADMIN_PASSWORD=$(echo "$INIT_OUT" | grep 'Password:' | head -1 | sed 's/.*Password: //' | tr -d '\r\n ' || true)
-
-
-# Create systemd services
-echo -e "${BLUE}Creating systemd services...${NC}"
-
-# 1. Main Web Service
-cat > /etc/systemd/system/$SERVICE_NAME.service << EOF
+cat > /etc/systemd/system/$SERVICE_NAME.service <<EOF
 [Unit]
-Description=Uptime Monitor Web UI (Version $APP_VERSION)
-Documentation=https://github.com/$GITHUB_REPO
+Description=Uptime Monitor
 After=network.target
 
 [Service]
-Type=simple
-User=$APP_USER
-Group=$APP_USER
-WorkingDirectory=$INSTALL_DIR
-Environment="PATH=$INSTALL_DIR/venv/bin:/usr/local/bin:/usr/bin:/bin"
-Environment="CONFIG_PATH=$CONFIG_DIR/config.json"
-Environment="UPTIME_MONITOR_LOG=$LOG_DIR/uptime-monitor.log"
-Environment="APP_VERSION=$APP_VERSION"
-ExecStart=$INSTALL_DIR/venv/bin/python -m Uptime_Robot.main --no-monitor
-Restart=always
-RestartSec=10
-StandardOutput=journal
-StandardError=journal
-
-NoNewPrivileges=true
-PrivateTmp=true
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# 2. Background Worker Service
-cat > /etc/systemd/system/$SERVICE_NAME-worker.service << EOF
-[Unit]
-Description=Uptime Monitor Background Worker
-After=network.target $SERVICE_NAME.service
-
-[Service]
-Type=simple
-User=$APP_USER
-Group=$APP_USER
-WorkingDirectory=$INSTALL_DIR
-Environment="PATH=$INSTALL_DIR/venv/bin:/usr/local/bin:/usr/bin:/bin"
-Environment="CONFIG_PATH=$CONFIG_DIR/config.json"
-Environment="UPTIME_MONITOR_LOG=$LOG_DIR/uptime-monitor-worker.log"
-ExecStart=$INSTALL_DIR/venv/bin/python -m Uptime_Robot.worker
+User=uptime
+Group=uptime
+ExecStart=$INSTALL_DIR/uptime-monitor server --config $CONFIG_FILE
 Restart=always
 RestartSec=5
-TimeoutStopSec=15
-StandardOutput=journal
-StandardError=journal
-
-NoNewPrivileges=true
-PrivateTmp=true
+Environment=CONFIG_PATH=$CONFIG_FILE
+Environment=DATA_DIR=$DATA_DIR
+Environment=LOG_DIR=$LOG_DIR
+Environment=DB_PATH=$DATA_DIR/sites.db
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# 3. Daily backup timer (one-shot service + timer)
-cat > /etc/systemd/system/$SERVICE_NAME-backup.service << EOF
-[Unit]
-Description=Uptime Monitor daily backup (database + config + logs)
-Documentation=https://github.com/$GITHUB_REPO
-After=$SERVICE_NAME.service
-RequiresMountsFor=/var/lib/uptime-monitor
-
-[Service]
-Type=oneshot
-User=root
-Group=root
-ExecStart=$INSTALL_DIR/scripts/backup-system.sh --dest /backup/uptime-monitor --type daily --verify
-TimeoutStartSec=30min
-
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/backup /var/lib/uptime-monitor /etc/uptime-monitor /var/log/uptime-monitor
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-cat > /etc/systemd/system/$SERVICE_NAME-backup.timer << EOF
-[Unit]
-Description=Run Uptime Monitor daily backup at 02:00
-Documentation=https://github.com/$GITHUB_REPO
-
-[Timer]
-OnCalendar=*-*-* 02:00:00
-Persistent=true
-RandomizedDelaySec=15min
-AccuracySec=1min
-
-[Install]
-WantedBy=timers.target
-EOF
-
-# Set permissions
-echo -e "${BLUE}Setting permissions...${NC}"
-chown -R "$APP_USER:$APP_USER" "$INSTALL_DIR" "$CONFIG_DIR" "$DATA_DIR" "$LOG_DIR"
-chmod 600 "$CONFIG_DIR/config.json"
-
-# Ensure backup destination exists so timer can run on first boot
-mkdir -p /backup/uptime-monitor
-chown -R "$APP_USER:$APP_USER" /backup/uptime-monitor 2>/dev/null || true
-
-# Setup firewall
-echo -e "${BLUE}Configuring firewall...${NC}"
-if command -v ufw &> /dev/null; then
-    if ufw status | grep -q "Status: active"; then
-        ufw allow $PORT/tcp comment 'Uptime Monitor'
-        echo -e "${GREEN}Added UFW rule for port $PORT${NC}"
-    fi
-elif command -v firewall-cmd &> /dev/null; then
-    if firewall-cmd --state 2>/dev/null; then
-        firewall-cmd --permanent --add-port=$PORT/tcp
-        firewall-cmd --reload
-        echo -e "${GREEN}Added firewalld rule for port $PORT${NC}"
-    fi
-fi
-
-# Start services
-echo -e "${BLUE}Starting services...${NC}"
 systemctl daemon-reload
 systemctl enable $SERVICE_NAME
-systemctl enable $SERVICE_NAME-worker
-systemctl start $SERVICE_NAME
-systemctl start $SERVICE_NAME-worker
 
-# Enable daily backup timer (no-op if systemd is unavailable)
-if command -v systemctl >/dev/null 2>&1; then
-    systemctl enable $SERVICE_NAME-backup.timer 2>/dev/null && \
-        systemctl start $SERVICE_NAME-backup.timer 2>/dev/null && \
-        echo -e "${GREEN}Enabled daily backup timer (02:00, systemd)${NC}" || \
-        echo -e "${YELLOW}Could not enable backup timer — run schedule-backup.sh --install manually${NC}"
-fi
-
-# Check status
-sleep 5
-if systemctl is-active --quiet $SERVICE_NAME; then
-    # Get IP
-    IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
-
-    # Try to grab the auto-generated password (from journalctl if not captured earlier)
-    if [ -z "$ADMIN_PASSWORD" ] || [ "${ADMIN_PASSWORD}" = "Password:" ]; then
-        LOG_TEXT=$(journalctl -u $SERVICE_NAME -n 150 --no-pager 2>/dev/null || true)
-        if [ -n "$LOG_TEXT" ]; then
-            ADMIN_PASSWORD=$(echo "$LOG_TEXT" | grep 'Password:' | tail -1 | awk '{print $NF}' | tr -d '\r\n ' || true)
-        fi
-    fi
-
-    echo ""
-    if [ "$IS_UPDATE" = true ]; then
-        echo -e "${GREEN}=========================================="
-        echo "   Uptime Monitor - Update Successful!"
-        echo -e "==========================================${NC}"
-        echo ""
-        echo -e "  ${GREEN}Version:${NC}     $APP_VERSION"
-        echo -e "  ${GREEN}URL:${NC}         http://$IP:$PORT"
-        echo ""
-        if [ -n "$ADMIN_PASSWORD" ] && [ "${ADMIN_PASSWORD}" != "Password:" ]; then
-            echo -e "  ${YELLOW}Admin Credentials:${NC}"
-            echo -e "    Username: ${BLUE}admin${NC}"
-            echo -e "    Password: ${GREEN}$ADMIN_PASSWORD${NC}"
-            echo ""
-        fi
-        echo -e "  Backup saved as:"
-        echo -e "    ${YELLOW}/tmp/sites.db.backup.$UPDATE_BACKUP_TS${NC}"
-        echo -e "    ${YELLOW}/tmp/config.json.backup.$UPDATE_BACKUP_TS${NC}"
-        echo ""
-        echo -e "  ${YELLOW}Rollback if needed:${NC}"
-        echo "    sudo systemctl stop $SERVICE_NAME $SERVICE_NAME-worker"
-        echo "    sudo cp /tmp/sites.db.backup.$UPDATE_BACKUP_TS $DATA_DIR/sites.db"
-        echo "    sudo cp /tmp/config.json.backup.$UPDATE_BACKUP_TS $CONFIG_DIR/config.json"
-        echo "    sudo systemctl start $SERVICE_NAME $SERVICE_NAME-worker"
-        echo ""
-        echo "Management Commands:"
-        echo "  sudo systemctl status $SERVICE_NAME"
-        echo "  sudo systemctl restart $SERVICE_NAME"
-        echo "  sudo journalctl -u $SERVICE_NAME -n 50"
-        echo ""
-        echo "  Password Commands:"
-        echo "    cd $INSTALL_DIR && sudo venv/bin/python -m Uptime_Robot.auth_cli show-password        # Show current password"
-        echo "    cd $INSTALL_DIR && sudo venv/bin/python -m Uptime_Robot.auth_cli reset-password       # Reset to random password"
-        echo "    cd $INSTALL_DIR && sudo venv/bin/python -m Uptime_Robot.auth_cli restore-password     # Restore from backup"
-        echo ""
-        echo -e "${GREEN}Update completed successfully!${NC}"
-    else
-        echo -e "${GREEN}=========================================="
-        echo "   Uptime Monitor - Installation Successful!"
-        echo -e "==========================================${NC}"
-        echo ""
-        echo -e "  ${GREEN}Version:${NC}     $APP_VERSION"
-        echo -e "  ${GREEN}Port:${NC}        $PORT"
-        echo -e "  ${GREEN}Host:${NC}        0.0.0.0"
-        echo -e "  ${GREEN}Domain:${NC}      $IP (auto-detected)"
-        echo -e "  ${GREEN}SSL:${NC}         Disabled (configure manually)"
-        echo -e "  ${GREEN}URL:${NC}         http://$IP:$PORT"
-        echo ""
-        if [ -n "$ADMIN_PASSWORD" ] && [ "${ADMIN_PASSWORD}" != "Password:" ]; then
-            echo -e "  ${YELLOW}Admin Credentials:${NC}"
-            echo -e "    Username: ${BLUE}admin${NC}"
-            echo -e "    Password: ${GREEN}$ADMIN_PASSWORD${NC}"
-            echo ""
-        fi
-        echo "Management Commands:"
-        echo "  sudo systemctl status $SERVICE_NAME"
-        echo "  sudo systemctl restart $SERVICE_NAME"
-        echo "  sudo systemctl stop $SERVICE_NAME"
-        echo ""
-        echo "  Password Commands:"
-        echo "    cd $INSTALL_DIR && sudo venv/bin/python -m Uptime_Robot.auth_cli show-password        # Show current password"
-        echo "    cd $INSTALL_DIR && sudo venv/bin/python -m Uptime_Robot.auth_cli reset-password       # Reset to random password"
-        echo "    cd $INSTALL_DIR && sudo venv/bin/python -m Uptime_Robot.auth_cli restore-password     # Restore from backup"
-        echo ""
-        echo -e "${GREEN}Password saved to: ${YELLOW}/etc/uptime-monitor/credentials.txt${NC}"
-        echo ""
-        echo -e "${GREEN}To update in the future, simply run the same command again:${NC}"
-        echo -e "  ${BLUE}curl -fsSL https://raw.githubusercontent.com/$GITHUB_REPO/main/install.sh | sudo bash${NC}"
-        echo ""
-        echo "Configuration Commands:"
-        echo "  sudo nano $CONFIG_DIR/config.json     # Edit configuration"
-        echo "  sudo $INSTALL_DIR/scripts/config-rollback.sh --list     # List backups"
-        echo "  sudo $INSTALL_DIR/scripts/config-rollback.sh            # Rollback to previous"
-        echo ""
-        echo "Backup System:"
-        echo "  Create backup:  sudo $INSTALL_DIR/scripts/backup-system.sh --dest /backup/uptime-monitor/"
-        echo "  Check status:   sudo $INSTALL_DIR/scripts/backup-system.sh --status"
-        echo "  Restore:        sudo $INSTALL_DIR/scripts/restore-system.sh --auto"
-        echo "  Schedule:       sudo $INSTALL_DIR/scripts/schedule-backup.sh --install --dest /backup/uptime-monitor/"
-        echo "  Systemd timer:  sudo systemctl list-timers $SERVICE_NAME-backup        # auto-enabled on install"
-        echo "  Trigger now:    sudo systemctl start $SERVICE_NAME-backup.service"
-        echo "  NFS Setup:      sudo $INSTALL_DIR/scripts/mount-backup.sh --type nfs --server <IP> --path /exports/backups --mount-point /mnt/nfs-backup --persist"
-        echo "  Samba Setup:    sudo $INSTALL_DIR/scripts/mount-backup.sh --type smb --server <IP> --share backups --mount-point /mnt/smb-backup --persist"
-        echo ""
-        echo "Enable SSL (when ready):"
-        echo "  1. Add your certificates to $CONFIG_DIR/ssl/"
-        echo "  2. Edit $CONFIG_DIR/config.json"
-        echo "  3. Change ssl.enabled to true"
-        echo "  4. Update server.port to 443"
-        echo "  5. Update server.domain to your domain"
-        echo "  6. Restart: sudo systemctl restart $SERVICE_NAME"
-        echo ""
-        echo "Configuration File:"
-        echo "  Location: $CONFIG_DIR/config.json"
-        echo "  Logs:     $LOG_DIR/"
-        echo "  SSL:      $CONFIG_DIR/ssl/"
-        echo "  Backups:  /backup/uptime-monitor/ (default)"
-        echo ""
-    fi
+# --- Admin password (fresh install only, unless UPTIME_MONITOR_ADMIN_PASSWORD) --
+ADMIN_SET=0
+if [ "$IS_UPDATE" = "1" ] && [ -z "$UPTIME_MONITOR_ADMIN_PASSWORD" ] && [ -z "$PYMON_ADMIN_PASSWORD" ]; then
+    : # update: keep existing credentials
 else
-    echo -e "${RED}=========================================="
-    if [ "$IS_UPDATE" = true ]; then
-        echo "   Update Failed"
-    else
-        echo "   Installation Failed"
+    HAS_ADMIN="$(sudo -u uptime DB_PATH="$DATA_DIR/sites.db" "$INSTALL_DIR/uptime-monitor" has-admin --config "$CONFIG_FILE" 2>/dev/null || echo no)"
+    if [ "$HAS_ADMIN" != "yes" ] || [ -n "$UPTIME_MONITOR_ADMIN_PASSWORD" ] || [ -n "$PYMON_ADMIN_PASSWORD" ]; then
+        ADMIN_PW="${UPTIME_MONITOR_ADMIN_PASSWORD:-$PYMON_ADMIN_PASSWORD}"
+        if [ -z "$ADMIN_PW" ]; then
+            ADMIN_PW="$(head -c 18 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 18)"
+            if [ -z "$ADMIN_PW" ]; then ADMIN_PW="Uptime$(date +%s)"; fi
+        fi
+        sudo -u uptime UPTIME_MONITOR_ADMIN_PASSWORD="$ADMIN_PW" DB_PATH="$DATA_DIR/sites.db" \
+            "$INSTALL_DIR/uptime-monitor" reset-admin --config "$CONFIG_FILE"
+        echo "$ADMIN_PW" > "$DATA_DIR/admin_password.txt"
+        chown uptime:uptime "$DATA_DIR/admin_password.txt"
+        chmod 600 "$DATA_DIR/admin_password.txt"
+        ADMIN_SET=1
     fi
-    echo -e "==========================================${NC}"
-    echo ""
-    echo "Service failed to start. Check logs:"
-    echo "  sudo journalctl -u $SERVICE_NAME -n 50"
-    echo ""
-    if [ "$IS_UPDATE" = true ] && [ -n "$UPDATE_BACKUP_TS" ]; then
-        echo -e "${YELLOW}Rollback available:${NC}"
-        echo "  sudo systemctl stop $SERVICE_NAME $SERVICE_NAME-worker"
-        echo "  sudo cp /tmp/sites.db.backup.$UPDATE_BACKUP_TS $DATA_DIR/sites.db"
-        echo "  sudo cp /tmp/config.json.backup.$UPDATE_BACKUP_TS $CONFIG_DIR/config.json"
-        echo "  sudo chown $APP_USER:$APP_USER $DATA_DIR/sites.db $CONFIG_DIR/config.json"
-        echo "  sudo systemctl start $SERVICE_NAME $SERVICE_NAME-worker"
-        echo ""
-    fi
-    exit 1
 fi
 
-# Cleanup handled by trap
+systemctl restart $SERVICE_NAME
 
-echo -e "${GREEN}Done!${NC}"
+# --- Health check -------------------------------------------------------------
+echo -n "Waiting for the service to become healthy..."
+for i in $(seq 1 15); do
+    if curl -fsS "http://localhost:8080/health" >/dev/null 2>&1; then echo " OK"; break; fi
+    if [ "$i" = "15" ]; then echo " FAILED"; else echo -n "."; sleep 1; fi
+done
+
+# --- Summary ------------------------------------------------------------------
+echo "[4/4] Done."
+echo ""
+if [ "$IS_UPDATE" = "1" ]; then
+    echo "Uptime Monitor updated successfully."
+    echo "  Version: ${OLD_VERSION:-?} -> ${NEW_VERSION}"
+    echo "  Config, database and users were preserved."
+    [ -f "$INSTALL_DIR/uptime-monitor.old" ] && echo "  Previous binary kept at: $INSTALL_DIR/uptime-monitor.old"
+else
+    echo "Uptime Monitor installed successfully."
+    echo "  Config:   $CONFIG_FILE"
+    echo "  Database: $DATA_DIR/sites.db"
+fi
+echo ""
+echo "Dashboard: http://localhost:8080/"
+echo ""
+if [ "$ADMIN_SET" = "1" ]; then
+    echo "===================================="
+    echo "  Логін:    admin"
+    echo "  Пароль:   $ADMIN_PW"
+    echo "===================================="
+    echo "При вході система попросить змінити пароль."
+    echo "Пароль також збережено: $DATA_DIR/admin_password.txt (видаліть після входу)"
+else
+    echo "Існуючі облікові дані збережено (пароль не змінювався)."
+    echo "Якщо треба скинути пароль адміна:"
+    echo "  sudo UPTIME_MONITOR_ADMIN_PASSWORD='YourStrongPass123' $INSTALL_DIR/uptime-monitor reset-admin --config $CONFIG_FILE"
+    echo "  sudo systemctl restart $SERVICE_NAME"
+fi
+echo ""
+echo "Installed version: $("$INSTALL_DIR/uptime-monitor" --version)"

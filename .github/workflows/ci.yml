@@ -1,86 +1,45 @@
-name: CI/CD
+name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches:
+      - main
   pull_request:
-    branches: [main]
 
 jobs:
   test:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
-        exclude:
-          - os: windows-latest
-            python-version: "3.9"
-    runs-on: ${{ matrix.os }}
-
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          go-version: "1.25"
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r Uptime_Robot/requirements.txt
-          pip install pytest pytest-cov pytest-asyncio
+      - name: Go vet
+        run: go vet ./...
 
       - name: Run tests
-        run: |
-          pytest tests/ -v --cov=Uptime_Robot --cov-report=xml
+        run: go test -v -race ./...
 
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./coverage.xml
+      - name: Build binary
+        run: go build -o uptime-monitor ./cmd/uptime-monitor
 
-  lint:
+  docker:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install linters
-        run: |
-          pip install black==26.5.1 ruff==0.15.14 flake8==7.3.0 isort==8.0.1 mypy==2.1.0 bandit==1.9.4
-
-      - name: Run Black
-        run: black --check Uptime_Robot/
-
-      - name: Run Ruff
-        run: ruff check Uptime_Robot/
-
-      - name: Run mypy
-        run: mypy Uptime_Robot/ --ignore-missing-imports
-
-      - name: Run bandit
-        run: bandit -r Uptime_Robot/ -x Uptime_Robot/tests.py -ll
-
-  build:
-    runs-on: ubuntu-latest
-    needs: [test, lint]
+    needs: [test]
     steps:
       - uses: actions/checkout@v4
 
       - name: Build Docker image
-        run: |
-          docker build -t uptime-monitor:${{ github.sha }} ./Uptime_Robot
+        run: docker build -t uptime-monitor:${{ github.sha }} .
 
       - name: Test Docker image
         run: |
-          docker run -d -p 8080:8080 --name uptime-monitor uptime-monitor:${{ github.sha }}
-          sleep 10
+          docker run -d -p 8080:8080 --name um --rm \
+            -e CONFIG_PATH=/config/config.json \
+            uptime-monitor:${{ github.sha }}
+          sleep 5
           curl -f http://localhost:8080/health || exit 1
-          docker stop uptime-monitor
-
-
+          docker stop um
