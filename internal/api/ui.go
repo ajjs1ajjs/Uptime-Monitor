@@ -93,9 +93,12 @@ func (a *App) handleChangePasswordPage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
+	u, _ := a.Store.GetSession(sid)
+	forced := u != nil && u.MustChangePassword == 1
 	a.renderPage(w, "change_password.html", map[string]any{
 		"error_message": r.URL.Query().Get("error"),
 		"csrf_token":    a.newCSRFToken(sid),
+		"is_forced":     forced,
 	}, http.StatusOK)
 }
 
@@ -118,15 +121,18 @@ func (a *App) handleChangePasswordPost(w http.ResponseWriter, r *http.Request) {
 	np := r.FormValue("new_password")
 	confirm := r.FormValue("confirm_password")
 	if np != confirm {
-		http.Redirect(w, r, "/change-password?error=mismatch", http.StatusFound)
+		http.Redirect(w, r, "/change-password?error=Passwords do not match", http.StatusFound)
 		return
 	}
 	if ok, msg := auth.CheckPasswordPolicy(np); !ok {
 		http.Redirect(w, r, "/change-password?error="+url.QueryEscape(msg), http.StatusFound)
 		return
 	}
-	if !auth.VerifyPassword(u.PasswordHash, current) {
-		http.Redirect(w, r, "/change-password?error=current_incorrect", http.StatusFound)
+	// For a forced password change (must_change_password=1) the user has just
+	// authenticated with the current password, so re-checking it here is
+	// redundant and only causes "Invalid current password" confusion.
+	if u.MustChangePassword != 1 && !auth.VerifyPassword(u.PasswordHash, current) {
+		http.Redirect(w, r, "/change-password?error=Invalid current password", http.StatusFound)
 		return
 	}
 	hash, err := auth.HashPassword(np)

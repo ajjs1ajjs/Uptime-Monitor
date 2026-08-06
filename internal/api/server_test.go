@@ -255,6 +255,28 @@ func TestErrorUsesDetailField(t *testing.T) {
 	}
 }
 
+func TestForcedChangeNoCurrentPassword(t *testing.T) {
+	_, base, pw := newTestApp(t)
+	jar := map[string]string{}
+	resp := postForm(base, "/login", map[string]string{"username": "admin", "password": pw}, jar)
+	if resp.Header.Get("Location") != "/change-password" {
+		t.Fatalf("login should force change, got %s", resp.Header.Get("Location"))
+	}
+	html := getPage(base, "/change-password", jar)
+	m := regexp.MustCompile(`name="csrf_token" value="([^"]+)"`).FindStringSubmatch(html)
+	if len(m) < 2 {
+		t.Fatalf("no csrf token in change-password page")
+	}
+	// forced change: current_password is optional / ignored
+	resp = postForm(base, "/change-password", map[string]string{
+		"current_password": "", "new_password": "BrandNewPass456",
+		"confirm_password": "BrandNewPass456", "csrf_token": m[1],
+	}, jar)
+	if resp.Header.Get("Location") != "/" {
+		t.Fatalf("forced change failed, got %s", resp.Header.Get("Location"))
+	}
+}
+
 func TestNonAdminForbidden(t *testing.T) {
 	_, base, pw := newTestApp(t)
 	// create a viewer user via API
