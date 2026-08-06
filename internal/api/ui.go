@@ -30,7 +30,11 @@ func (a *App) clearSessionCookie(w http.ResponseWriter) {
 // --- login ---
 
 func (a *App) handleLoginPage(w http.ResponseWriter, r *http.Request) {
-	if _, err := r.Cookie(sessionCookie); err == nil {
+	// Redirect to "/" only when the session is actually VALID. Checking only
+	// for the presence of the cookie caused ERR_TOO_MANY_REDIRECTS with a stale
+	// cookie (e.g. after reset-admin deleted the session): "/" -> /login ->
+	// (cookie exists) -> "/" -> ...
+	if u := a.authenticate(r); u != nil {
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}

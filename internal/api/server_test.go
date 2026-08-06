@@ -277,6 +277,43 @@ func TestForcedChangeNoCurrentPassword(t *testing.T) {
 	}
 }
 
+func TestStaleSessionNoRedirectLoop(t *testing.T) {
+	app, base, pw := newTestApp(t)
+	jar := map[string]string{}
+	postForm(base, "/login", map[string]string{"username": "admin", "password": pw}, jar)
+	sid := jar["session_id"]
+	if sid == "" {
+		t.Fatalf("no session after login")
+	}
+	// simulate reset-admin: delete all sessions for the admin user
+	u, _ := app.Store.GetUserByUsername("admin")
+	if u != nil {
+		_ = app.Store.DeleteUserSessions(u.ID)
+	}
+
+	// / with a stale cookie must redirect to /login (no loop)
+	req, _ := http.NewRequest(http.MethodGet, base+"/", nil)
+	req.AddCookie(&http.Cookie{Name: "session_id", Value: sid})
+	resp, err := noRedirectClient.Do(req)
+	if err != nil {
+		t.Fatalf("GET /: %v", err)
+	}
+	if resp.StatusCode != 302 || resp.Header.Get("Location") != "/login" {
+		t.Fatalf("GET / with stale cookie = %d -> %s", resp.StatusCode, resp.Header.Get("Location"))
+	}
+
+	// /login with a stale cookie must render the login page (200), not redirect
+	req, _ = http.NewRequest(http.MethodGet, base+"/login", nil)
+	req.AddCookie(&http.Cookie{Name: "session_id", Value: sid})
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("GET /login: %v", err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("GET /login with stale cookie = %d, want 200 (no redirect loop)", resp.StatusCode)
+	}
+}
+
 func TestNonAdminForbidden(t *testing.T) {
 	_, base, pw := newTestApp(t)
 	// create a viewer user via API
