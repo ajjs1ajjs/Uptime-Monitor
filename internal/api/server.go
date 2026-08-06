@@ -117,9 +117,22 @@ func (a *App) Handler() http.Handler {
 	// request /static/... maps directly to static/... — no prefix stripping
 	// (a lesson from the Monitoring port).
 	web, _ := fs.Sub(webFS, "web")
-	mux.Handle("GET /static/", http.FileServer(http.FS(web)))
+	mux.Handle("GET /static/", staticHandler(web))
 
 	return a.withSecurity(a.withLogging(mux))
+}
+
+// staticHandler serves the embedded static FS, but forces no-cache on the
+// service worker and manifest so a stale cached SW can't keep serving an old
+// broken page (the old Python SW was registered at /static/sw.js).
+func staticHandler(fsys fs.FS) http.Handler {
+	fileServer := http.FileServer(http.FS(fsys))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "sw.js") || strings.HasSuffix(r.URL.Path, "manifest.json") {
+			w.Header().Set("Cache-Control", "no-store")
+		}
+		fileServer.ServeHTTP(w, r)
+	})
 }
 
 // --- template rendering (pongo2 over embedded templates) ---
