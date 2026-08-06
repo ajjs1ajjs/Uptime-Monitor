@@ -241,7 +241,10 @@ func TestCSRFRejectsMissingOrigin(t *testing.T) {
 
 func TestErrorUsesDetailField(t *testing.T) {
 	_, base, _ := newTestApp(t)
-	resp, _ := http.Get(base + "/api/sites")
+	resp, err := http.Get(base + "/api/sites")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 401 {
 		t.Fatalf("unauth sites = %d", resp.StatusCode)
