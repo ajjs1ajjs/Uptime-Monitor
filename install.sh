@@ -476,10 +476,54 @@ PrivateTmp=true
 WantedBy=multi-user.target
 EOF
 
+# 3. Daily backup timer (one-shot service + timer)
+cat > /etc/systemd/system/$SERVICE_NAME-backup.service << EOF
+[Unit]
+Description=Uptime Monitor daily backup (database + config + logs)
+Documentation=https://github.com/$GITHUB_REPO
+After=$SERVICE_NAME.service
+RequiresMountsFor=/var/lib/uptime-monitor
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=$INSTALL_DIR/scripts/backup-system.sh --dest /backup/uptime-monitor --type daily --verify
+TimeoutStartSec=30min
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/backup /var/lib/uptime-monitor /etc/uptime-monitor /var/log/uptime-monitor
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+cat > /etc/systemd/system/$SERVICE_NAME-backup.timer << EOF
+[Unit]
+Description=Run Uptime Monitor daily backup at 02:00
+Documentation=https://github.com/$GITHUB_REPO
+
+[Timer]
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+RandomizedDelaySec=15min
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target
+EOF
+
 # Set permissions
 echo -e "${BLUE}Setting permissions...${NC}"
 chown -R "$APP_USER:$APP_USER" "$INSTALL_DIR" "$CONFIG_DIR" "$DATA_DIR" "$LOG_DIR"
 chmod 600 "$CONFIG_DIR/config.json"
+
+# Ensure backup destination exists so timer can run on first boot
+mkdir -p /backup/uptime-monitor
+chown -R "$APP_USER:$APP_USER" /backup/uptime-monitor 2>/dev/null || true
 
 # Setup firewall
 echo -e "${BLUE}Configuring firewall...${NC}"
@@ -503,6 +547,14 @@ systemctl enable $SERVICE_NAME
 systemctl enable $SERVICE_NAME-worker
 systemctl start $SERVICE_NAME
 systemctl start $SERVICE_NAME-worker
+
+# Enable daily backup timer (no-op if systemd is unavailable)
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl enable $SERVICE_NAME-backup.timer 2>/dev/null && \
+        systemctl start $SERVICE_NAME-backup.timer 2>/dev/null && \
+        echo -e "${GREEN}Enabled daily backup timer (02:00, systemd)${NC}" || \
+        echo -e "${YELLOW}Could not enable backup timer — run schedule-backup.sh --install manually${NC}"
+fi
 
 # Check status
 sleep 5
@@ -597,6 +649,8 @@ if systemctl is-active --quiet $SERVICE_NAME; then
         echo "  Check status:   sudo $INSTALL_DIR/scripts/backup-system.sh --status"
         echo "  Restore:        sudo $INSTALL_DIR/scripts/restore-system.sh --auto"
         echo "  Schedule:       sudo $INSTALL_DIR/scripts/schedule-backup.sh --install --dest /backup/uptime-monitor/"
+        echo "  Systemd timer:  sudo systemctl list-timers $SERVICE_NAME-backup        # auto-enabled on install"
+        echo "  Trigger now:    sudo systemctl start $SERVICE_NAME-backup.service"
         echo "  NFS Setup:      sudo $INSTALL_DIR/scripts/mount-backup.sh --type nfs --server <IP> --path /exports/backups --mount-point /mnt/nfs-backup --persist"
         echo "  Samba Setup:    sudo $INSTALL_DIR/scripts/mount-backup.sh --type smb --server <IP> --share backups --mount-point /mnt/smb-backup --persist"
         echo ""

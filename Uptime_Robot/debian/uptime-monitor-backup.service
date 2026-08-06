@@ -1,0 +1,25 @@
+[Unit]
+Description=Uptime Monitor daily backup (database + config + logs)
+Documentation=https://github.com/ajjs1ajjs/Uptime-Monitor
+After=uptime-monitor.service
+RequiresMountsFor=/var/lib/uptime-monitor
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/opt/uptime-monitor/scripts/backup-system.sh --dest /backup/uptime-monitor --type daily --verify
+TimeoutStartSec=30min
+
+# Hardening: backup needs read access to data/config dirs and write to /backup
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/backup /var/lib/uptime-monitor /etc/uptime-monitor /var/log/uptime-monitor
+
+# A failed backup should not block subsequent runs.
+SuccessExitStatus=0
+
+[Install]
+WantedBy=multi-user.target

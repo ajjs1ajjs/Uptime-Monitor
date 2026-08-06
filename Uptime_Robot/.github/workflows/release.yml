@@ -111,6 +111,8 @@ jobs:
           mkdir -p build/uptime-monitor_${{ steps.version.outputs.VERSION }}_all/var/log/uptime-monitor
           mkdir -p build/uptime-monitor_${{ steps.version.outputs.VERSION }}_all/lib/systemd/system
           cp debian/uptime-monitor.service build/uptime-monitor_${{ steps.version.outputs.VERSION }}_all/lib/systemd/system/
+          cp debian/uptime-monitor-backup.service build/uptime-monitor_${{ steps.version.outputs.VERSION }}_all/lib/systemd/system/
+          cp debian/uptime-monitor-backup.timer   build/uptime-monitor_${{ steps.version.outputs.VERSION }}_all/lib/systemd/system/
       
       - name: Build .deb
         run: |
