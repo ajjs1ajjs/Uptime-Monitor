@@ -27,18 +27,40 @@ type SSL struct {
 	HSTSMaxAge   int    `json:"hsts_max_age"`
 }
 
+// IntList accepts either a JSON array or a single number (tolerant of config
+// files written by the old Python version where the field was a scalar).
+type IntList []int
+
+func (l *IntList) UnmarshalJSON(b []byte) error {
+	if string(b) == "null" || string(b) == "" {
+		return nil
+	}
+	var arr []int
+	if err := json.Unmarshal(b, &arr); err == nil {
+		*l = arr
+		return nil
+	}
+	var n int
+	if err := json.Unmarshal(b, &n); err == nil {
+		*l = []int{n}
+		return nil
+	}
+	// Unparseable: leave as nil (defaults will be applied later).
+	return nil
+}
+
 type AlertPolicy struct {
-	RequestTimeoutSeconds   int   `json:"request_timeout_seconds"`
-	GracePeriodSeconds      int   `json:"grace_period_seconds"`
-	UpSuccessThreshold      int   `json:"up_success_threshold"`
-	StillDownRepeatSeconds  int   `json:"still_down_repeat_seconds"`
-	Treat4xxAsDown          bool  `json:"treat_4xx_as_down"`
-	VerifySSL               bool  `json:"verify_ssl"`
-	SSLNotificationDays     []int `json:"ssl_notification_days"`
-	SSLNotificationCooldown int   `json:"ssl_notification_cooldown_seconds"`
-	SSLCheckIntervalHours   int   `json:"ssl_check_interval_hours"`
-	RetryDelays             []int `json:"retry_delays"`
-	MaxRetries              int   `json:"max_retries"`
+	RequestTimeoutSeconds   int     `json:"request_timeout_seconds"`
+	GracePeriodSeconds      int     `json:"grace_period_seconds"`
+	UpSuccessThreshold      int     `json:"up_success_threshold"`
+	StillDownRepeatSeconds  int     `json:"still_down_repeat_seconds"`
+	Treat4xxAsDown          bool    `json:"treat_4xx_as_down"`
+	VerifySSL               bool    `json:"verify_ssl"`
+	SSLNotificationDays     IntList `json:"ssl_notification_days"`
+	SSLNotificationCooldown int     `json:"ssl_notification_cooldown_seconds"`
+	SSLCheckIntervalHours   int     `json:"ssl_check_interval_hours"`
+	RetryDelays             IntList `json:"retry_delays"`
+	MaxRetries              int     `json:"max_retries"`
 }
 
 type Backup struct {
@@ -132,11 +154,16 @@ func Load(path string) (*Config, error) {
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "config: %s not found, using defaults\n", path)
+			return cfg, nil
+		}
 		return nil, fmt.Errorf("read config: %w", err)
 	}
 	var raw map[string]any
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("parse config %s: %w", path, err)
+		fmt.Fprintf(os.Stderr, "config: %s is invalid JSON, using defaults\n", path)
+		return cfg, nil
 	}
 	base, _ := json.Marshal(cfg)
 	var baseMap map[string]any
@@ -144,7 +171,19 @@ func Load(path string) (*Config, error) {
 	merged := deepMerge(baseMap, raw)
 	b, _ := json.Marshal(merged)
 	if err := json.Unmarshal(b, cfg); err != nil {
-		return nil, err
+		// Tolerant: a malformed section (e.g. alert_policy written by an older
+		// version) must not prevent the server from starting. Drop the bad
+		// top-level sections and keep the rest.
+		fmt.Fprintf(os.Stderr, "config: warning: %v (falling back to defaults for that section)\n", err)
+		for k := range raw {
+			merged2 := deepMerge(baseMap, raw)
+			delete(merged2, k)
+			b2, _ := json.Marshal(merged2)
+			if err2 := json.Unmarshal(b2, cfg); err2 == nil {
+				return cfg, nil
+			}
+		}
+		return cfg, nil
 	}
 	return cfg, nil
 }
