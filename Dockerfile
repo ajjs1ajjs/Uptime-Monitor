@@ -15,6 +15,7 @@ RUN apk add --no-cache ca-certificates iputils bind-tools \
     && chown -R uptime:uptime /data /config /logs
 
 COPY --from=builder /out/uptime-monitor /usr/local/bin/uptime-monitor
+COPY config.example.json /config/config.json
 COPY README.md CHANGELOG.md ./
 
 ENV CONFIG_PATH=/config/config.json \
