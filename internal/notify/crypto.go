@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/fernet/fernet-go"
 )
 
 // Master key handling. The key lives in the config directory (NOT the working
@@ -70,7 +72,8 @@ func decrypt(key []byte, value string) (string, error) {
 	}
 	raw, err := base64.URLEncoding.DecodeString(value[len(encPrefix):])
 	if err != nil {
-		return value, nil
+		// not our base64 — try legacy Fernet below
+		return legacyFernetDecrypt(value)
 	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -86,9 +89,48 @@ func decrypt(key []byte, value string) (string, error) {
 	}
 	plain, err := gcm.Open(nil, raw[:ns], raw[ns:], nil)
 	if err != nil {
+		// AES-GCM failed: this is likely a token written by the old Python
+		// version which used Fernet with the same master.key. Try that before
+		// giving up.
+		return legacyFernetDecrypt(value)
+	}
+	return string(plain), nil
+}
+
+// legacyFernetDecrypt decrypts tokens written by the old Python backend
+// (cryptography.Fernet). The master.key holds the URL-safe base64 Fernet key
+// (44 chars); tokens are "__ENC__" + base64(Fernet token).
+func legacyFernetDecrypt(value string) (string, error) {
+	if len(value) < len(encPrefix) || value[:len(encPrefix)] != encPrefix {
+		return value, nil
+	}
+	key, err := loadRawKey()
+	if err != nil {
+		return value, nil
+	}
+	ks, err := fernet.DecodeKeys(key)
+	if err != nil {
+		return value, nil
+	}
+	token := value[len(encPrefix):]
+	plain := fernet.VerifyAndDecrypt([]byte(token), 0, ks)
+	if plain == nil {
 		return value, nil
 	}
 	return string(plain), nil
+}
+
+// loadRawKey returns the master key exactly as stored (the Fernet key string
+// or the raw bytes), for legacy decryption.
+func loadRawKey() (string, error) {
+	if env := os.Getenv("UPTIME_MONITOR_MASTER_KEY"); env != "" {
+		return env, nil
+	}
+	b, err := os.ReadFile(filepath.Join(configDir(), "master.key"))
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 
 var secretFields = map[string]string{
