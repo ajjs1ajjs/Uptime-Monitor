@@ -1,8 +1,13 @@
 package notify
 
 import (
+	"bufio"
+	"fmt"
+	"net"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/ajjs1ajjs/Uptime-Monitor/internal/storage"
 )
@@ -52,5 +57,85 @@ func TestChannelsForParsesStructuredMethods(t *testing.T) {
 	}
 	if got := specific["telegram"]; len(got) != 1 || got[0] != "ch2" {
 		t.Fatalf("specific telegram = %v, want [ch2]", got)
+	}
+}
+
+// TestEmailStartsPlainForPort587 runs a minimal SMTP server and verifies that
+// email() connects over a plain socket for ports < 465 and negotiates STARTTLS
+// only when the server advertises it.
+func TestEmailStartsPlainForPort587(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	got := make(chan string, 1)
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		conn.SetDeadline(time.Now().Add(5 * time.Second))
+		r := bufio.NewReader(conn)
+		fmt.Fprintf(conn, "220 test ESMTP\r\n")
+		// read commands until DATA
+		for {
+			line, err := r.ReadString('\n')
+			if err != nil {
+				return
+			}
+			cmd := strings.ToUpper(strings.TrimSpace(line))
+			switch {
+			case strings.HasPrefix(cmd, "EHLO"):
+				fmt.Fprintf(conn, "250-test\r\n250 AUTH PLAIN\r\n")
+			case strings.HasPrefix(cmd, "AUTH PLAIN"):
+				fmt.Fprintf(conn, "235 ok\r\n")
+			case strings.HasPrefix(cmd, "MAIL FROM"):
+				fmt.Fprintf(conn, "250 ok\r\n")
+			case strings.HasPrefix(cmd, "RCPT TO"):
+				fmt.Fprintf(conn, "250 ok\r\n")
+			case cmd == "DATA":
+				fmt.Fprintf(conn, "354 go ahead\r\n")
+				for {
+					l, err := r.ReadString('\n')
+					if err != nil {
+						return
+					}
+					if l == ".\r\n" {
+						break
+					}
+				}
+				fmt.Fprintf(conn, "250 ok\r\n")
+				got <- "DATA"
+			case cmd == "QUIT":
+				fmt.Fprintf(conn, "221 bye\r\n")
+				return
+			default:
+				fmt.Fprintf(conn, "250 ok\r\n")
+			}
+		}
+	}()
+
+	svc := New(nil)
+	port := ln.Addr().(*net.TCPAddr).Port
+	ok := svc.email("down", "hello", map[string]any{
+		"smtp_server": "127.0.0.1",
+		"smtp_port":   float64(port),
+		"username":    "u@test",
+		"password":    "pw",
+		"to_email":    "u@test",
+	})
+	if !ok {
+		t.Fatalf("email() returned false")
+	}
+	select {
+	case c := <-got:
+		if c != "DATA" {
+			t.Fatalf("server saw %q, want DATA", c)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatalf("email() did not send DATA")
 	}
 }

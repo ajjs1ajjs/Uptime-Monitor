@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/smtp"
 	"net/url"
@@ -276,8 +277,16 @@ func (s *Service) email(alertType, message string, cfg map[string]any) bool {
 	user, _ := cfg["username"].(string)
 	pass, _ := cfg["password"].(string)
 
-	addr := fmt.Sprintf("%s:%d", server, port)
-	conn, err := tls.Dial("tcp", addr, &tls.Config{ServerName: server})
+	addr := net.JoinHostPort(server, fmt.Sprintf("%d", port))
+	var conn net.Conn
+	var err error
+	if port == 465 {
+		// implicit TLS (SMTPS)
+		conn, err = tls.Dial("tcp", addr, &tls.Config{ServerName: server})
+	} else {
+		// plain connection, then STARTTLS (587) or unencrypted (25)
+		conn, err = net.DialTimeout("tcp", addr, 20*time.Second)
+	}
 	if err != nil {
 		return false
 	}
@@ -287,6 +296,13 @@ func (s *Service) email(alertType, message string, cfg map[string]any) bool {
 		return false
 	}
 	defer client.Close()
+	if port == 587 {
+		if ok, _ := client.Extension("STARTTLS"); ok {
+			if err := client.StartTLS(&tls.Config{ServerName: server}); err != nil {
+				return false
+			}
+		}
+	}
 	if pass != "" {
 		if err := client.Auth(smtp.PlainAuth("", user, pass, server)); err != nil {
 			return false
