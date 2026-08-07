@@ -417,17 +417,24 @@ func (w *Worker) persist(s *storage.Site, status string, code int, rt float64, e
 		first := parseTime(*s.FirstFailureAt)
 		prevDown := prev == "down"
 		if !w.suppressed(s) {
-			if !prevDown && grace == 0 {
-				w.alert("down", s, code, errMsg, rt)
-				s.LastDownAlert = &now
-			} else if !prevDown && time.Since(first) >= grace {
-				w.alert("down", s, code, errMsg, rt)
-				s.LastDownAlert = &now
-			} else if prevDown && s.LastDownAlert != nil {
-				if t := parseTime(*s.LastDownAlert); !t.IsZero() && time.Since(t) >= repeat {
-					w.alert("still_down", s, code, errMsg, rt)
+			if !prevDown {
+				// fresh failure: alert immediately when grace == 0, otherwise
+				// wait for a later check once the grace period has elapsed
+				if grace == 0 || time.Since(first) >= grace {
+					w.alert("down", s, code, errMsg, rt)
 					s.LastDownAlert = &now
 				}
+			} else if s.LastDownAlert == nil {
+				// still down but the initial "down" alert never fired because
+				// the first failure landed inside the grace period: fire it now
+				// that the grace period has elapsed
+				if time.Since(first) >= grace {
+					w.alert("down", s, code, errMsg, rt)
+					s.LastDownAlert = &now
+				}
+			} else if t := parseTime(*s.LastDownAlert); !t.IsZero() && time.Since(t) >= repeat {
+				w.alert("still_down", s, code, errMsg, rt)
+				s.LastDownAlert = &now
 			}
 		}
 	} else if status == "up" {
