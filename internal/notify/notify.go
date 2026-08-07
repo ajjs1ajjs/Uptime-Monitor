@@ -92,7 +92,11 @@ func (s *Service) Dispatch(alertType, message string, alert map[string]any) {
 	enabled, specific := channelsFor(methods)
 
 	s.send(settings, "telegram", enabled, specific, func(cfg map[string]any) bool {
-		return s.telegram(message, cfg)
+		text := message
+		if h, ok := alert["message_html"].(string); ok && h != "" {
+			text = h
+		}
+		return s.telegram(text, cfg)
 	}, siteID, siteName, "telegram", message)
 	s.send(settings, "discord", enabled, specific, func(cfg map[string]any) bool {
 		return s.discord(alertType, message, cfg)
@@ -104,7 +108,7 @@ func (s *Service) Dispatch(alertType, message string, alert map[string]any) {
 		return s.slack(message, cfg)
 	}, siteID, siteName, "slack", message)
 	s.send(settings, "email", enabled, specific, func(cfg map[string]any) bool {
-		return s.email(alertType, message, cfg)
+		return s.email(alertType, siteName, message, cfg)
 	}, siteID, siteName, "email", message)
 	s.send(settings, "sms", enabled, specific, func(cfg map[string]any) bool {
 		return s.sms(message, cfg)
@@ -267,7 +271,7 @@ func (s *Service) slack(message string, cfg map[string]any) bool {
 	return s.postJSON(webhook, map[string]any{"text": message})
 }
 
-func (s *Service) email(alertType, message string, cfg map[string]any) bool {
+func (s *Service) email(alertType, siteName, message string, cfg map[string]any) bool {
 	server, _ := cfg["smtp_server"].(string)
 	to, _ := cfg["to_email"].(string)
 	if server == "" || to == "" {
@@ -327,8 +331,15 @@ func (s *Service) email(alertType, message string, cfg map[string]any) bool {
 		log.Printf("notify: email data %s: %v", addr, err)
 		return false
 	}
-	body := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: Uptime Monitor Alert (%s)\r\n\r\n%s",
-		user, to, alertType, message)
+	label := map[string]string{
+		"down": "DOWN", "still_down": "DOWN", "up": "UP", "ssl": "SSL", "test": "TEST",
+	}[alertType]
+	subject := fmt.Sprintf("Uptime Monitor [%s]: %s", label, siteName)
+	if siteName == "" {
+		subject = fmt.Sprintf("Uptime Monitor [%s]", label)
+	}
+	body := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s",
+		user, to, subject, message)
 	w.Write([]byte(body))
 	w.Close()
 	return client.Quit() == nil

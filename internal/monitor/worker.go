@@ -487,22 +487,106 @@ func (w *Worker) alert(alertType string, s *storage.Site, code int, errMsg strin
 	}
 	var methods []any
 	_ = json.Unmarshal([]byte(s.NotifyMethods), &methods)
+	checkedAt := storage.Now()
 	payload := map[string]any{
 		"alert_type": alertType, "site_id": s.ID, "site_name": s.Name, "url": s.URL,
-		"status_code": code, "error": errMsg, "response_time": rt, "checked_at": storage.Now(),
+		"status_code": code, "error": errMsg, "response_time": rt, "checked_at": checkedAt,
 		"notify_methods": methods,
 	}
-	var message string
+
+	// Human-readable structured message. Kept plain for email/sms/slack; the
+	// telegram channel renders its own HTML variant (see notify.telegram).
+	ts := checkedAt
+	if len(ts) > 19 {
+		ts = ts[:19]
+	}
+	rtTxt := ""
+	if rt > 0 {
+		rtTxt = fmt.Sprintf("%.0f ms", rt)
+	}
+	codeTxt := ""
+	if code > 0 {
+		codeTxt = fmt.Sprintf("HTTP %d", code)
+	}
+	statusTxt := ""
 	switch alertType {
 	case "down":
-		message = fmt.Sprintf("🔴 Monitor DOWN: %s (%s) — code=%d — %s", s.Name, s.URL, code, errMsg)
+		statusTxt = "🔴 МОНІТОР НЕДОСТУПНИЙ"
 	case "still_down":
-		message = fmt.Sprintf("🔴 Still DOWN: %s (%s) — code=%d — %s", s.Name, s.URL, code, errMsg)
+		statusTxt = "🔴 МОНІТОР ДОСІ НЕДОСТУПНИЙ"
 	case "up":
-		message = fmt.Sprintf("✅ Monitor UP: %s (%s) restored", s.Name, s.URL)
+		statusTxt = "✅ МОНІТОР ВІДНОВЛЕНО"
 	case "ssl":
-		message = fmt.Sprintf("⚠️ SSL: %s", errMsg)
+		statusTxt = "⚠️ SSL ПОПЕРЕДЖЕННЯ"
 	}
+
+	var b strings.Builder
+	b.WriteString(statusTxt)
+	b.WriteString("\n\n")
+	b.WriteString("📌 Назва: ")
+	b.WriteString(s.Name)
+	b.WriteString("\n🌐 URL: ")
+	b.WriteString(s.URL)
+	if codeTxt != "" {
+		b.WriteString("\n🔢 Код: ")
+		b.WriteString(codeTxt)
+	}
+	if rtTxt != "" {
+		b.WriteString("\n⚡ Час відповіді: ")
+		b.WriteString(rtTxt)
+	}
+	if errMsg != "" {
+		b.WriteString("\n📝 Помилка: ")
+		b.WriteString(errMsg)
+	}
+	b.WriteString("\n🕒 Час: ")
+	b.WriteString(ts)
+	message := b.String()
+
+	// Telegram renders an HTML variant with bold labels; escape user-supplied
+	// fields so they can't break out of the message or the markup.
+	htmlEsc := func(v string) string {
+		r := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;")
+		return r.Replace(v)
+	}
+	htmlTitle := ""
+	switch alertType {
+	case "down":
+		htmlTitle = "🔴 <b>Монітор недоступний</b>"
+	case "still_down":
+		htmlTitle = "🔴 <b>Монітор досі недоступний</b>"
+	case "up":
+		htmlTitle = "✅ <b>Монітор відновлено</b>"
+	case "ssl":
+		htmlTitle = "⚠️ <b>SSL попередження</b>"
+	}
+	var h strings.Builder
+	h.WriteString(htmlTitle)
+	h.WriteString("\n\n📌 Назва: <b>")
+	h.WriteString(htmlEsc(s.Name))
+	h.WriteString("</b>\n🌐 URL: <code>")
+	h.WriteString(htmlEsc(s.URL))
+	h.WriteString("</code>")
+	if codeTxt != "" {
+		h.WriteString("\n🔢 Код: <b>")
+		h.WriteString(htmlEsc(codeTxt))
+		h.WriteString("</b>")
+	}
+	if rtTxt != "" {
+		h.WriteString("\n⚡ Час відповіді: <b>")
+		h.WriteString(htmlEsc(rtTxt))
+		h.WriteString("</b>")
+	}
+	if errMsg != "" {
+		h.WriteString("\n📝 Помилка: <i>")
+		h.WriteString(htmlEsc(errMsg))
+		h.WriteString("</i>")
+	}
+	h.WriteString("\n🕒 Час: <code>")
+	h.WriteString(htmlEsc(ts))
+	h.WriteString("</code>")
+	payload["message_html"] = h.String()
+
 	w.Alert.Dispatch(alertType, message, payload)
 }
 

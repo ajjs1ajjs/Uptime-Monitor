@@ -123,7 +123,7 @@ func TestEmailAuthLogin(t *testing.T) {
 
 	svc := New(nil)
 	port := ln.Addr().(*net.TCPAddr).Port
-	ok := svc.email("down", "hello", map[string]any{
+	ok := svc.email("down", "test-site", "hello", map[string]any{
 		"smtp_server": "127.0.0.1",
 		"smtp_port":   float64(port),
 		"username":    "u@test",
@@ -203,7 +203,7 @@ func TestEmailStartsPlainForPort587(t *testing.T) {
 
 	svc := New(nil)
 	port := ln.Addr().(*net.TCPAddr).Port
-	ok := svc.email("down", "hello", map[string]any{
+	ok := svc.email("down", "test-site", "hello", map[string]any{
 		"smtp_server": "127.0.0.1",
 		"smtp_port":   float64(port),
 		"username":    "u@test",
