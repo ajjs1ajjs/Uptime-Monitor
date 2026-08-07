@@ -292,6 +292,8 @@ func (s *Service) email(alertType, message string, cfg map[string]any) bool {
 		return false
 	}
 	defer conn.Close()
+	// bound the whole SMTP conversation, not just the dial
+	_ = conn.SetDeadline(time.Now().Add(30 * time.Second))
 	client, err := smtp.NewClient(conn, server)
 	if err != nil {
 		log.Printf("notify: email newclient %s: %v", addr, err)
