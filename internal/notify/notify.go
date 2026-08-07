@@ -309,7 +309,7 @@ func (s *Service) email(alertType, message string, cfg map[string]any) bool {
 		}
 	}
 	if pass != "" {
-		if err := client.Auth(smtp.PlainAuth("", user, pass, server)); err != nil {
+		if err := authSMTP(client, server, user, pass); err != nil {
 			log.Printf("notify: email auth %s: %v", addr, err)
 			return false
 		}
@@ -460,4 +460,40 @@ func truncateBytes(s string, n int) string {
 		return s[:n]
 	}
 	return s
+}
+
+// authSMTP picks an AUTH mechanism the server actually advertises. Exchange
+// often only supports LOGIN/NTLM, so PLAIN (the only one Go's smtp.PlainAuth
+// can do) would time out. Prefer PLAIN when available, otherwise fall back to
+// LOGIN.
+func authSMTP(c *smtp.Client, server, user, pass string) error {
+	if ok, mechs := c.Extension("AUTH"); ok {
+		if strings.Contains(strings.ToUpper(mechs), "LOGIN") {
+			return c.Auth(&loginAuth{user: user, password: pass})
+		}
+	}
+	return c.Auth(smtp.PlainAuth("", user, pass, server))
+}
+
+// loginAuth implements SMTP AUTH LOGIN (base64 user/password exchange).
+type loginAuth struct {
+	user, password string
+}
+
+func (a *loginAuth) Start(_ *smtp.ServerInfo) (string, []byte, error) {
+	return "LOGIN", nil, nil
+}
+
+func (a *loginAuth) Next(fromServer []byte, more bool) ([]byte, error) {
+	if !more {
+		return nil, nil
+	}
+	switch strings.ToLower(strings.TrimSpace(string(fromServer))) {
+	case "username:":
+		return []byte(a.user), nil
+	case "password:":
+		return []byte(a.password), nil
+	default:
+		return nil, fmt.Errorf("unexpected server challenge: %q", string(fromServer))
+	}
 }
