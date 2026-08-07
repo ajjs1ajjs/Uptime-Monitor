@@ -171,9 +171,15 @@ func init() {
 	_ = pongo2.RegisterFilter("tojson", func(in *pongo2.Value, param *pongo2.Value) (*pongo2.Value, *pongo2.Error) {
 		b, err := json.Marshal(in.Interface())
 		if err != nil {
-			return pongo2.AsValue("null"), nil
+			return pongo2.AsSafeValue("null"), nil
 		}
-		return pongo2.AsValue(string(b)), nil
+		// The output is embedded into inline <script> blocks, so it must be
+		// safe (pongo2 would otherwise HTML-escape it and produce invalid JS)
+		// and must not terminate the script tag prematurely.
+		s := strings.ReplaceAll(string(b), "</", "<\\/")
+		s = strings.ReplaceAll(s, "\u2028", `\u2028`)
+		s = strings.ReplaceAll(s, "\u2029", `\u2029`)
+		return pongo2.AsSafeValue(s), nil
 	})
 }
 
