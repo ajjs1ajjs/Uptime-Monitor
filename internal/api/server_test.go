@@ -457,4 +457,37 @@ func TestAlertPolicySavesRetryDelays(t *testing.T) {
 	}
 }
 
+// TestTestNotify requires admin and dispatches without error.
+func TestTestNotify(t *testing.T) {
+	app, base, pw := newTestApp(t)
+	jar := map[string]string{}
+	login(base, pw, "NewStrongPass123", jar)
+	postForm(base, "/login", map[string]string{"username": "admin", "password": "NewStrongPass123"}, jar)
+
+	// enable telegram in settings so the test dispatch targets a channel
+	_ = app.Store.SaveNotifyConfig(`{"telegram":{"enabled":true,"channels":[{"id":"ch_t1","name":"Test","token":"x","chat_id":"-1"}]}}`)
+
+	req, _ := http.NewRequest(http.MethodPost, base+"/api/test-notify", strings.NewReader(""))
+	req.AddCookie(&http.Cookie{Name: "session_id", Value: jar["session_id"]})
+	req.Header.Set("Origin", base)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("test-notify: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("test-notify = %d: %s", resp.StatusCode, string(b))
+	}
+
+	// the dispatch must have attempted the telegram channel and logged it
+	resp, b := authedGet(base, "/api/notification-history?limit=5", jar)
+	if resp.StatusCode != 200 {
+		t.Fatalf("history = %d", resp.StatusCode)
+	}
+	if !strings.Contains(string(b), "telegram") {
+		t.Fatalf("notification history missing telegram entry: %s", string(b))
+	}
+}
+
 var _ = bytes.NewBuffer

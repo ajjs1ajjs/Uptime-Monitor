@@ -108,6 +108,7 @@ func (a *App) Handler() http.Handler {
 
 	mux.Handle("GET /api/audit-log", admin(a.handleAuditLog))
 	mux.Handle("GET /api/notification-history", admin(a.handleNotificationHistory))
+	mux.Handle("POST /api/test-notify", admin(a.handleTestNotify))
 	mux.Handle("POST /api/backup", admin(a.handleBackupCreate))
 	mux.Handle("GET /api/backups", admin(a.handleBackupList))
 	mux.Handle("POST /api/backup/restore/{backup_id}", admin(a.handleBackupRestore))

@@ -1018,6 +1018,35 @@ func (a *App) handleNotificationHistory(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, hist)
 }
 
+// handleTestNotify sends a test alert through every enabled notification
+// channel so the admin can verify delivery without waiting for an outage.
+func (a *App) handleTestNotify(w http.ResponseWriter, r *http.Request) {
+	settings := a.Notify.LoadSettings()
+	methods := []any{}
+	for name, sec := range settings {
+		m, ok := sec.(map[string]any)
+		if !ok {
+			continue
+		}
+		if on, ok := m["enabled"].(bool); ok && on {
+			methods = append(methods, name)
+		}
+	}
+	payload := map[string]any{
+		"alert_type":     "test",
+		"site_id":        int64(0),
+		"site_name":      "Тестове сповіщення",
+		"url":            "",
+		"status_code":    0,
+		"error":          "Це тестове повідомлення з Uptime Monitor.",
+		"response_time":  float64(0),
+		"checked_at":     storage.Now(),
+		"notify_methods": methods,
+	}
+	a.Notify.Dispatch("test", "🧪 Тестове сповіщення з Uptime Monitor — канали працюють!", payload)
+	writeJSON(w, http.StatusOK, map[string]any{"message": "Test notification dispatched", "methods": methods})
+}
+
 func (a *App) handleBackupCreate(w http.ResponseWriter, r *http.Request) {
 	dir := a.Cfg.BackupDir()
 	res, err := a.Store.CreateBackup(dir)
