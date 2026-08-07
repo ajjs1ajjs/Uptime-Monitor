@@ -556,6 +556,15 @@ func (a *App) handleSaveAlertPolicy(w http.ResponseWriter, r *http.Request) {
 	if v, ok := body["max_retries"].(float64); ok {
 		ap.MaxRetries = clamp(int(v), 0, 10)
 	}
+	if v, ok := body["retry_delays"].([]any); ok {
+		var delays []int
+		for _, d := range v {
+			if f, ok := d.(float64); ok {
+				delays = append(delays, int(f))
+			}
+		}
+		ap.RetryDelays = delays
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"message": "Saved"})
 }
 

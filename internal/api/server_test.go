@@ -417,4 +417,44 @@ func TestNonAdminForbidden(t *testing.T) {
 	}
 }
 
+func TestAlertPolicySavesRetryDelays(t *testing.T) {
+	app, base, pw := newTestApp(t)
+	jar := map[string]string{}
+	login(base, pw, "NewStrongPass123", jar)
+	postForm(base, "/login", map[string]string{"username": "admin", "password": "NewStrongPass123"}, jar)
+
+	payload := `{"grace_period_seconds":30,"max_retries":2,"retry_delays":[5,30],"ssl_notification_days":[30,14,7,3]}`
+	req, _ := http.NewRequest(http.MethodPost, base+"/api/alert-policy", strings.NewReader(payload))
+	req.AddCookie(&http.Cookie{Name: "session_id", Value: jar["session_id"]})
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", base)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("save policy: %v", err)
+	}
+	resp.Body.Close()
+
+	// verify via GET
+	resp, b := authedGet(base, "/api/alert-policy", jar)
+	if resp.StatusCode != 200 {
+		t.Fatalf("get policy = %d", resp.StatusCode)
+	}
+	var pol map[string]any
+	if err := json.Unmarshal(b, &pol); err != nil {
+		t.Fatalf("policy not json: %v", err)
+	}
+	delays, _ := pol["retry_delays"].([]any)
+	if len(delays) != 2 || int(delays[0].(float64)) != 5 || int(delays[1].(float64)) != 30 {
+		t.Fatalf("retry_delays = %v, want [5 30]", pol["retry_delays"])
+	}
+	if int(pol["max_retries"].(float64)) != 2 {
+		t.Fatalf("max_retries = %v, want 2", pol["max_retries"])
+	}
+
+	// confirm the in-memory config object was mutated (used by the worker)
+	if app.Cfg.AlertPolicy.MaxRetries != 2 || len(app.Cfg.AlertPolicy.RetryDelays) != 2 {
+		t.Fatalf("cfg not updated: %+v", app.Cfg.AlertPolicy)
+	}
+}
+
 var _ = bytes.NewBuffer
