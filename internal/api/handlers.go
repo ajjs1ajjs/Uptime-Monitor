@@ -381,16 +381,16 @@ func (a *App) handleIncidents(w http.ResponseWriter, r *http.Request) {
 	out := make([]map[string]any, 0)
 	for rows.Next() {
 		var id, sid int64
-		var name, status string
+		var name, siteURL, status string
 		var code sqlNullInt
 		var rt sqlNullFloat
 		var errMsg sqlNullString
 		var checkedAt string
-		if err := rows.Scan(&id, &sid, &name, &status, &code, &rt, &errMsg, &checkedAt); err != nil {
+		if err := rows.Scan(&id, &sid, &name, &siteURL, &status, &code, &rt, &errMsg, &checkedAt); err != nil {
 			continue
 		}
 		out = append(out, map[string]any{
-			"id": id, "site_id": sid, "site_name": name,
+			"id": id, "site_id": sid, "site_name": name, "site_url": siteURL,
 			"status": status, "status_code": code.v, "response_time": rt.f,
 			"error_message": errMsg.s, "checked_at": checkedAt,
 			"prev_status": nil, "duration": nil,

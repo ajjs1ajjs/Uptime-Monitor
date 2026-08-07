@@ -490,4 +490,38 @@ func TestTestNotify(t *testing.T) {
 	}
 }
 
+// TestIncidentsReturnsDownRows reproduces the production bug where
+// /api/incidents returned [] even though status_history had down rows.
+func TestIncidentsReturnsDownRows(t *testing.T) {
+	app, base, pw := newTestApp(t)
+	jar := map[string]string{}
+	login(base, pw, "NewStrongPass123", jar)
+	postForm(base, "/login", map[string]string{"username": "admin", "password": "NewStrongPass123"}, jar)
+
+	id, err := app.Store.CreateSite("SrvDown", "https://down.example.com", 60, true,
+		`["telegram"]`, "http", "", "")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	// insert a down row with NULL status_code / response_time / error_message
+	// (this is what connection-timeout failures produce: code=0 -> NULL)
+	_, err = app.Store.DB.Exec(`INSERT INTO status_history (site_id, status, status_code, response_time, error_message, checked_at)
+	  VALUES (?, 'down', NULL, NULL, NULL, ?)`, id, storage.Now())
+	if err != nil {
+		t.Fatalf("insert history: %v", err)
+	}
+
+	resp, b := authedGet(base, "/api/incidents", jar)
+	if resp.StatusCode != 200 {
+		t.Fatalf("incidents = %d", resp.StatusCode)
+	}
+	if strings.TrimSpace(string(b)) == "[]" {
+		t.Fatalf("incidents returned [] with a down row present")
+	}
+	if !strings.Contains(string(b), "SrvDown") {
+		t.Fatalf("incidents missing site name: %s", string(b))
+	}
+}
+
 var _ = bytes.NewBuffer
