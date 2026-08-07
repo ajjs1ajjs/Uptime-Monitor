@@ -321,7 +321,7 @@ func (a *App) handlePublicStatus(w http.ResponseWriter, r *http.Request) {
 		StatusText         string  `json:"status_text"`
 		DotColor           string  `json:"dot_color"`
 	}
-	views := make([]siteView, 0, len(sites))
+	views := make([]map[string]any, 0, len(sites))
 	upCount, downCount := 0, 0
 	uptimeSum := 0.0
 	for _, s := range sites {
@@ -353,11 +353,17 @@ func (a *App) handlePublicStatus(w http.ResponseWriter, r *http.Request) {
 			sv.StatusClass, sv.StatusText, sv.DotColor = "down", "DOWN", "#ff4757"
 		}
 		uptimeSum += s.Uptime
-		views = append(views, sv)
+		views = append(views, map[string]any{
+			"name": sv.Name, "url": sv.URL, "monitor_type": sv.MonitorType,
+			"status": sv.Status, "uptime_pct": sv.UptimePct,
+			"response_time": sv.ResponseTime, "latest_response_time": sv.LatestResponseTime,
+			"status_class": sv.StatusClass, "status_text": sv.StatusText,
+			"dot_color": sv.DotColor,
+		})
 	}
 	// sort: down -> slow -> unknown -> paused -> up
 	sort.SliceStable(views, func(i, j int) bool {
-		return statusRank(views[i].Status) < statusRank(views[j].Status)
+		return statusRank(views[i]["status"].(string)) < statusRank(views[j]["status"].(string))
 	})
 	thirtyDay := 100.0
 	if len(views) > 0 {

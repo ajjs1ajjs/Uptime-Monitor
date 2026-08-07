@@ -202,6 +202,35 @@ func TestDashboardScriptNotHtmlEscaped(t *testing.T) {
 	}
 }
 
+func TestPublicStatusRendersSiteFields(t *testing.T) {
+	_, base, pw := newTestApp(t)
+	jar := map[string]string{}
+	login(base, pw, "NewStrongPass123", jar)
+	postForm(base, "/login", map[string]string{"username": "admin", "password": "NewStrongPass123"}, jar)
+
+	// create a site via API
+	payload := `{"name":"ExampleSite","url":"https://example.com","monitor_type":"http","check_interval":60}`
+	req, _ := http.NewRequest(http.MethodPost, base+"/api/sites", strings.NewReader(payload))
+	req.AddCookie(&http.Cookie{Name: "session_id", Value: jar["session_id"]})
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", base)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil || resp.StatusCode != 200 {
+		t.Fatalf("create site = %v (%v)", resp, err)
+	}
+	resp.Body.Close()
+
+	body := getPage(base, "/status", jar)
+	for _, want := range []string{"ExampleSite", "https://example.com", "Uptime"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("public status page missing %q", want)
+		}
+	}
+	if !strings.Contains(body, `status-dot`) {
+		t.Fatalf("public status page missing site cards")
+	}
+}
+
 func TestEmptyListsAreArrays(t *testing.T) {
 	_, base, pw := newTestApp(t)
 	jar := map[string]string{}
