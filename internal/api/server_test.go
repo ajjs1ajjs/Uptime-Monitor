@@ -211,6 +211,7 @@ func TestEmptyListsAreArrays(t *testing.T) {
 	for _, path := range []string{
 		"/api/sites", "/api/ssl-certificates", "/api/users",
 		"/api/audit-log", "/api/notification-history", "/api/backups", "/api/tags",
+		"/api/maintenance-windows",
 	} {
 		resp, b := authedGet(base, path, jar)
 		if resp == nil || resp.StatusCode != 200 {

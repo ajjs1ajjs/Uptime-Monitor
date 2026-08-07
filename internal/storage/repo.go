@@ -592,7 +592,7 @@ func (st *Store) MaintenanceWindows() ([]MaintenanceWindow, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []MaintenanceWindow
+	out := make([]MaintenanceWindow, 0)
 	for rows.Next() {
 		var w MaintenanceWindow
 		var siteID, siteName sql.NullString
