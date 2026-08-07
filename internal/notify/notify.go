@@ -285,37 +285,44 @@ func (s *Service) email(alertType, message string, cfg map[string]any) bool {
 		conn, err = tls.Dial("tcp", addr, &tls.Config{ServerName: server})
 	} else {
 		// plain connection, then STARTTLS (587) or unencrypted (25)
-		conn, err = net.DialTimeout("tcp", addr, 20*time.Second)
+		conn, err = net.DialTimeout("tcp", addr, 8*time.Second)
 	}
 	if err != nil {
+		log.Printf("notify: email dial %s: %v", addr, err)
 		return false
 	}
 	defer conn.Close()
 	client, err := smtp.NewClient(conn, server)
 	if err != nil {
+		log.Printf("notify: email newclient %s: %v", addr, err)
 		return false
 	}
 	defer client.Close()
 	if port == 587 {
 		if ok, _ := client.Extension("STARTTLS"); ok {
 			if err := client.StartTLS(&tls.Config{ServerName: server}); err != nil {
+				log.Printf("notify: email starttls %s: %v", addr, err)
 				return false
 			}
 		}
 	}
 	if pass != "" {
 		if err := client.Auth(smtp.PlainAuth("", user, pass, server)); err != nil {
+			log.Printf("notify: email auth %s: %v", addr, err)
 			return false
 		}
 	}
 	if err := client.Mail(user); err != nil {
+		log.Printf("notify: email mail %s: %v", addr, err)
 		return false
 	}
 	if err := client.Rcpt(to); err != nil {
+		log.Printf("notify: email rcpt %s: %v", addr, err)
 		return false
 	}
 	w, err := client.Data()
 	if err != nil {
+		log.Printf("notify: email data %s: %v", addr, err)
 		return false
 	}
 	body := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: Uptime Monitor Alert (%s)\r\n\r\n%s",

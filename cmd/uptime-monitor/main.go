@@ -23,7 +23,7 @@ import (
 	"github.com/ajjs1ajjs/Uptime-Monitor/internal/storage"
 )
 
-const Version = "3.0.10"
+const Version = "3.0.11"
 
 func main() {
 	if len(os.Args) < 2 {
