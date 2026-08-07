@@ -98,7 +98,7 @@ func (a *App) principal(r *http.Request) *principal {
 }
 
 // withCSRF enforces same-origin for cookie-authenticated state-changing API
-// requests (API-key requests are exempt). Mirrors the Python fail-closed check.
+// requests (API-key requests are exempt).
 func (a *App) withCSRF(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions {
@@ -138,7 +138,7 @@ func hostnameOnly(host string) string {
 	return host
 }
 
-// --- rate limiting (DB-backed, mirrors Python) ---
+// --- rate limiting (DB-backed) ---
 
 func (a *App) withRateLimit(endpoint string, max int, window int, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

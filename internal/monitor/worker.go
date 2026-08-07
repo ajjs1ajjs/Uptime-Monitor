@@ -404,7 +404,7 @@ func (w *Worker) persist(s *storage.Site, status string, code int, rt float64, e
 	}
 	_ = w.Store.AddStatusHistory(s.ID, status, codePtr, rtPtr, errPtr)
 
-	// alerting state machine (mirrors Python _process_alerting)
+	// alerting state machine
 	if status == "down" {
 		s.FailedAttempts++
 		s.SuccessAttempts = 0
@@ -485,9 +485,12 @@ func (w *Worker) alert(alertType string, s *storage.Site, code int, errMsg strin
 	if w.Alert == nil {
 		return
 	}
+	var methods []any
+	_ = json.Unmarshal([]byte(s.NotifyMethods), &methods)
 	payload := map[string]any{
 		"alert_type": alertType, "site_id": s.ID, "site_name": s.Name, "url": s.URL,
 		"status_code": code, "error": errMsg, "response_time": rt, "checked_at": storage.Now(),
+		"notify_methods": methods,
 	}
 	var message string
 	switch alertType {

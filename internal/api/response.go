@@ -6,8 +6,7 @@ import (
 	"strconv"
 )
 
-// writeErr uses the FastAPI "detail" field that the frontend reads everywhere
-// (a lesson from the Monitoring port).
+// writeErr uses the "detail" field that the frontend reads everywhere.
 func writeErr(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]any{"detail": msg})
 }

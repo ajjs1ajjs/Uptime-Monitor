@@ -124,7 +124,7 @@ func (a *App) Handler() http.Handler {
 
 // staticHandler serves the embedded static FS, but forces no-cache on the
 // service worker and manifest so a stale cached SW can't keep serving an old
-// broken page (the old Python SW was registered at /static/sw.js).
+// broken page.
 func staticHandler(fsys fs.FS) http.Handler {
 	fileServer := http.FileServer(http.FS(fsys))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

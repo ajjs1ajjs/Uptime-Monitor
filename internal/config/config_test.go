@@ -9,7 +9,7 @@ import (
 func TestLoadToleratesScalarListField(t *testing.T) {
 	dir := filepath.ToSlash(t.TempDir())
 	path := filepath.Join(dir, "config.json")
-	// old Python-style config with ssl_notification_days as a scalar
+	// legacy-style config with ssl_notification_days as a scalar
 	os.WriteFile(path, []byte(`{
 	  "server": {"port": 8080},
 	  "data_dir": "`+dir+`/data",

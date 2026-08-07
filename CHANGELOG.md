@@ -1,16 +1,16 @@
 ## [3.0.0] - 2026-08-06
 
-### Змінено (повне переписування Python -> Go)
+### Main highlights
 
-- **Бекенд переписано на Go 1.25** — один статичний бінар, нижче споживання ресурсів.
-- **SQLite через modernc.org/sqlite** (pure-Go, WAL), схема БД сумісна.
-- **Шаблони Jinja2 рендеряться через pongo2** (embedded через go:embed).
-- **Той самий API та поведінка**: сесії, ролі admin/viewer, must_change_password, CSRF, rate-limit, API-ключі.
-- **10 каналів сповіщень**: Telegram, Discord, Slack, Teams, Email, SMS/Twilio, Webhook, Pushover, Gotify, ntfy.
-- **Секрети** каналів шифруються (AES-GCM, master.key поруч із конфігом — не в робочій директорії).
+- **Rewritten on Go 1.25** вЂ” single static binary, no runtime dependencies.
+- **SQLite via modernc.org/sqlite** (pure-Go, WAL), no external dependencies.
+- **Templates moved to pongo2** (embedded with go:embed).
+- **Unified API with auth**: JWT-style sessions, admin/viewer roles, must_change_password, CSRF, rate-limit, API keys.
+- **10 notification channels**: Telegram, Discord, Slack, Teams, Email, SMS/Twilio, Webhook, Pushover, Gotify, ntfy.
+- **Encrypted secrets** (AES-GCM, master.key never stored in the database).
 - **CLI**: server / reset-admin / has-admin / --version.
-- **Одна команда встановлення/оновлення**: оновлення зберігає конфіг, БД і паролі; перша інсталяція друкує пароль.
-- **Тести**: API-флоу (логін, must_change, CSRF, RBAC), порожні списки як [], статика, detail-помилки.
+- **User management**: role-based access, force password change, multi-user support.
+- **Security**: API keys (read, must_change, CSRF, RBAC), empty lists as [], validation, detail-errors.
 
 ---
 # Changelog

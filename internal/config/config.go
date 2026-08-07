@@ -28,7 +28,7 @@ type SSL struct {
 }
 
 // IntList accepts either a JSON array or a single number (tolerant of config
-// files written by the old Python version where the field was a scalar).
+// files where the field was written as a scalar).
 type IntList []int
 
 func (l *IntList) UnmarshalJSON(b []byte) error {

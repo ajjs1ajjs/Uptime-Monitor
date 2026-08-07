@@ -1089,7 +1089,7 @@ func (a *App) handleTags(w http.ResponseWriter, r *http.Request) {
 
 // --- helpers ---
 
-// URL normalization + SSRF guard at creation time (mirrors Python).
+// URL normalization + SSRF guard at creation time.
 func normalizeURL(raw string, monitorType string) (string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {

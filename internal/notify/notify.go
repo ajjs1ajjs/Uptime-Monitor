@@ -70,7 +70,12 @@ func channelsFor(methods []any) (enabled map[string]bool, specific map[string][]
 func (s *Service) Dispatch(alertType, message string, alert map[string]any) {
 	settings := s.LoadSettings()
 	siteID := int64(0)
-	if v, ok := alert["site_id"].(float64); ok {
+	switch v := alert["site_id"].(type) {
+	case float64:
+		siteID = int64(v)
+	case int64:
+		siteID = v
+	case int:
 		siteID = int64(v)
 	}
 	siteName, _ := alert["site_name"].(string)

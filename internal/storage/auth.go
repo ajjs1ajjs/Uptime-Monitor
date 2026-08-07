@@ -247,7 +247,7 @@ func mustRowsAffected(res sql.Result) int64 {
 	return n
 }
 
-// --- rate limiting (DB-backed, mirrors Python) ---
+// --- rate limiting (DB-backed) ---
 
 func (st *Store) RateLimitOK(endpoint, ip string, maxAttempts int, windowSeconds int) bool {
 	now := float64(time.Now().Unix())

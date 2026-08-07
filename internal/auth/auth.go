@@ -36,7 +36,7 @@ func VerifyPassword(hash, pw string) bool {
 }
 
 // HashAPIKey derives a deterministic PBKDF2-HMAC-SHA256 digest so lookups work
-// by hashing the presented key (mirrors the Python implementation).
+// by hashing the presented key.
 func HashAPIKey(rawKey string) string {
 	dk := pbkdf2.Key([]byte(rawKey), []byte(apiKeySalt), 100000, 32, sha256.New)
 	return hex.EncodeToString(dk)

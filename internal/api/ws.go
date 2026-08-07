@@ -54,7 +54,7 @@ var wsUpgrader = websocket.Upgrader{
 }
 
 func (a *App) handleWS(w http.ResponseWriter, r *http.Request) {
-	// Authenticate via session cookie (mirrors Python).
+	// Authenticate via session cookie.
 	cookie, err := r.Cookie(sessionCookie)
 	if err != nil {
 		closeWS(w, 4001, "Authentication required")
