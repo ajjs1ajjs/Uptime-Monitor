@@ -31,6 +31,11 @@ func newTestApp(t *testing.T) (*App, string, string) {
 	t.Cleanup(func() { _ = store.DB.Close() })
 
 	cfg := config.Default()
+	// point the config at a writable temp file so Save() in the alert-policy
+	// handler can persist without failing
+	cfgPath := filepath.Join(t.TempDir(), "config.json")
+	cfg.WriteDefaultFile(cfgPath)
+	cfg, _ = config.Load(cfgPath)
 	hash, _ := auth.HashPassword("AdminPass123456")
 	uid, _ := store.CreateUser("admin", hash, "admin")
 	_ = store.UpdateUser(uid, map[string]any{"must_change_password": 1})
@@ -504,12 +509,14 @@ func TestIncidentsReturnsDownRows(t *testing.T) {
 		t.Fatalf("create: %v", err)
 	}
 
-	// insert a down row with NULL status_code / response_time / error_message
-	// (this is what connection-timeout failures produce: code=0 -> NULL)
-	_, err = app.Store.DB.Exec(`INSERT INTO status_history (site_id, status, status_code, response_time, error_message, checked_at)
-	  VALUES (?, 'down', NULL, NULL, NULL, ?)`, id, storage.Now())
-	if err != nil {
-		t.Fatalf("insert history: %v", err)
+	// insert 3 consecutive down rows with NULL status_code (connection-timeout
+	// case) — they belong to the same outage and must collapse into one incident
+	for i := 0; i < 3; i++ {
+		_, err = app.Store.DB.Exec(`INSERT INTO status_history (site_id, status, status_code, response_time, error_message, checked_at)
+		  VALUES (?, 'down', NULL, NULL, NULL, ?)`, id, storage.Now())
+		if err != nil {
+			t.Fatalf("insert history: %v", err)
+		}
 	}
 
 	resp, b := authedGet(base, "/api/incidents", jar)
@@ -521,6 +528,14 @@ func TestIncidentsReturnsDownRows(t *testing.T) {
 	}
 	if !strings.Contains(string(b), "SrvDown") {
 		t.Fatalf("incidents missing site name: %s", string(b))
+	}
+	// 3 consecutive down checks = 1 outage = 1 incident
+	var arr []any
+	if err := json.Unmarshal(b, &arr); err != nil {
+		t.Fatalf("bad json: %v", err)
+	}
+	if len(arr) != 1 {
+		t.Fatalf("expected 1 grouped incident, got %d: %s", len(arr), string(b))
 	}
 }
 

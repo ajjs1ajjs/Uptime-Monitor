@@ -413,8 +413,12 @@ func statusRank(s string) int {
 }
 
 func (a *App) recentIncidents(perSite, totalLimit int) []map[string]any {
-	rows, err := a.Store.DB.Query(`SELECT site_id, checked_at FROM status_history
-	  WHERE status = 'down' AND checked_at >= datetime('now','-30 days')
+	rows, err := a.Store.DB.Query(`SELECT site_id, checked_at, status FROM (
+	  SELECT site_id, status, checked_at,
+	         LAG(status) OVER (PARTITION BY site_id ORDER BY checked_at, id) AS prev_status
+	  FROM status_history
+	  WHERE status IN ('down','slow') AND checked_at >= datetime('now','-30 days')
+	) WHERE status IN ('down','slow') AND (prev_status IS NULL OR prev_status <> status)
 	  ORDER BY checked_at DESC`)
 	if err != nil {
 		return []map[string]any{}
@@ -430,8 +434,8 @@ func (a *App) recentIncidents(perSite, totalLimit int) []map[string]any {
 	out := make([]map[string]any, 0, totalLimit)
 	for rows.Next() {
 		var sid int64
-		var checked string
-		if rows.Scan(&sid, &checked) != nil {
+		var checked, status string
+		if rows.Scan(&sid, &checked, &status) != nil {
 			continue
 		}
 		if seen[sid] >= perSite {
@@ -440,6 +444,7 @@ func (a *App) recentIncidents(perSite, totalLimit int) []map[string]any {
 		seen[sid]++
 		out = append(out, map[string]any{
 			"site_name": sites[sid],
+			"status":    status,
 			"time":      strings.Replace(strings.TrimPrefix(checked, "T"), "T", " ", 1),
 		})
 		if len(out) >= totalLimit {

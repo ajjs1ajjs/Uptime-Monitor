@@ -78,6 +78,8 @@ type Config struct {
 	CheckInterval int         `json:"check_interval"`
 	AlertPolicy   AlertPolicy `json:"alert_policy"`
 	Backup        Backup      `json:"backup"`
+
+	path string `json:"-"`
 }
 
 func defaultDataDir() string {
@@ -152,6 +154,7 @@ func Load(path string) (*Config, error) {
 	if path == "" {
 		return cfg, nil
 	}
+	cfg.path = path
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -186,6 +189,47 @@ func Load(path string) (*Config, error) {
 		return cfg, nil
 	}
 	return cfg, nil
+}
+
+// Save persists the config back to the file it was loaded from, preserving
+// only the fields written by the app (alert policy). The path falls back to
+// CONFIG_PATH so API-driven changes survive restarts.
+func (c *Config) Save() error {
+	path := c.Path()
+	if path == "" {
+		return fmt.Errorf("config path not set")
+	}
+	b, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, b, 0o644)
+}
+
+// WriteDefaultFile writes a default config to the given path (used by tests
+// and first-run setup).
+func (c *Config) WriteDefaultFile(path string) error {
+	b, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, b, 0o644)
+}
+
+func (c *Config) Path() string {
+	if c.path != "" {
+		return c.path
+	}
+	if p := os.Getenv("CONFIG_PATH"); p != "" {
+		return p
+	}
+	return "config.json"
 }
 
 func (c *Config) DBPath() string {

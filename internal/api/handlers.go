@@ -368,11 +368,23 @@ func (n *sqlNullFloat) Scan(v any) error {
 func round1(f float64) float64 { return float64(int(f*10+0.5)) / 10 }
 
 func (a *App) handleIncidents(w http.ResponseWriter, r *http.Request) {
-	rows, err := a.Store.DB.Query(`SELECT sh.id, sh.site_id, s.name, s.url, sh.status, sh.status_code,
-	  sh.response_time, sh.error_message, sh.checked_at
-	  FROM status_history sh JOIN sites s ON sh.site_id = s.id
-	  WHERE sh.status IN ('down','slow') AND sh.checked_at >= datetime('now','-7 days')
-	  ORDER BY sh.site_id, sh.checked_at DESC LIMIT 100`)
+	// Group consecutive down/slow checks into one incident per outage:
+	// an incident starts when a check differs from the previous check's status
+	// and ends when the status returns to up. Rows are compared in time order.
+	rows, err := a.Store.DB.Query(`
+	  WITH seq AS (
+	    SELECT sh.id, sh.site_id, s.name, s.url, sh.status, sh.status_code,
+	           sh.response_time, sh.error_message, sh.checked_at,
+	           LAG(sh.status) OVER (PARTITION BY sh.site_id ORDER BY sh.checked_at, sh.id) AS prev_status
+	    FROM status_history sh JOIN sites s ON sh.site_id = s.id
+	    WHERE sh.checked_at >= datetime('now','-7 days')
+	  )
+	  SELECT id, site_id, name, url, status, status_code, response_time,
+	         error_message, checked_at, prev_status
+	  FROM seq
+	  WHERE status IN ('down','slow')
+	  ORDER BY checked_at DESC, id DESC
+	  LIMIT 200`)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "Database error")
 		return
@@ -386,15 +398,23 @@ func (a *App) handleIncidents(w http.ResponseWriter, r *http.Request) {
 		var rt sqlNullFloat
 		var errMsg sqlNullString
 		var checkedAt string
-		if err := rows.Scan(&id, &sid, &name, &siteURL, &status, &code, &rt, &errMsg, &checkedAt); err != nil {
+		var prev sqlNullString
+		if err := rows.Scan(&id, &sid, &name, &siteURL, &status, &code, &rt, &errMsg, &checkedAt, &prev); err != nil {
+			continue
+		}
+		// only the first check of an outage is a new incident
+		if prev.s == status {
 			continue
 		}
 		out = append(out, map[string]any{
 			"id": id, "site_id": sid, "site_name": name, "site_url": siteURL,
 			"status": status, "status_code": code.v, "response_time": rt.f,
 			"error_message": errMsg.s, "checked_at": checkedAt,
-			"prev_status": nil, "duration": nil,
+			"prev_status": prev.s, "duration": nil,
 		})
+		if len(out) >= 100 {
+			break
+		}
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -564,6 +584,10 @@ func (a *App) handleSaveAlertPolicy(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		ap.RetryDelays = delays
+	}
+	if err := a.Cfg.Save(); err != nil {
+		writeErr(w, http.StatusInternalServerError, "Could not persist alert policy: "+err.Error())
+		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"message": "Saved"})
 }
