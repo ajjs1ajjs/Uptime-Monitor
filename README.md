@@ -105,6 +105,7 @@ go build -o uptime-monitor ./cmd/uptime-monitor
 ```
 
 Налаштування сповіщень та зовнішній вигляд — через дашборд (Налаштування).
+<img width="897" height="467" alt="image" src="https://github.com/user-attachments/assets/9d6751d8-c169-46b6-9bf4-37f06b08bca1" />
 
 ---
 
