@@ -1,4 +1,4 @@
-const CACHE_NAME = 'uptime-monitor-v2';
+const CACHE_NAME = 'uptime-monitor-v3';
 const STATIC_URLS = [
     '/static/icon-192.svg',
     '/static/icon-512.svg',
@@ -10,9 +10,10 @@ self.addEventListener('install', (event) => {
         caches.open(CACHE_NAME).then((cache) => {
             return cache.addAll(STATIC_URLS);
         }).then(() => {
-            // Create offline response
+            // Create offline response (self-contained, no external CDN or
+            // Tailwind build dependency)
             return caches.open(CACHE_NAME).then((cache) => {
-                const offlineHtml = '<!DOCTYPE html><html lang="uk"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Офлайн</title><script src="https://cdn.tailwindcss.com"></script></head><body class="bg-gray-900 text-white flex items-center justify-center h-screen"><div class="text-center"><div class="text-6xl mb-4">📡</div><h1 class="text-2xl font-bold">Немає з\'єднання</h1><p class="text-gray-400 mt-2">You are offline</p><button onclick="location.reload()" class="mt-6 px-6 py-3 bg-cyan-500 rounded-lg hover:bg-cyan-600 transition">Спробувати знову</button></div></body></html>';
+                const offlineHtml = '<!DOCTYPE html><html lang="uk"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Офлайн</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0f172a;color:#fff;font-family:ui-sans-serif,system-ui,sans-serif}.box{text-align:center}.icon{font-size:60px;margin-bottom:16px}h1{font-size:24px;margin:0 0 8px}p{color:#94a3b8;margin:0 0 24px}button{padding:12px 24px;background:#06b6d4;color:#fff;border:0;border-radius:8px;font-size:16px;cursor:pointer}button:hover{background:#0891b2}</style></head><body><div class="box"><div class="icon">📡</div><h1>Немає з\'єднання</h1><p>You are offline</p><button onclick="location.reload()">Спробувати знову</button></div></body></html>';
                 return cache.put('/offline', new Response(offlineHtml, { headers: {'Content-Type': 'text/html; charset=utf-8'} }));
             });
         })

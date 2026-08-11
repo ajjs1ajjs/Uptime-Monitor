@@ -28,7 +28,7 @@
             <div class="text-slate-500 mt-0.5" data-i18n="card_time">Time</div>
         </div>
         <div>
-            <div class="text-sm font-bold text-slate-200">{{ "%.1f"|format(uptime) }}%</div>
+            <div class="text-sm font-bold text-slate-200">{{ uptime_str }}%</div>
             <div class="text-slate-500 mt-0.5" data-i18n="card_uptime">Uptime</div>
         </div>
         <div>
@@ -37,8 +37,8 @@
         </div>
     </div>
     <div class="flex gap-2 mt-4">
-        <button onclick="checkSite({{ sid }})" class="flex-1 py-2.5 rounded-lg gradient-accent text-black text-xs font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition" data-i18n="card_check">Check</button>
-        <button onclick="openEditModal({{ sid }},{{ escaped_name }},{{ escaped_url }},'{{ escaped_methods }}',{{ check_interval }},'{{ mtype }}','{{ escaped_keyword }}','{{ escaped_tags }}')" class="flex-1 py-2.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium" data-i18n="card_edit">Edit</button>
-        <button onclick="deleteSite({{ sid }})" class="flex-1 py-2.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-xs font-medium" data-i18n="card_delete">Delete</button>
+        <button data-action="checkSite" data-id="{{ sid }}" class="flex-1 py-2.5 rounded-lg gradient-accent text-black text-xs font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition" data-i18n="card_check">Check</button>
+        <button data-action="openEditModal" data-id="{{ sid }}" data-name="{{ name }}" data-url="{{ url }}" data-methods="{{ escaped_methods }}" data-interval="{{ check_interval }}" data-mtype="{{ mtype }}" data-keyword="{{ escaped_keyword }}" data-tags="{{ escaped_tags }}" class="flex-1 py-2.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium" data-i18n="card_edit">Edit</button>
+        <button data-action="deleteSite" data-id="{{ sid }}" class="flex-1 py-2.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-xs font-medium" data-i18n="card_delete">Delete</button>
     </div>
 </div>

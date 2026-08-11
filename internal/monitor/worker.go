@@ -6,7 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -42,6 +42,7 @@ type Worker struct {
 	lastSeen    map[int64]time.Time
 	lastSSL     time.Time
 	lastCleanup time.Time
+	inflight    sync.WaitGroup
 }
 
 func New(cfg *config.Config, store *storage.Store, ws Broadcaster, alert AlertSink) *Worker {
@@ -66,8 +67,8 @@ func (w *Worker) loop(ctx context.Context) {
 			return
 		default:
 		}
-		if err := w.CheckDue(lastChecked); err != nil {
-			log.Printf("monitor: %v", err)
+		if err := w.CheckDue(ctx, lastChecked); err != nil {
+			slog.Error("monitor check cycle failed", "error", err)
 		}
 		w.cleanupIfDue()
 		w.sslIfDue()
@@ -102,8 +103,9 @@ func (w *Worker) sslIfDue() {
 	}
 }
 
-// CheckDue runs checks for sites whose interval has elapsed.
-func (w *Worker) CheckDue(lastChecked map[int64]time.Time) error {
+// CheckDue runs checks for sites whose interval has elapsed. Checks run in
+// goroutines tracked by the inflight WaitGroup so shutdown can wait for them.
+func (w *Worker) CheckDue(ctx context.Context, lastChecked map[int64]time.Time) error {
 	sites, err := w.Store.GetActiveSites()
 	if err != nil {
 		return err
@@ -129,22 +131,37 @@ func (w *Worker) CheckDue(lastChecked map[int64]time.Time) error {
 
 		lastChecked[s.ID] = now
 		wg.Add(1)
+		w.inflight.Add(1)
 		go func(site *storage.Site) {
 			defer wg.Done()
+			defer w.inflight.Done()
 			defer func() {
 				w.mu.Lock()
 				delete(w.active, site.ID)
 				w.mu.Unlock()
 			}()
-			w.CheckSite(site)
+			w.CheckSite(ctx, site)
 		}(s)
 	}
 	wg.Wait()
 	return nil
 }
 
+// WaitInflight blocks until in-flight checks finish or the timeout elapses.
+func (w *Worker) WaitInflight(timeout time.Duration) {
+	done := make(chan struct{})
+	go func() {
+		w.inflight.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(timeout):
+	}
+}
+
 // CheckSite runs one full check (with retries) and persists the result.
-func (w *Worker) CheckSite(s *storage.Site) {
+func (w *Worker) CheckSite(ctx context.Context, s *storage.Site) {
 	policy := w.Cfg.AlertPolicy
 	if w.isUnderMaintenance(s.ID) {
 		return
@@ -155,7 +172,12 @@ func (w *Worker) CheckSite(s *storage.Site) {
 		retries = 0
 	}
 	for attempt := 0; attempt <= retries; attempt++ {
-		status, code, rt, errMsg = w.doCheck(s)
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		status, code, rt, errMsg = w.doCheck(ctx, s)
 		if status != "down" {
 			break
 		}
@@ -167,14 +189,18 @@ func (w *Worker) CheckSite(s *storage.Site) {
 				delay = policy.RetryDelays[len(policy.RetryDelays)-1]
 			}
 			if delay > 0 {
-				time.Sleep(time.Duration(delay) * time.Second)
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(time.Duration(delay) * time.Second):
+				}
 			}
 		}
 	}
 	w.persist(s, status, code, rt, errMsg)
 }
 
-func (w *Worker) doCheck(s *storage.Site) (string, int, float64, string) {
+func (w *Worker) doCheck(ctx context.Context, s *storage.Site) (string, int, float64, string) {
 	timeout := time.Duration(w.Cfg.AlertPolicy.RequestTimeoutSeconds) * time.Second
 	if timeout <= 0 {
 		timeout = 30 * time.Second
@@ -183,19 +209,19 @@ func (w *Worker) doCheck(s *storage.Site) (string, int, float64, string) {
 	case "ping":
 		return w.ping(s.URL, timeout)
 	case "dns":
-		return w.dns(s.URL, timeout)
+		return w.dns(ctx, s.URL, timeout)
 	case "port", "tcp":
-		return w.tcp(s.URL, timeout)
+		return w.tcp(ctx, s.URL, timeout)
 	case "ssl":
 		// ssl monitor type is handled by certificate checks; do a TCP connect
 		host, port := extractHostPort(s.URL, 443)
-		return w.tcpHost(host, port, timeout)
+		return w.tcpHost(ctx, host, port, timeout)
 	default: // http, https
-		return w.http(s, timeout)
+		return w.http(ctx, s, timeout)
 	}
 }
 
-func (w *Worker) http(s *storage.Site, timeout time.Duration) (string, int, float64, string) {
+func (w *Worker) http(ctx context.Context, s *storage.Site, timeout time.Duration) (string, int, float64, string) {
 	start := time.Now()
 	client := &http.Client{Timeout: timeout}
 	if !w.Cfg.AlertPolicy.VerifySSL {
@@ -203,7 +229,11 @@ func (w *Worker) http(s *storage.Site, timeout time.Duration) (string, int, floa
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
 	}
-	resp, err := client.Get(s.URL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.URL, nil)
+	if err != nil {
+		return "down", 0, 0, "invalid url"
+	}
+	resp, err := client.Do(req)
 	rt := float64(time.Since(start).Milliseconds())
 	if err != nil {
 		return "down", 0, rt, err.Error()[:min(100, len(err.Error()))]
@@ -259,8 +289,12 @@ func (w *Worker) ping(rawURL string, timeout time.Duration) (string, int, float6
 	args := []string{"-n", "1", "-w", fmt.Sprintf("%d", timeout.Milliseconds())}
 	if runtime.GOOS != "windows" {
 		args = []string{"-c", "1", "-W", fmt.Sprintf("%d", int(timeout.Seconds()))}
+		// "--" marks the end of options on Unix ping; Windows ping has no such
+		// separator (and the host is already rejected if it starts with "-").
+		args = append(args, "--", host)
+	} else {
+		args = append(args, host)
 	}
-	args = append(args, "--", host)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout+5*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "ping", args...)
@@ -272,10 +306,10 @@ func (w *Worker) ping(rawURL string, timeout time.Duration) (string, int, float6
 	return "up", 0, rt, ""
 }
 
-func (w *Worker) dns(rawURL string, timeout time.Duration) (string, int, float64, string) {
+func (w *Worker) dns(ctx context.Context, rawURL string, timeout time.Duration) (string, int, float64, string) {
 	host, _ := extractHostPort(rawURL, 0)
 	start := time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	_, err := net.DefaultResolver.LookupHost(ctx, host)
 	rt := float64(time.Since(start).Milliseconds())
@@ -285,14 +319,15 @@ func (w *Worker) dns(rawURL string, timeout time.Duration) (string, int, float64
 	return "up", 0, rt, ""
 }
 
-func (w *Worker) tcp(rawURL string, timeout time.Duration) (string, int, float64, string) {
+func (w *Worker) tcp(ctx context.Context, rawURL string, timeout time.Duration) (string, int, float64, string) {
 	host, port := extractHostPort(rawURL, 80)
-	return w.tcpHost(host, port, timeout)
+	return w.tcpHost(ctx, host, port, timeout)
 }
 
-func (w *Worker) tcpHost(host string, port int, timeout time.Duration) (string, int, float64, string) {
+func (w *Worker) tcpHost(ctx context.Context, host string, port int, timeout time.Duration) (string, int, float64, string) {
 	start := time.Now()
-	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, fmt.Sprintf("%d", port)), timeout)
+	d := net.Dialer{Timeout: timeout}
+	conn, err := d.DialContext(ctx, "tcp", net.JoinHostPort(host, fmt.Sprintf("%d", port)))
 	rt := float64(time.Since(start).Milliseconds())
 	if err != nil {
 		return "down", 0, rt, "connection failed"

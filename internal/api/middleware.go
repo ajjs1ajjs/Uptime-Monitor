@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -138,12 +138,55 @@ func hostnameOnly(host string) string {
 	return host
 }
 
-// --- rate limiting (DB-backed) ---
+// --- rate limiting (in-memory fixed window) ---
+//
+// A process-local limiter is used instead of the DB-backed one: SQLite
+// serializes writes, so a DB write on every request becomes a bottleneck and a
+// DoS vector under load. The single-instance deployment means the in-memory
+// state is authoritative; expired entries are pruned lazily to bound memory.
+
+type rateBucket struct {
+	count   int
+	resetAt time.Time
+}
+
+type rateLimitStore struct {
+	mu      sync.Mutex
+	buckets map[string]rateBucket // key: endpoint+"|"+ip
+}
+
+func newRateLimitStore() *rateLimitStore {
+	return &rateLimitStore{buckets: map[string]rateBucket{}}
+}
+
+func (r *rateLimitStore) allow(key string, max int, window time.Duration) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	now := time.Now()
+	b, ok := r.buckets[key]
+	if !ok || now.After(b.resetAt) {
+		if len(r.buckets) > 10000 {
+			for k, v := range r.buckets {
+				if now.After(v.resetAt) {
+					delete(r.buckets, k)
+				}
+			}
+		}
+		r.buckets[key] = rateBucket{count: 1, resetAt: now.Add(window)}
+		return true
+	}
+	if b.count < max {
+		b.count++
+		r.buckets[key] = b
+		return true
+	}
+	return false
+}
 
 func (a *App) withRateLimit(endpoint string, max int, window int, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ip := clientIP(r)
-		if !a.Store.RateLimitOK(endpoint, ip, max, window) {
+		ip := a.clientIP(r)
+		if !a.rateLimiter.allow(endpoint+"|"+ip, max, time.Duration(window)*time.Second) {
 			writeErr(w, http.StatusTooManyRequests, "Too many requests. Try again later.")
 			return
 		}
@@ -157,7 +200,7 @@ func (a *App) withRecovery(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if rec := recover(); rec != nil {
-				log.Printf("panic: %v", rec)
+				slog.Error("panic recovered", "request_id", requestID(r), "path", r.URL.Path, "value", rec)
 				writeErr(w, http.StatusInternalServerError, "Internal server error")
 			}
 		}()
@@ -167,17 +210,35 @@ func (a *App) withRecovery(next http.HandlerFunc) http.HandlerFunc {
 
 // --- security headers ---
 
+// securityCSP: all frontend assets are self-hosted and all scripts are loaded
+// from files (inline <script> blocks and event-attribute handlers were
+// extracted to /static/*.js), so no 'unsafe-inline'/'unsafe-eval' is needed for
+// scripts. style-src keeps 'unsafe-inline' for the remaining inline <style>
+// blocks and style="" attributes.
+const securityCSP = "default-src 'self'; " +
+	"script-src 'self'; " +
+	"style-src 'self' 'unsafe-inline'; " +
+	"img-src 'self' data: blob: https:; " +
+	"font-src 'self' data: https:; " +
+	"connect-src 'self' ws: wss:; " +
+	"frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+
 func (a *App) withSecurity(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
+		w.Header().Set("Content-Security-Policy", securityCSP)
 		next.ServeHTTP(w, r)
 	})
 }
 
 // --- logging + hijackable writer ---
+
+// reqIDKey carries a per-request correlation ID through the context so log
+// entries from a single request can be grouped.
+type reqIDKey struct{}
 
 func (a *App) withLogging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -186,10 +247,29 @@ func (a *App) withLogging(next http.Handler) http.Handler {
 			return
 		}
 		start := time.Now()
+		reqID := auth.RandomToken(8)
+		w.Header().Set("X-Request-ID", reqID)
+		ctx := context.WithValue(r.Context(), reqIDKey{}, reqID)
 		sw := &statusWriter{ResponseWriter: w, status: 200}
-		next.ServeHTTP(sw, r)
-		log.Printf("%s %s -> %d (%s)", r.Method, r.URL.Path, sw.status, time.Since(start).Round(time.Millisecond))
+		next.ServeHTTP(sw, r.WithContext(ctx))
+		slog.Info("http",
+			"request_id", reqID,
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", sw.status,
+			"duration_ms", time.Since(start).Milliseconds(),
+			"ip", a.clientIP(r),
+		)
 	})
+}
+
+// requestID returns the correlation ID previously attached by withLogging, or
+// an empty string.
+func requestID(r *http.Request) string {
+	if id, ok := r.Context().Value(reqIDKey{}).(string); ok {
+		return id
+	}
+	return ""
 }
 
 type statusWriter struct {

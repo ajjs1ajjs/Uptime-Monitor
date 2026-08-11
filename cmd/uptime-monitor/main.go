@@ -6,11 +6,10 @@ import (
 	"encoding/base64"
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -24,6 +23,12 @@ import (
 )
 
 const Version = "3.0.16"
+
+// fatalf logs an error and exits, mirroring the old log.Fatalf behaviour.
+func fatalf(format string, args ...any) {
+	slog.Error(fmt.Sprintf(format, args...))
+	os.Exit(1)
+}
 
 func main() {
 	if len(os.Args) < 2 {
@@ -39,6 +44,8 @@ func main() {
 		runResetAdmin(os.Args[2:])
 	case "has-admin":
 		runHasAdmin(os.Args[2:])
+	case "restore":
+		runRestore(os.Args[2:])
 	default:
 		printUsage()
 	}
@@ -50,6 +57,7 @@ func printUsage() {
 	fmt.Println("  uptime-monitor server [--host HOST] [--port PORT] [--config PATH]")
 	fmt.Println("  uptime-monitor reset-admin [--config PATH] [--db PATH]")
 	fmt.Println("  uptime-monitor has-admin [--config PATH] [--db PATH]")
+	fmt.Println("  uptime-monitor restore --backup FILENAME [--config PATH] [--db PATH]")
 	fmt.Println("  uptime-monitor --version")
 }
 
@@ -67,7 +75,7 @@ func runServer(args []string) {
 	host, port, cfgPath, dbPath := parseFlags(args)
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
-		log.Fatalf("config: %v", err)
+		fatalf("config: %v", err)
 	}
 	if host != "" {
 		cfg.Server.Host = host
@@ -81,7 +89,7 @@ func runServer(args []string) {
 
 	db, abs, err := storage.Open(dbPath)
 	if err != nil {
-		log.Fatalf("open db: %v", err)
+		fatalf("open db: %v", err)
 	}
 	store := storage.NewStore(db, abs)
 
@@ -124,16 +132,18 @@ func runServer(args []string) {
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 		<-sig
-		log.Println("shutting down...")
+		slog.Info("shutting down...")
 		cancel()
+		// Give in-flight monitor checks a short window to persist their result.
+		worker.WaitInflight(3 * time.Second)
 		ctx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel2()
 		_ = srv.Shutdown(ctx2)
 	}()
 
-	log.Printf("Uptime Monitor %s listening on http://%s", Version, addr)
+	slog.Info("listening", "version", Version, "addr", addr)
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("server: %v", err)
+		fatalf("server: %v", err)
 	}
 }
 
@@ -154,17 +164,17 @@ func adminPasswordEnv() (string, bool) {
 	return pw, pw != ""
 }
 
-func createAdmin(store *storage.Store, cfg *config.Config, dbDir, username string) {
+func createAdmin(store *storage.Store, cfg *config.Config, username string) {
 	pw, _ := adminPasswordEnv()
 	if pw == "" {
 		pw = randomToken(18)
 	}
 	hash, err := auth.HashPassword(pw)
 	if err != nil {
-		log.Fatalf("hash password: %v", err)
+		fatalf("hash password: %v", err)
 	}
 	if _, err := store.CreateUser(username, hash, "admin"); err != nil {
-		log.Fatalf("create admin: %v", err)
+		fatalf("create admin: %v", err)
 	}
 	// require password change on first login (consistent with the Monitoring port)
 	if u, _ := store.GetUserByUsername(username); u != nil {
@@ -172,12 +182,7 @@ func createAdmin(store *storage.Store, cfg *config.Config, dbDir, username strin
 	}
 	fmt.Printf("Admin user '%s' created.\n", username)
 	fmt.Printf("Generated password: %s\n", pw)
-	if dbDir != "" {
-		pwFile := filepath.Join(dbDir, "admin_password.txt")
-		if err := os.WriteFile(pwFile, []byte(pw+"\n"), 0o600); err == nil {
-			fmt.Printf("One-time password saved to %s (delete it after login).\n", pwFile)
-		}
-	}
+	fmt.Println("You will be asked to change this password at first login.")
 }
 
 func ensureAdmin(store *storage.Store, cfg *config.Config, dbDir string) {
@@ -186,7 +191,7 @@ func ensureAdmin(store *storage.Store, cfg *config.Config, dbDir string) {
 	if err == nil && u != nil {
 		return
 	}
-	createAdmin(store, cfg, dbDir, username)
+	createAdmin(store, cfg, username)
 }
 
 func resetAdmin(store *storage.Store, cfg *config.Config) {
@@ -195,21 +200,21 @@ func resetAdmin(store *storage.Store, cfg *config.Config) {
 		_ = store.DeleteUser(u.ID)
 		_ = store.DeleteUserSessions(u.ID)
 	}
-	createAdmin(store, cfg, filepath.Dir(store.DBPath), username)
+	createAdmin(store, cfg, username)
 }
 
 func runResetAdmin(args []string) {
 	_, _, cfgPath, dbPath := parseFlags(args)
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
-		log.Fatalf("config: %v", err)
+		fatalf("config: %v", err)
 	}
 	if dbPath == "" {
 		dbPath = cfg.DBPath()
 	}
 	db, abs, err := storage.Open(dbPath)
 	if err != nil {
-		log.Fatalf("open db: %v", err)
+		fatalf("open db: %v", err)
 	}
 	store := storage.NewStore(db, abs)
 	resetAdmin(store, cfg)
@@ -238,6 +243,42 @@ func runHasAdmin(args []string) {
 		return
 	}
 	fmt.Println("no")
+}
+
+// runRestore replaces the database file from a backup. It must run while the
+// server is stopped: restoring at runtime would close the live DB underneath
+// concurrent API/monitor queries.
+func runRestore(args []string) {
+	fs := flag.NewFlagSet("restore", flag.ContinueOnError)
+	var backup, cfgPath, dbPath string
+	fs.StringVar(&backup, "backup", "", "")
+	fs.StringVar(&cfgPath, "config", "", "")
+	fs.StringVar(&dbPath, "db", "", "")
+	_ = fs.Parse(args)
+	if backup == "" {
+		fatalf("restore: --backup <filename> is required")
+	}
+	cfg, err := config.Load(cfgPath)
+	if err != nil {
+		fatalf("config: %v", err)
+	}
+	if dbPath == "" {
+		dbPath = cfg.DBPath()
+	}
+	db, abs, err := storage.Open(dbPath)
+	if err != nil {
+		fatalf("open db: %v", err)
+	}
+	defer db.Close()
+	store := storage.NewStore(db, abs)
+	restored, err := store.RestoreBackupFile(cfg.BackupDir(), backup)
+	if err != nil {
+		fatalf("restore: %v", err)
+	}
+	if restored == "" {
+		fatalf("restore: backup %q not found in %s", backup, cfg.BackupDir())
+	}
+	fmt.Printf("Restored %s -> %s\n", backup, restored)
 }
 
 func randomToken(n int) string {

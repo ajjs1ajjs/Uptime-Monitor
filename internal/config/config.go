@@ -12,6 +12,14 @@ type Server struct {
 	Port   int    `json:"port"`
 	Host   string `json:"host"`
 	Domain string `json:"domain"`
+	// TrustedProxies lists proxy CIDRs (e.g. "10.0.0.0/8") whose
+	// X-Forwarded-For/X-Forwarded-Proto headers are honored. When empty, these
+	// headers are ignored and r.RemoteAddr is always used, so clients cannot
+	// spoof their IP to bypass rate limiting.
+	TrustedProxies []string `json:"trusted_proxies"`
+	// AllowLocalhost, when true, permits creating monitors that target the
+	// "localhost" hostname (otherwise the SSRF guard blocks it).
+	AllowLocalhost bool `json:"allow_localhost"`
 }
 
 type CORS struct {
@@ -98,7 +106,7 @@ func defaultLogDir() string {
 
 func Default() *Config {
 	return &Config{
-		Server:        Server{Port: 8080, Host: "auto", Domain: "auto"},
+		Server:        Server{Port: 8080, Host: "auto", Domain: "auto", AllowLocalhost: false},
 		CORS:          CORS{AllowOrigins: []string{"http://localhost:8080"}},
 		SSL:           SSL{HSTSMaxAge: 31536000},
 		DataDir:       defaultDataDir(),

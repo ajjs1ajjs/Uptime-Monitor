@@ -1,0 +1,17 @@
+.git
+.github
+*.exe
+uptime-monitor
+config.json
+*.db
+*.sqlite
+*.sqlite3
+admin_password.txt
+master.key
+backups
+dashboards
+MIGRATION_PLAN.md
+install.sh
+docs
+# README.md / CHANGELOG.md intentionally kept: the Dockerfile COPYs them in.
+

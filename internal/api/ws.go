@@ -3,6 +3,8 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -47,10 +49,27 @@ func (m *WSManager) remove(c *websocket.Conn) {
 	delete(m.connections, c)
 }
 
+// checkOrigin allows a browser-initiated WebSocket only when the Origin
+// matches this server's host. The session cookie is attached automatically to
+// any cross-origin WebSocket handshake, so accepting every Origin would leak
+// real-time monitoring data to any website the authenticated user visits
+// (CSWSH). Non-browser clients that omit the Origin header are allowed.
+func checkOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	u, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(u.Hostname(), hostnameOnly(r.Host))
+}
+
 var wsUpgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin:     func(r *http.Request) bool { return true },
+	CheckOrigin:     checkOrigin,
 }
 
 func (a *App) handleWS(w http.ResponseWriter, r *http.Request) {

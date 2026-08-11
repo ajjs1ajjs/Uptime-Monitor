@@ -23,17 +23,21 @@ import (
 var webFS embed.FS
 
 type App struct {
-	Cfg     *config.Config
-	Store   *storage.Store
-	Worker  *monitor.Worker
-	Notify  *notify.Service
-	Set     *pongo2.TemplateSet
-	WS      *WSManager
-	Start   time.Time
-	Version string
+	Cfg         *config.Config
+	Store       *storage.Store
+	Worker      *monitor.Worker
+	Notify      *notify.Service
+	Set         *pongo2.TemplateSet
+	WS          *WSManager
+	Start       time.Time
+	Version     string
+	rateLimiter *rateLimitStore
 }
 
 func (a *App) Handler() http.Handler {
+	if a.rateLimiter == nil {
+		a.rateLimiter = newRateLimitStore()
+	}
 	mux := http.NewServeMux()
 
 	// health + metrics (public, rate limited)

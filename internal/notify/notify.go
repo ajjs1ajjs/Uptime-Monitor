@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/smtp"
@@ -202,7 +202,9 @@ func (s *Service) postJSON(url string, payload any) bool {
 	}
 	resp, err := s.HTTP.Post(url, "application/json", bytes.NewReader(b))
 	if err != nil {
-		log.Printf("notify: %v", err)
+		// The URL may embed credentials (e.g. a Telegram bot token), so it is
+		// intentionally not logged.
+		slog.Warn("notify: HTTP POST failed", "error", err)
 		return false
 	}
 	defer resp.Body.Close()
@@ -213,7 +215,7 @@ func (s *Service) postJSON(url string, payload any) bool {
 func (s *Service) postForm(url string, data url.Values) bool {
 	resp, err := s.HTTP.PostForm(url, data)
 	if err != nil {
-		log.Printf("notify: %v", err)
+		slog.Warn("notify: form POST failed", "error", err)
 		return false
 	}
 	defer resp.Body.Close()
@@ -292,7 +294,7 @@ func (s *Service) email(alertType, siteName, message string, cfg map[string]any)
 		conn, err = net.DialTimeout("tcp", addr, 8*time.Second)
 	}
 	if err != nil {
-		log.Printf("notify: email dial %s: %v", addr, err)
+		slog.Warn("notify: email dial failed", "server", addr, "error", err)
 		return false
 	}
 	defer conn.Close()
@@ -300,35 +302,35 @@ func (s *Service) email(alertType, siteName, message string, cfg map[string]any)
 	_ = conn.SetDeadline(time.Now().Add(30 * time.Second))
 	client, err := smtp.NewClient(conn, server)
 	if err != nil {
-		log.Printf("notify: email newclient %s: %v", addr, err)
+		slog.Warn("notify: email newclient failed", "server", addr, "error", err)
 		return false
 	}
 	defer client.Close()
 	if port == 587 {
 		if ok, _ := client.Extension("STARTTLS"); ok {
 			if err := client.StartTLS(&tls.Config{ServerName: server}); err != nil {
-				log.Printf("notify: email starttls %s: %v", addr, err)
+				slog.Warn("notify: email starttls failed", "server", addr, "error", err)
 				return false
 			}
 		}
 	}
 	if pass != "" {
 		if err := authSMTP(client, server, user, pass); err != nil {
-			log.Printf("notify: email auth %s: %v", addr, err)
+			slog.Warn("notify: email auth failed", "server", addr, "error", err)
 			return false
 		}
 	}
 	if err := client.Mail(user); err != nil {
-		log.Printf("notify: email mail %s: %v", addr, err)
+		slog.Warn("notify: email MAIL FROM failed", "server", addr, "error", err)
 		return false
 	}
 	if err := client.Rcpt(to); err != nil {
-		log.Printf("notify: email rcpt %s: %v", addr, err)
+		slog.Warn("notify: email RCPT TO failed", "server", addr, "error", err)
 		return false
 	}
 	w, err := client.Data()
 	if err != nil {
-		log.Printf("notify: email data %s: %v", addr, err)
+		slog.Warn("notify: email DATA failed", "server", addr, "error", err)
 		return false
 	}
 	label := map[string]string{
@@ -405,7 +407,11 @@ func (s *Service) gotify(message string, cfg map[string]any) bool {
 	if server == "" || token == "" {
 		return false
 	}
-	req, err := http.NewRequest("POST", strings.TrimRight(server, "/")+"/message", bytes.NewReader([]byte(`{"title":"Uptime Monitor","message":`+quote(message)+`,"priority":5}`)))
+	payload, err := json.Marshal(map[string]any{"title": "Uptime Monitor", "message": message, "priority": 5})
+	if err != nil {
+		return false
+	}
+	req, err := http.NewRequest("POST", strings.TrimRight(server, "/")+"/message", bytes.NewReader(payload))
 	if err != nil {
 		return false
 	}
@@ -444,11 +450,6 @@ func (s *Service) ntfy(message string, cfg map[string]any) bool {
 	defer resp.Body.Close()
 	io.Copy(io.Discard, resp.Body)
 	return resp.StatusCode >= 200 && resp.StatusCode < 300
-}
-
-func quote(s string) string {
-	b, _ := json.Marshal(s)
-	return string(b)
 }
 
 func num(v any, def int) int {

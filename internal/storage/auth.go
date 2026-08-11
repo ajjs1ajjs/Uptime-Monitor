@@ -247,24 +247,6 @@ func mustRowsAffected(res sql.Result) int64 {
 	return n
 }
 
-// --- rate limiting (DB-backed) ---
-
-func (st *Store) RateLimitOK(endpoint, ip string, maxAttempts int, windowSeconds int) bool {
-	now := float64(time.Now().Unix())
-	_, _ = st.DB.Exec(`DELETE FROM rate_limits WHERE reset_at < ?`, now)
-	_, _ = st.DB.Exec(`INSERT INTO rate_limits (endpoint, ip, attempt_count, reset_at)
-	  VALUES (?,?,1,?)
-	  ON CONFLICT(endpoint, ip) DO UPDATE SET
-	    attempt_count = CASE WHEN excluded.reset_at > ? THEN attempt_count + 1 ELSE 1 END,
-	    reset_at = CASE WHEN excluded.reset_at > ? THEN reset_at ELSE excluded.reset_at END`,
-		endpoint, ip, now+float64(windowSeconds), now, now)
-	var count int
-	if err := st.DB.QueryRow(`SELECT attempt_count FROM rate_limits WHERE endpoint = ? AND ip = ?`, endpoint, ip).Scan(&count); err != nil {
-		return true
-	}
-	return count <= maxAttempts
-}
-
 // --- app seeding helpers ---
 
 func (st *Store) CountSites() (int, error) {

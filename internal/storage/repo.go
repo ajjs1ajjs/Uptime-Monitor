@@ -122,11 +122,6 @@ func (st *Store) GetSites() ([]Site, error) {
 }
 
 func (st *Store) attachStatus(sites []Site) {
-	ids := make([]string, 0, len(sites))
-	for _, s := range sites {
-		ids = append(ids, strconv.FormatInt(s.ID, 10))
-	}
-	inClause := strings.Join(ids, ",")
 	lastRows, err := st.DB.Query(`SELECT site_id, status FROM (
 	  SELECT site_id, status, ROW_NUMBER() OVER (PARTITION BY site_id ORDER BY checked_at DESC) rn
 	  FROM status_history) WHERE rn = 1`)
@@ -163,7 +158,6 @@ func (st *Store) attachStatus(sites []Site) {
 			}
 		}
 	}
-	_ = inClause
 }
 
 func round2(f float64) float64 {
@@ -357,12 +351,6 @@ func (st *Store) SaveSSLCertificate(siteID int64, cert map[string]any) error {
 	  VALUES (?,?,?,?,?,?,?,?,?)`, siteID, cert["hostname"], cert["issuer"], cert["subject"],
 		cert["start_date"], cert["expire_date"], cert["days_until_expire"], cert["is_valid"], Now())
 	return err
-}
-
-func (st *Store) rowExists(table, col string, val int64) bool {
-	var one int
-	err := st.DB.QueryRow(fmt.Sprintf(`SELECT 1 FROM %s WHERE %s = ? LIMIT 1`, table, col), val).Scan(&one)
-	return err == nil
 }
 
 func (st *Store) UpdateSSLThresholds(siteID int64, thresholds []int, lastNotified string) error {

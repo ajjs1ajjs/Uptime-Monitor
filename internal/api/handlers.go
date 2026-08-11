@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
@@ -114,7 +115,7 @@ func (a *App) handleCreateSite(w http.ResponseWriter, r *http.Request) {
 		Keyword       *string  `json:"keyword"`
 		Tags          []string `json:"tags"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeJSON(w, r, &body); err != nil {
 		writeErr(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
@@ -122,7 +123,7 @@ func (a *App) handleCreateSite(w http.ResponseWriter, r *http.Request) {
 	if mType == "" {
 		mType = "http"
 	}
-	rawURL, err := normalizeURL(body.URL, mType)
+	rawURL, err := a.normalizeURL(body.URL, mType)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
@@ -173,7 +174,7 @@ func (a *App) handleUpdateSite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body map[string]any
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeJSON(w, r, &body); err != nil {
 		writeErr(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
@@ -187,7 +188,7 @@ func (a *App) handleUpdateSite(w http.ResponseWriter, r *http.Request) {
 		fields["name"] = v
 	}
 	if v, ok := body["url"].(string); ok {
-		u, err := normalizeURL(v, monitorType)
+		u, err := a.normalizeURL(v, monitorType)
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
@@ -247,7 +248,7 @@ func (a *App) handleManualCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if a.Worker != nil {
-		a.Worker.CheckSite(s)
+		a.Worker.CheckSite(r.Context(), s)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"message": "Check triggered"})
 }
@@ -468,7 +469,7 @@ func (n *sqlNullString) Scan(v any) error {
 
 func (a *App) handleSaveNotify(w http.ResponseWriter, r *http.Request) {
 	var body map[string]any
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeJSON(w, r, &body); err != nil {
 		writeErr(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
@@ -498,7 +499,7 @@ func (a *App) handleGetAppSettings(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) handleSaveAppSettings(w http.ResponseWriter, r *http.Request) {
 	var body map[string]any
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeJSON(w, r, &body); err != nil {
 		writeErr(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
@@ -534,7 +535,7 @@ func (a *App) handleGetAlertPolicy(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) handleSaveAlertPolicy(w http.ResponseWriter, r *http.Request) {
 	var body map[string]any
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeJSON(w, r, &body); err != nil {
 		writeErr(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
@@ -688,7 +689,7 @@ func (a *App) handleCreateUserAPI(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 		Role     string `json:"role"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeJSON(w, r, &body); err != nil {
 		writeErr(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
@@ -729,7 +730,7 @@ func (a *App) handleUpdateUserAPI(w http.ResponseWriter, r *http.Request) {
 		Role     string `json:"role"`
 		Password string `json:"password"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeJSON(w, r, &body); err != nil {
 		writeErr(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
@@ -824,7 +825,7 @@ func (a *App) handleCreateMaintenance(w http.ResponseWriter, r *http.Request) {
 		StartHourMinute *string `json:"start_hour_minute"`
 		DurationMinutes *int    `json:"duration_minutes"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeJSON(w, r, &body); err != nil {
 		writeErr(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
@@ -854,7 +855,7 @@ func (a *App) handleToggleMaintenance(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		IsActive bool `json:"is_active"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeJSON(w, r, &body); err != nil {
 		writeErr(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
@@ -940,12 +941,28 @@ func (a *App) handleSLAExport(w http.ResponseWriter, r *http.Request) {
 	_ = cw.Write([]string{"ID", "Name", "URL", "Uptime %", "Avg Response Time (ms)", "Total Checks", "Incidents"})
 	for _, item := range rep {
 		_ = cw.Write([]string{
-			fmt.Sprintf("%v", item["id"]), fmt.Sprintf("%v", item["name"]), fmt.Sprintf("%v", item["url"]),
+			fmt.Sprintf("%v", item["id"]),
+			csvSafe(fmt.Sprintf("%v", item["name"])),
+			csvSafe(fmt.Sprintf("%v", item["url"])),
 			fmt.Sprintf("%v%%", item["uptime"]), fmt.Sprintf("%v", item["avg_response_time"]),
 			fmt.Sprintf("%v", item["total_checks"]), fmt.Sprintf("%v", item["incidents"]),
 		})
 	}
 	cw.Flush()
+}
+
+// csvSafe neutralizes spreadsheet formula injection: cells that begin with
+// =, +, -, @ (or a tab/CR) are prefixed with a single quote so Excel and
+// Google Sheets render them as text instead of executing a formula.
+func csvSafe(v string) string {
+	if v == "" {
+		return v
+	}
+	switch v[0] {
+	case '=', '+', '-', '@', '\t', '\r':
+		return "'" + v
+	}
+	return v
 }
 
 func (a *App) handleSLAPDF(w http.ResponseWriter, r *http.Request) {
@@ -1093,39 +1110,11 @@ func (a *App) handleBackupList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleBackupRestore(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Query().Get("confirm") != "true" {
-		writeErr(w, http.StatusBadRequest, "Confirmation required: add ?confirm=true")
-		return
-	}
-	id, _ := pathInt(r, "backup_id")
-	backups, err := a.Store.Backups(200)
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "Database error")
-		return
-	}
-	filename := ""
-	found := false
-	for _, b := range backups {
-		if v, ok := b["id"]; ok {
-			if vv, ok2 := v.(int64); ok2 && vv == id {
-				filename, _ = b["filename"].(string)
-				found = true
-				break
-			}
-		}
-	}
-	if !found {
-		writeErr(w, http.StatusNotFound, "Backup not found")
-		return
-	}
-	dir := a.Cfg.BackupDir()
-	if _, err := a.Store.RestoreBackupFile(dir, filename); err != nil {
-		writeErr(w, http.StatusBadRequest, "Restore failed: "+err.Error())
-		return
-	}
-	p := a.principal(r)
-	_ = a.Store.LogAudit(p.UserID, p.Username, "backup_restored", "backup", strconv.FormatInt(id, 10), "restored "+filename)
-	writeJSON(w, http.StatusOK, map[string]any{"status": "restored", "backup": filename})
+	// Restore swaps the live DB file, which is unsafe while the server is
+	// running (concurrent API and monitor queries would race the swap). It is
+	// available only through the CLI with the service stopped.
+	writeErr(w, http.StatusBadRequest,
+		"Restore must be run with the service stopped via the CLI: uptime-monitor restore --backup <filename>")
 }
 
 func (a *App) handleTags(w http.ResponseWriter, r *http.Request) {
@@ -1143,7 +1132,7 @@ func (a *App) handleTags(w http.ResponseWriter, r *http.Request) {
 // --- helpers ---
 
 // URL normalization + SSRF guard at creation time.
-func normalizeURL(raw string, monitorType string) (string, error) {
+func (a *App) normalizeURL(raw string, monitorType string) (string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return "", fmt.Errorf("URL required")
@@ -1162,7 +1151,7 @@ func normalizeURL(raw string, monitorType string) (string, error) {
 		if u.Hostname() == "" {
 			return "", fmt.Errorf("Invalid host in URL")
 		}
-		if resolvesBlocked(u.Hostname()) {
+		if a.resolvesBlocked(u.Hostname()) {
 			return "", fmt.Errorf("Invalid host in URL")
 		}
 	} else {
@@ -1170,26 +1159,32 @@ func normalizeURL(raw string, monitorType string) (string, error) {
 		if host == "" {
 			host = strings.Split(strings.TrimPrefix(u.Path, "/"), "/")[0]
 		}
-		if resolvesBlocked(host) {
+		if a.resolvesBlocked(host) {
 			return "", fmt.Errorf("Invalid host/IP")
 		}
 	}
 	return raw, nil
 }
 
-func resolvesBlocked(host string) bool {
-	if host == "localhost" {
-		return false
+// resolvesBlocked reports whether a monitor target host must be rejected. It
+// blocks loopback, link-local, multicast and unspecified addresses, and the
+// "localhost" hostname unless server.allow_localhost is enabled. DNS lookups
+// are bounded by a timeout so user-controlled hosts cannot stall a handler.
+func (a *App) resolvesBlocked(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return !a.Cfg.Server.AllowLocalhost
 	}
 	if ip := net.ParseIP(strings.Trim(host, "[]")); ip != nil {
 		return ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsMulticast() || ip.IsUnspecified()
 	}
-	addrs, err := net.LookupHost(host)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	addrs, err := net.DefaultResolver.LookupHost(ctx, host)
 	if err != nil {
 		return false
 	}
-	for _, a := range addrs {
-		if ip := net.ParseIP(a); ip != nil && (ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsMulticast() || ip.IsUnspecified()) {
+	for _, addr := range addrs {
+		if ip := net.ParseIP(addr); ip != nil && (ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsMulticast() || ip.IsUnspecified()) {
 			return true
 		}
 	}

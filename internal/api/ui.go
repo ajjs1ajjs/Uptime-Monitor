@@ -15,16 +15,26 @@ import (
 
 const sessionCookie = "session_id"
 
-func (a *App) setSessionCookie(w http.ResponseWriter, sessionID string) {
-	http.SetCookie(w, &http.Cookie{
+func (a *App) setSessionCookie(w http.ResponseWriter, r *http.Request, sessionID string) {
+	c := &http.Cookie{
 		Name: sessionCookie, Value: sessionID, Path: "/",
 		HttpOnly: true, SameSite: http.SameSiteLaxMode,
 		MaxAge: 7 * 24 * 3600,
-	})
+	}
+	// Secure is set when the request arrived over HTTPS (direct TLS or a
+	// trusted proxy). It must match between set and clear, otherwise the
+	// Secure cookie would never be removed.
+	if a.isHTTPS(r) {
+		c.Secure = true
+	}
+	http.SetCookie(w, c)
 }
 
-func (a *App) clearSessionCookie(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", MaxAge: -1, HttpOnly: true})
+func (a *App) clearSessionCookie(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name: sessionCookie, Value: "", Path: "/", MaxAge: -1,
+		HttpOnly: true, Secure: a.isHTTPS(r),
+	})
 }
 
 // --- login ---
@@ -42,6 +52,7 @@ func (a *App) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleLoginPost(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	if err := r.ParseForm(); err != nil {
 		http.Redirect(w, r, "/login?error=bad_request", http.StatusFound)
 		return
@@ -60,7 +71,7 @@ func (a *App) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = a.Store.UpdateUser(u.ID, map[string]any{"last_login": storage.Now()})
-	a.setSessionCookie(w, sessionID)
+	a.setSessionCookie(w, r, sessionID)
 	if u.MustChangePassword == 1 {
 		http.Redirect(w, r, "/change-password", http.StatusFound)
 		return
@@ -72,7 +83,7 @@ func (a *App) handleLogout(w http.ResponseWriter, r *http.Request) {
 	if c, err := r.Cookie(sessionCookie); err == nil {
 		_ = a.Store.DeleteSession(c.Value)
 	}
-	a.clearSessionCookie(w)
+	a.clearSessionCookie(w, r)
 	http.Redirect(w, r, "/login", http.StatusFound)
 }
 
@@ -112,6 +123,7 @@ func (a *App) handleChangePasswordPost(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	if err := r.ParseForm(); err != nil || !a.Store.ConsumeCSRFToken(sid, r.FormValue("csrf_token")) {
 		http.Redirect(w, r, "/change-password?error=csrf", http.StatusFound)
 		return
@@ -149,7 +161,7 @@ func (a *App) handleChangePasswordPost(w http.ResponseWriter, r *http.Request) {
 	// mint a fresh session for the actor
 	newSid := auth.SessionID()
 	_ = a.Store.CreateSession(u.ID, newSid, time.Now().Add(7*24*time.Hour))
-	a.setSessionCookie(w, newSid)
+	a.setSessionCookie(w, r, newSid)
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
@@ -183,6 +195,7 @@ func (a *App) handleForgotPost(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/forgot-password?error=admin_only", http.StatusFound)
 		return
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	if err := r.ParseForm(); err != nil {
 		http.Redirect(w, r, "/forgot-password?error=bad_request", http.StatusFound)
 		return
@@ -197,8 +210,15 @@ func (a *App) handleForgotPost(w http.ResponseWriter, r *http.Request) {
 	hash, _ := auth.HashPassword(tempPW)
 	_ = a.Store.UpdateUser(tu.ID, map[string]any{"password_hash": hash, "must_change_password": 1})
 	_ = a.Store.DeleteUserSessions(tu.ID)
+	// Render the temporary password directly in the response instead of putting
+	// it in a redirect URL, where it would land in browser history, access
+	// logs, proxy logs and Referer headers.
 	msg := "Тимчасовий пароль для " + target + ": " + tempPW + " (змініть при вході)"
-	http.Redirect(w, r, "/forgot-password?success="+url.QueryEscape(msg), http.StatusFound)
+	a.renderPage(w, "forgot_password.html", map[string]any{
+		"error_message":   "",
+		"success_message": msg,
+		"csrf_token":      a.newCSRFToken(sid),
+	}, http.StatusOK)
 }
 
 // --- dashboard / users / public status ---
@@ -565,15 +585,21 @@ func monitorCardCtx(s storage.Site) map[string]any {
 		kw = *s.Keyword
 	}
 	tagsJSON, _ := json.Marshal(json.RawMessage(s.Tags))
+	var tagList []string
+	_ = json.Unmarshal([]byte(s.Tags), &tagList)
+	if tagList == nil {
+		tagList = []string{}
+	}
 	return map[string]any{
 		"name": s.Name, "url": s.URL,
 		"escaped_name": string(nameJSON), "escaped_url": string(urlJSON),
 		"escaped_methods": url.QueryEscape(string(methodsJSON)),
 		"escaped_keyword": url.QueryEscape(kw),
 		"escaped_tags":    url.QueryEscape(string(tagsJSON)),
-		"keyword":         kw, "tags": json.RawMessage(s.Tags),
+		"keyword":         kw, "tags": tagList,
 		"scolor": scolor, "border": border, "stext": stext,
-		"mtype": s.MonitorType, "uptime": uptime, "rt": rt, "sc": sc,
+		"mtype": s.MonitorType, "uptime": uptime, "uptime_str": fmt.Sprintf("%.1f", uptime),
+		"rt": rt, "sc": sc,
 		"sid": s.ID, "check_interval": s.CheckInterval,
 	}
 }

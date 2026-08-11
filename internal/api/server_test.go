@@ -173,7 +173,9 @@ func TestLoginChangePasswordAndDashboard(t *testing.T) {
 // TestDashboardScriptNotHtmlEscaped guards against the production bug where
 // pongo2 autoescape turned the tojson output into HTML entities
 // ({&quot;...&quot;}), producing a JS SyntaxError that killed the whole
-// dashboard script block (switchTab / sitesData not defined).
+// dashboard script block (switchTab / sitesData not defined). The notify
+// settings JSON now lives in a <script type="application/json"> element that
+// the external dashboard.js reads.
 func TestDashboardScriptNotHtmlEscaped(t *testing.T) {
 	app, base, pw := newTestApp(t)
 	jar := map[string]string{}
@@ -188,22 +190,22 @@ func TestDashboardScriptNotHtmlEscaped(t *testing.T) {
 		t.Fatalf("dashboard content missing")
 	}
 
-	m := regexp.MustCompile(`var notifyConfig = (.*?);`).FindStringSubmatch(body)
+	m := regexp.MustCompile(`<script type="application/json" id="notify-config">(.*?)</script>`).FindStringSubmatch(body)
 	if len(m) < 2 {
-		t.Fatalf("var notifyConfig not found in dashboard")
+		t.Fatalf("notify-config element not found in dashboard")
 	}
 	jsonLine := m[1]
 	for _, bad := range []string{"&quot;", "&amp;", "&#34;", "&lt;", "&gt;", "&#39;"} {
 		if strings.Contains(jsonLine, bad) {
-			t.Fatalf("notifyConfig JSON contains HTML-escaped %q (broken JS): %s", bad, jsonLine)
+			t.Fatalf("notify-config JSON contains HTML-escaped %q (broken JSON): %s", bad, jsonLine)
 		}
 	}
 	if !json.Valid([]byte(jsonLine)) {
-		t.Fatalf("notifyConfig is not valid JSON: %s", jsonLine)
+		t.Fatalf("notify-config is not valid JSON: %s", jsonLine)
 	}
 	// the script tag must not be terminated early by a raw </ in the JSON
 	if strings.Contains(jsonLine, "</script") {
-		t.Fatalf("notifyConfig contains raw </script: %s", jsonLine)
+		t.Fatalf("notify-config contains raw </script: %s", jsonLine)
 	}
 }
 

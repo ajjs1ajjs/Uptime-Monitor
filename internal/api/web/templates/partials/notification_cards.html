@@ -11,7 +11,7 @@
             </div>
         </div>
         <label class="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" id="toggle-{{ m.key }}" class="sr-only peer" onchange="toggleNotify('{{ m.key }}')" {% if m.enabled %}checked{% endif %}>
+            <input type="checkbox" id="toggle-{{ m.key }}" class="sr-only peer" data-change="toggleNotify" data-method="{{ m.key }}" {% if m.enabled %}checked{% endif %}>
             <div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-accent peer-focus:ring-1 peer-focus:ring-accent transition after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
         </label>
     </div>
@@ -22,12 +22,12 @@
         <div class="p-3 rounded-lg bg-slate-800/50 border {% if m.enabled %}border-emerald-500/30{% else %}border-slate-700/30{% endif %} mb-2" id="ch_{{ ch_id }}">
             <div class="flex justify-between items-center mb-1">
                 <span class="text-sm font-medium">{{ m.icon }} {{ ch_name }}</span>
-                <button onclick="removeChannel('{{ m.key }}','{{ ch_id }}')" class="text-red-400 hover:text-red-300 text-xs transition">✕</button>
+                <button data-action="removeChannel" data-method="{{ m.key }}" data-channel="{{ ch_id }}" class="text-red-400 hover:text-red-300 text-xs transition">✕</button>
             </div>
             <input type="hidden" id="{{ m.key }}_{{ ch_id }}_name" value="{{ ch_name }}">
         </div>
     {% endfor %}
     </div>
-    <button onclick="openAddChannelModal('{{ m.key }}')" class="w-full py-2.5 rounded-lg border border-dashed border-slate-600 text-slate-400 hover:border-accent hover:text-accent transition text-xs font-medium bg-transparent">➕ Add Channel</button>
+    <button data-action="openAddChannelModal" data-method="{{ m.key }}" class="w-full py-2.5 rounded-lg border border-dashed border-slate-600 text-slate-400 hover:border-accent hover:text-accent transition text-xs font-medium bg-transparent">➕ Add Channel</button>
 </div>
 {% endfor %}

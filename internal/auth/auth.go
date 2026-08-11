@@ -14,7 +14,10 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 )
 
-const apiKeySalt = "uptime-monitor-api-key-salt"
+// legacyAPISalt was the single fixed salt used by earlier versions. New keys
+// carry a per-key random salt embedded in the key, but old keys still need to
+// verify, so we keep this fallback.
+const legacyAPISalt = "uptime-monitor-api-key-salt"
 
 type User struct {
 	ID                 int64  `json:"id"`
@@ -36,14 +39,41 @@ func VerifyPassword(hash, pw string) bool {
 }
 
 // HashAPIKey derives a deterministic PBKDF2-HMAC-SHA256 digest so lookups work
-// by hashing the presented key.
+// by hashing the presented key. New keys embed a random per-key salt in the
+// key itself ("um_<salt>.<secret>"), so identical secrets never produce the
+// same hash and rainbow-table precomputation is not possible even if the whole
+// hash database leaks. Keys minted by older versions (no embedded salt) still
+// verify via the legacy fixed salt.
 func HashAPIKey(rawKey string) string {
-	dk := pbkdf2.Key([]byte(rawKey), []byte(apiKeySalt), 100000, 32, sha256.New)
+	if salt, secret, ok := splitRawKey(rawKey); ok {
+		return pbkdf2Digest(salt, secret)
+	}
+	return pbkdf2Digest(legacyAPISalt, rawKey)
+}
+
+func pbkdf2Digest(salt, secret string) string {
+	dk := pbkdf2.Key([]byte(secret), []byte(salt), 100000, 32, sha256.New)
 	return hex.EncodeToString(dk)
 }
 
+// splitRawKey splits a v2 key "um_<salt>.<secret>" into its parts.
+func splitRawKey(raw string) (salt, secret string, ok bool) {
+	const prefix = "um_"
+	if !strings.HasPrefix(raw, prefix) {
+		return "", "", false
+	}
+	rest := raw[len(prefix):]
+	i := strings.IndexByte(rest, '.')
+	if i <= 0 || i == len(rest)-1 {
+		return "", "", false
+	}
+	return rest[:i], rest[i+1:], true
+}
+
 func NewAPIKey() (keyID, raw string) {
-	raw = "um_" + randomToken(32)
+	salt := randomToken(16)
+	secret := randomToken(32)
+	raw = "um_" + salt + "." + secret
 	return randomToken(8), raw
 }
 

@@ -10,47 +10,15 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Uptime Monitor">
+    <link rel="stylesheet" href="/static/tailwind.css">
     <link rel="stylesheet" href="/static/app.css">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: { extend: { colors: { accent: { DEFAULT: '#00d9ff', hover: '#00a8cc' }, 'bg-primary': 'var(--bg-primary)', 'bg-secondary': 'var(--bg-secondary)', 'bg-card': 'var(--bg-card)', 'border-dark': 'var(--border-color)' } } }
-        };
-        document.addEventListener('htmx:beforeSwap', function(evt) {
-            if (evt.detail.xhr.status === 429) { alert('Rate limited. Please wait.'); evt.detail.shouldSwap = false; }
-        });
-        document.addEventListener('htmx:afterSwap', function(evt) { if (typeof applyLanguage === 'function') applyLanguage(); });
-    </script>
+    <script src="/static/vendor/htmx.min.js"></script>
     <script src="/static/i18n.js"></script>
     {% block head %}{% endblock %}
 </head>
 <body>
     {% block content %}{% endblock %}
-    <script>
-        if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/static/sw.js').then(function(reg) { reg.update(); }).catch(function(err) { console.log('SW registration failed:', err); }); }
-        (function() {
-            const theme = localStorage.getItem('theme');
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            const isDark = theme ? theme === 'dark' : prefersDark;
-            window.__isDark = isDark;
-            if (!isDark) { document.documentElement.classList.add('light'); document.documentElement.classList.remove('dark'); }
-            else { document.documentElement.classList.add('dark'); document.documentElement.classList.remove('light'); }
-            const themeBtn = document.getElementById('themeBtn');
-            if (themeBtn) themeBtn.textContent = isDark ? '🌙' : '☀️';
-            applyLanguage();
-        })();
-        function toggleTheme() {
-            const isDark = !window.__isDark;
-            window.__isDark = isDark;
-            localStorage.setItem('theme', isDark ? 'dark' : 'light');
-            if (isDark) { document.documentElement.classList.add('dark'); document.documentElement.classList.remove('light'); }
-            else { document.documentElement.classList.add('light'); document.documentElement.classList.remove('dark'); }
-            const btn = document.getElementById('themeBtn');
-            if (btn) btn.textContent = isDark ? '🌙' : '☀️';
-        }
-    </script>
+    <script src="/static/app.js"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>
