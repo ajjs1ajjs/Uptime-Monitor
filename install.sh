@@ -124,9 +124,33 @@ if [ ! -f "$CONFIG_FILE" ]; then
     echo "Creating default config at $CONFIG_FILE ..."
     cat > "$CONFIG_FILE" <<'EOF'
 {
-  "server": { "port": 8080, "host": "0.0.0.0" },
+  "server": {
+    "port": 8080,
+    "host": "0.0.0.0",
+    "trusted_proxies": [],
+    "allow_localhost": false
+  },
   "data_dir": "/var/lib/uptime-monitor",
-  "log_dir": "/var/log/uptime-monitor"
+  "log_dir": "/var/log/uptime-monitor",
+  "check_interval": 60,
+  "alert_policy": {
+    "request_timeout_seconds": 30,
+    "grace_period_seconds": 0,
+    "up_success_threshold": 2,
+    "still_down_repeat_seconds": 600,
+    "treat_4xx_as_down": true,
+    "verify_ssl": true,
+    "ssl_notification_days": [30, 14, 7, 5, 3, 1],
+    "ssl_notification_cooldown_seconds": 21600,
+    "ssl_check_interval_hours": 6,
+    "retry_delays": [30, 30],
+    "max_retries": 2
+  },
+  "backup": {
+    "enabled": true,
+    "max_backups": 10,
+    "backup_dir": "/var/lib/uptime-monitor/backups"
+  }
 }
 EOF
 fi
@@ -163,6 +187,11 @@ systemctl daemon-reload
 systemctl enable $SERVICE_NAME
 
 # --- Admin password (fresh install only, unless UPTIME_MONITOR_ADMIN_PASSWORD) --
+# The binary itself never writes admin_password.txt (the password is shown on
+# stdout once); remove leftovers created by older versions.
+if [ -z "$UPTIME_MONITOR_WRITE_PASSWORD_FILE" ]; then
+    rm -f "$DATA_DIR/admin_password.txt"
+fi
 ADMIN_SET=0
 if [ "$IS_UPDATE" = "1" ] && [ -z "$UPTIME_MONITOR_ADMIN_PASSWORD" ] && [ -z "$PYMON_ADMIN_PASSWORD" ]; then
     : # update: keep existing credentials
@@ -176,9 +205,13 @@ else
         fi
         sudo -u uptime UPTIME_MONITOR_ADMIN_PASSWORD="$ADMIN_PW" DB_PATH="$DATA_DIR/sites.db" \
             "$INSTALL_DIR/uptime-monitor" reset-admin --config "$CONFIG_FILE"
-        echo "$ADMIN_PW" > "$DATA_DIR/admin_password.txt"
-        chown uptime:uptime "$DATA_DIR/admin_password.txt"
-        chmod 600 "$DATA_DIR/admin_password.txt"
+        # Optional on-disk copy for headless/scripted installs (opt-in).
+        if [ -n "$UPTIME_MONITOR_WRITE_PASSWORD_FILE" ]; then
+            echo "$ADMIN_PW" > "$DATA_DIR/admin_password.txt"
+            chown uptime:uptime "$DATA_DIR/admin_password.txt"
+            chmod 600 "$DATA_DIR/admin_password.txt"
+            echo "Пароль збережено: $DATA_DIR/admin_password.txt (видаліть після входу)"
+        fi
         ADMIN_SET=1
     fi
 fi
@@ -214,7 +247,10 @@ if [ "$ADMIN_SET" = "1" ]; then
     echo "  Пароль:   $ADMIN_PW"
     echo "===================================="
     echo "При вході система попросить змінити пароль."
-    echo "Пароль також збережено: $DATA_DIR/admin_password.txt (видаліть після входу)"
+    echo "Пароль більше не зберігається на диску — запишіть його."
+    if [ -n "$UPTIME_MONITOR_WRITE_PASSWORD_FILE" ]; then
+        echo "Копія пароля: $DATA_DIR/admin_password.txt (видаліть після входу)"
+    fi
 else
     echo "Існуючі облікові дані збережено (пароль не змінювався)."
     echo "Якщо треба скинути пароль адміна:"
