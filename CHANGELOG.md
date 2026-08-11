@@ -1,3 +1,58 @@
+## [3.0.17] - 2026-08-11
+
+### Security
+
+- **WebSocket Origin validation** — `/ws` rejects cross-origin handshakes (CSWSH);
+  session cookies can no longer be hijacked by third-party pages.
+- **Reverse-proxy aware client IP** — `X-Forwarded-For` / `X-Forwarded-Proto` are
+  honoured only from CIDRs listed in `server.trusted_proxies`; otherwise the direct
+  peer IP is used, so rate limits can no longer be bypassed by spoofed headers.
+- **SSRF hardening** — `localhost` is now blocked by default when creating monitors
+  (opt-in via `server.allow_localhost`); DNS resolution in the guard has a timeout.
+- **Secure session cookie** — the `Secure` flag is set whenever the request arrives
+  over TLS (direct or trusted proxy).
+- **Per-key API-key salt** — new keys embed a random salt (`um_<salt>.<secret>`);
+  keys minted by older versions still verify via the legacy fixed salt.
+- **Admin password no longer written to disk** — the generated password is shown once
+  on stdout only (install.sh still writes its own one-time file for headless setup).
+- **Request body limits** — all JSON/form handlers cap bodies at 1 MiB (DoS guard).
+- **CSV injection guard** — SLA export prefixes cells starting with `= + - @` to
+  prevent spreadsheet formula execution.
+- **Strict CSP** — `script-src 'self'`; no `unsafe-inline`/`unsafe-eval`, no third-party
+  CDN origins (all assets are self-hosted now).
+- **In-memory rate limiting** — replaces the DB-backed limiter (one DB write per
+  request) with a process-local fixed-window limiter.
+- **Backup restore moved to CLI** — `uptime-monitor restore --backup <file>`; the
+  runtime API endpoint refuses restore, which previously swapped the live DB while
+  the server was running.
+- **Removed `rowExists` / unused `inClause`** — eliminated dead SQL that used dynamic
+  identifiers.
+
+### Observability
+
+- **Structured logging (`log/slog`)** — every request logs method/path/status/duration
+  plus a `X-Request-ID` correlation header; worker, notify and panic logs are
+  structured and never include secrets (URLs that may embed tokens are not logged).
+
+### Frontend
+
+- **Self-hosted dependencies** — htmx 2.0.4 and Chart.js 4.4.7 vendored in
+  `/static/vendor/`; Tailwind Play CDN replaced by a static `tailwind.css` build
+  (`tailwind.config.js`, `tailwind-input.css`).
+- **No inline scripts** — all JavaScript extracted to `/static/app.js`,
+  `/static/dashboard.js`, `/static/users.js`, `/static/change_password.js`; inline
+  event attributes replaced by `data-action` delegation.
+- **Toast notifications** — blocking `alert()` dialogs (rate-limit, validation)
+  replaced with non-blocking toasts.
+- **`.dockerignore`** — keeps secrets/build context out of the image.
+
+### Fixed
+
+- **`/api/htmx/monitors` never rendered** — the partial used a nonexistent pongo2
+  `format` filter; uptime is now pre-formatted (`uptime_str`).
+- **Monitor tags rendered as byte codes** ("📁 91") — `json.RawMessage` tags are now
+  parsed into a string slice before rendering.
+
 ## [3.0.0] - 2026-08-06
 
 ### Main highlights
