@@ -176,13 +176,19 @@ func createAdmin(store *storage.Store, cfg *config.Config, username string) {
 	if _, err := store.CreateUser(username, hash, "admin"); err != nil {
 		fatalf("create admin: %v", err)
 	}
-	// require password change on first login (consistent with the Monitoring port)
-	if u, _ := store.GetUserByUsername(username); u != nil {
-		_ = store.UpdateUser(u.ID, map[string]any{"must_change_password": 1})
+	// Require a password change on first login by default (consistent with the
+	// Monitoring port). Set UPTIME_MONITOR_NO_FORCE_PASSWORD_CHANGE=1 (e.g. in
+	// reset-admin) to log straight in with the given password instead.
+	if os.Getenv("UPTIME_MONITOR_NO_FORCE_PASSWORD_CHANGE") != "1" {
+		if u, _ := store.GetUserByUsername(username); u != nil {
+			_ = store.UpdateUser(u.ID, map[string]any{"must_change_password": 1})
+		}
 	}
 	fmt.Printf("Admin user '%s' created.\n", username)
 	fmt.Printf("Generated password: %s\n", pw)
-	fmt.Println("You will be asked to change this password at first login.")
+	if os.Getenv("UPTIME_MONITOR_NO_FORCE_PASSWORD_CHANGE") != "1" {
+		fmt.Println("You will be asked to change this password at first login.")
+	}
 }
 
 func ensureAdmin(store *storage.Store, cfg *config.Config, dbDir string) {
