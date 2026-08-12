@@ -1,3 +1,50 @@
+## [3.0.20] - 2026-08-12
+
+### Security
+
+- **CRITICAL: viewer no longer receives channel secrets** — `redactNotify` was a
+  no-op shallow copy, so any `viewer` role got the full decrypted notify config
+  (Telegram bot tokens, SMTP credentials, Twilio auth tokens, webhook URLs)
+  embedded in the dashboard HTML. Viewers now get a real `RedactSecrets` pass.
+- **Stored XSS fixed on the dashboard** — site name/url, monitor_type, tags,
+  SSL hostname, incident error messages, notification previews and maintenance
+  window names are now HTML-escaped in every `innerHTML` sink.
+- **`monitor_type` validated on the backend** — unknown values are rejected
+  instead of being stored and later rendered unescaped.
+- **URL scheme allowlist for non-HTTP monitors** — `javascript:`/`data:`/`file:`
+  URLs are rejected at creation time.
+- **Login rate limit counts failed attempts only** — successful logins can no
+  longer lock a user out (previous behaviour: 5 POST /login → 15 min block).
+- **Email header injection guard** — CR/LF in SMTP subject (user-supplied site
+  name) is neutralized.
+- **`master.key` is never silently overwritten** — a short/corrupt key file now
+  fails loudly instead of being replaced with a new key (which would have made
+  all stored secrets permanently unrecoverable).
+- **Service worker no longer caches authenticated pages** — the dashboard HTML
+  (which embeds session data) is excluded from the offline cache.
+
+### Reliability
+
+- **Scheduled backups** — the worker creates a daily backup when
+  `backup.enabled` is set and rotates old ones down to `backup.max_backups`
+  (previously the config was dead and only manual API backups existed).
+- **WebSocket writes are serialized per connection** — concurrent broadcasts
+  from worker goroutines could race on the same socket (corrupt frames/panic);
+  each connection now has a write mutex and a write deadline.
+- **One-off maintenance windows now work** — the UI sends RFC3339 times, but the
+  parser only accepted `2006-01-02T15:04`, so one-off windows never suppressed
+  checks. Parsing now accepts RFC3339 and the legacy layout.
+
+### Performance
+
+- **Bounded history scans** — `GetSites` no longer walks the entire
+  `status_history` table on every dashboard/public load (7-day window for the
+  last status, 30-day window for uptime).
+- **Maintenance windows are cached** (5s TTL) instead of re-querying the DB for
+  every site on every check cycle.
+- **Keyword check reads at most 512 KiB** of the response body instead of an
+  unbounded stream (memory-exhaustion guard).
+
 ## [3.0.19] - 2026-08-12
 
 ### Fixed

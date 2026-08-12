@@ -122,9 +122,13 @@ func (st *Store) GetSites() ([]Site, error) {
 }
 
 func (st *Store) attachStatus(sites []Site) {
+	// Bound both scans to recent windows so dashboard/public loads do not walk
+	// the whole status_history table. Active sites are checked at least every
+	// 24h, so a 7-day window covers their latest row; anything older falls back
+	// to the sites.status column the worker already maintains.
 	lastRows, err := st.DB.Query(`SELECT site_id, status FROM (
 	  SELECT site_id, status, ROW_NUMBER() OVER (PARTITION BY site_id ORDER BY checked_at DESC) rn
-	  FROM status_history) WHERE rn = 1`)
+	  FROM status_history WHERE checked_at >= datetime('now','-7 days')) WHERE rn = 1`)
 	if err == nil {
 		defer lastRows.Close()
 		lastMap := map[int64]string{}
@@ -141,7 +145,8 @@ func (st *Store) attachStatus(sites []Site) {
 			}
 		}
 	}
-	statsRows, err := st.DB.Query(`SELECT site_id, COUNT(*), SUM(CASE WHEN status='up' THEN 1 ELSE 0 END) FROM status_history GROUP BY site_id`)
+	statsRows, err := st.DB.Query(`SELECT site_id, COUNT(*), SUM(CASE WHEN status='up' THEN 1 ELSE 0 END)
+	  FROM status_history WHERE checked_at >= datetime('now','-30 days') GROUP BY site_id`)
 	if err == nil {
 		defer statsRows.Close()
 		statsMap := map[int64][2]float64{}
@@ -509,6 +514,19 @@ func (st *Store) Backups(limit int) ([]map[string]any, error) {
 	}
 	defer rows.Close()
 	return rowsToMaps(rows)
+}
+
+// DeleteBackup removes a backup record and its file from disk.
+func (st *Store) DeleteBackup(id int64) error {
+	var fp string
+	if err := st.DB.QueryRow(`SELECT filepath FROM backups WHERE id = ?`, id).Scan(&fp); err != nil {
+		return err
+	}
+	if _, err := st.DB.Exec(`DELETE FROM backups WHERE id = ?`, id); err != nil {
+		return err
+	}
+	_ = os.Remove(fp)
+	return nil
 }
 
 func (st *Store) RestoreBackup(id int64) (string, error) {

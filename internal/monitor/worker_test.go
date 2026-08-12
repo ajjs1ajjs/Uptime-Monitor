@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"crypto/x509"
 	"path/filepath"
 	"testing"
 	"time"
@@ -108,6 +109,71 @@ func TestGraceZeroAlertsImmediately(t *testing.T) {
 		t.Fatalf("alert type = %v, want down", fake.alerts[0]["alert_type"])
 	}
 }
+
+// TestMaintenanceOneOffRFC3339 verifies the BUG-001 fix: one-off maintenance
+// windows store RFC3339 times (as sent by the UI) and must be recognized.
+func TestMaintenanceOneOffRFC3339(t *testing.T) {
+	now := time.Now()
+	w := storage.MaintenanceWindow{
+		RuleType:  "one_off",
+		IsActive:  true,
+		StartTime: strPtr(now.Add(-time.Hour).UTC().Format(time.RFC3339)),
+		EndTime:   strPtr(now.Add(time.Hour).UTC().Format(time.RFC3339)),
+	}
+	if !maintenanceActive(w, now) {
+		t.Fatalf("one_off window (RFC3339) should be active, got inactive")
+	}
+
+	// legacy layout stored by older versions must still be honored
+	w.StartTime = strPtr(now.Add(-time.Hour).Format("2006-01-02T15:04"))
+	w.EndTime = strPtr(now.Add(time.Hour).Format("2006-01-02T15:04"))
+	if !maintenanceActive(w, now) {
+		t.Fatalf("one_off window (legacy layout) should be active, got inactive")
+	}
+
+	// an expired window must not match
+	w.StartTime = strPtr(now.Add(-3 * time.Hour).UTC().Format(time.RFC3339))
+	w.EndTime = strPtr(now.Add(-2 * time.Hour).UTC().Format(time.RFC3339))
+	if maintenanceActive(w, now) {
+		t.Fatalf("expired one_off window should be inactive, got active")
+	}
+}
+
+func strPtr(s string) *string { return &s }
+
+// TestSSLThresholdResetOnRenew verifies the BUG-003 fix: when a certificate is
+// renewed (days jumped above every notified threshold), the notified list is
+// reset so the new expiry re-triggers the alert.
+func TestSSLThresholdResetOnRenew(t *testing.T) {
+	w, store, fake := newTestWorker(t, 0)
+
+	id, err := store.CreateSite("srv", "https://example.com", 60, true, `["telegram"]`, "http", "", "")
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+	// seed an SSL row already notified at threshold 30, with an old last_notified
+	// so the cooldown does not suppress the re-notification
+	_ = store.SaveSSLCertificate(id, map[string]any{"hostname": "example.com", "days_until_expire": 20, "is_valid": true})
+	_ = store.UpdateSSLThresholds(id, []int{30}, time.Now().UTC().Add(-24*time.Hour).Format("2006-01-02T15:04:05.000000+00:00"))
+	s, _ := store.GetSite(id)
+	cert := &x509.Certificate{}
+
+	// renewal: 60 days left > 30 already notified -> reset, no alert (60<=30 false)
+	w.notifySSLThresholds(s, cert, 60)
+	if len(fake.alerts) != 0 {
+		t.Fatalf("expected no alert after renewal, got %d", len(fake.alerts))
+	}
+
+	// now it expires again: 25 days -> must re-alert (list was reset)
+	w.notifySSLThresholds(s, cert, 25)
+	if len(fake.alerts) != 1 {
+		t.Fatalf("expected re-alert after reset, got %d alerts", len(fake.alerts))
+	}
+	if fake.alerts[0]["alert_type"] != "ssl" {
+		t.Fatalf("alert type = %v, want ssl", fake.alerts[0]["alert_type"])
+	}
+}
+
 
 // TestStillDownRepeat verifies the still_down alert repeats after
 // StillDownRepeatSeconds.

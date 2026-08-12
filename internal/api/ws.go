@@ -11,39 +11,52 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// wsConn wraps a websocket connection with a write mutex. gorilla/websocket
+// allows only one concurrent writer per connection; broadcasts from the worker
+// goroutines and the ping/pong replies from the read loop can fire in parallel,
+// so every write must be serialized per connection.
+type wsConn struct {
+	conn *websocket.Conn
+	mu   sync.Mutex
+}
+
 type WSManager struct {
 	mu          sync.Mutex
-	connections map[*websocket.Conn]struct{}
+	connections map[*wsConn]struct{}
 }
 
 func NewWSManager() *WSManager {
-	return &WSManager{connections: map[*websocket.Conn]struct{}{}}
+	return &WSManager{connections: map[*wsConn]struct{}{}}
 }
 
 // Broadcast satisfies monitor.Broadcaster.
 func (m *WSManager) Broadcast(event map[string]any) {
 	m.mu.Lock()
-	conns := make([]*websocket.Conn, 0, len(m.connections))
+	conns := make([]*wsConn, 0, len(m.connections))
 	for c := range m.connections {
 		conns = append(conns, c)
 	}
 	m.mu.Unlock()
 	b, _ := json.Marshal(event)
 	for _, c := range conns {
-		if err := c.WriteMessage(websocket.TextMessage, b); err != nil {
+		c.mu.Lock()
+		_ = c.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+		err := c.conn.WriteMessage(websocket.TextMessage, b)
+		c.mu.Unlock()
+		if err != nil {
 			m.remove(c)
-			_ = c.Close()
+			_ = c.conn.Close()
 		}
 	}
 }
 
-func (m *WSManager) add(c *websocket.Conn) {
+func (m *WSManager) add(c *wsConn) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.connections[c] = struct{}{}
 }
 
-func (m *WSManager) remove(c *websocket.Conn) {
+func (m *WSManager) remove(c *wsConn) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.connections, c)
@@ -88,8 +101,9 @@ func (a *App) handleWS(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	a.WS.add(conn)
-	defer a.WS.remove(conn)
+	wc := &wsConn{conn: conn}
+	a.WS.add(wc)
+	defer a.WS.remove(wc)
 	defer conn.Close()
 
 	for {
@@ -99,7 +113,11 @@ func (a *App) handleWS(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if string(msg) == "ping" {
-			if err := conn.WriteMessage(websocket.TextMessage, []byte("pong")); err != nil {
+			wc.mu.Lock()
+			_ = conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			err = conn.WriteMessage(websocket.TextMessage, []byte("pong"))
+			wc.mu.Unlock()
+			if err != nil {
 				return
 			}
 		}

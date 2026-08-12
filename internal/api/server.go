@@ -46,7 +46,9 @@ func (a *App) Handler() http.Handler {
 
 	// auth
 	mux.HandleFunc("GET /login", a.handleLoginPage)
-	mux.HandleFunc("POST /login", a.withRecovery(a.withRateLimit("login", 5, 900, a.handleLoginPost)))
+	// The login POST applies its own rate limit to FAILED attempts only (inside
+	// the handler), so legitimate users are never locked out by successful logins.
+	mux.HandleFunc("POST /login", a.withRecovery(a.handleLoginPost))
 	mux.HandleFunc("GET /logout", a.handleLogout)
 	mux.HandleFunc("GET /change-password", a.handleChangePasswordPage)
 	mux.HandleFunc("POST /change-password", a.withRecovery(a.withRateLimit("change_password", 3, 900, a.handleChangePasswordPost)))

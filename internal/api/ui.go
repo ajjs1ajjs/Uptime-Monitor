@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/ajjs1ajjs/Uptime-Monitor/internal/auth"
+	"github.com/ajjs1ajjs/Uptime-Monitor/internal/notify"
 	"github.com/ajjs1ajjs/Uptime-Monitor/internal/storage"
 )
 
@@ -92,6 +93,12 @@ func (a *App) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("password")
 	u, err := a.Store.GetUserByUsername(username)
 	if err != nil || u == nil || !auth.VerifyPassword(u.PasswordHash, password) {
+		// Brute-force protection counts FAILED attempts only: successful logins
+		// (and invalid-form submissions) can never lock a legitimate user out.
+		if !a.rateLimiter.allow("login_fail|"+a.clientIP(r), loginFailMax, loginFailWindow) {
+			http.Redirect(w, r, "/login?error=rate_limited", http.StatusFound)
+			return
+		}
 		http.Redirect(w, r, "/login?error=invalid_credentials", http.StatusFound)
 		return
 	}
@@ -277,7 +284,10 @@ func (a *App) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	settings := a.Notify.LoadSettings()
 	if !p.IsAdmin {
-		settings = redactNotify(settings)
+		// Viewers must never see channel secrets (bot tokens, SMTP passwords,
+		// webhook URLs, ...). RedactSecrets blanks known secret fields while
+		// keeping the id/name/enabled metadata the cards render.
+		settings = notify.RedactSecrets(settings)
 	}
 	methods := buildNotifyMethods(settings)
 	cards, err := a.render("partials/notification_cards.html", map[string]any{
@@ -331,14 +341,6 @@ func buildNotifyMethods(settings map[string]any) []map[string]any {
 			"key": mt.key, "icon": mt.icon, "name": mt.name, "desc": mt.desc,
 			"enabled": enabled, "channels": channels,
 		})
-	}
-	return out
-}
-
-func redactNotify(s map[string]any) map[string]any {
-	out := map[string]any{}
-	for k, v := range s {
-		out[k] = v
 	}
 	return out
 }

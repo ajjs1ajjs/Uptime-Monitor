@@ -150,6 +150,13 @@ type rateBucket struct {
 	resetAt time.Time
 }
 
+// loginFailMax / loginFailWindow bound failed login attempts per IP before a
+// temporary lockout (5 failed attempts per 15 minutes).
+const (
+	loginFailMax    = 5
+	loginFailWindow = 15 * time.Minute
+)
+
 type rateLimitStore struct {
 	mu      sync.Mutex
 	buckets map[string]rateBucket // key: endpoint+"|"+ip
@@ -186,8 +193,10 @@ func (r *rateLimitStore) allow(key string, max int, window time.Duration) bool {
 // formEndpoints are rate-limited HTML form endpoints. Hitting their limit
 // redirects back to the page (instead of returning a raw JSON 429), so a
 // locked-out user sees a friendly error instead of an empty JSON page.
+// The login endpoint is deliberately absent: it applies its own failed-attempt
+// limiter inside the handler (see handleLoginPost) so successful logins can
+// never lock a user out.
 var formEndpoints = map[string]string{
-	"login":           "/login?error=rate_limited",
 	"change_password": "/change-password?error=rate_limited",
 	"forgot_password": "/forgot-password?error=rate_limited",
 }

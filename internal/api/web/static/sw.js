@@ -48,7 +48,16 @@ self.addEventListener('fetch', (event) => {
 
     event.respondWith(
         fetch(event.request).then((response) => {
-            const cacheable = response.status === 200 && !url.pathname.startsWith('/login');
+            // Never cache authenticated pages or API responses: the dashboard
+            // HTML embeds per-session data (and admin notify settings), which
+            // must not be served from the cache to a different browser user.
+            const cacheable = response.status === 200 &&
+                !url.pathname.startsWith('/login') &&
+                !url.pathname.startsWith('/change-password') &&
+                !url.pathname.startsWith('/forgot-password') &&
+                !url.pathname.startsWith('/users') &&
+                url.pathname !== '/' &&
+                url.pathname !== '';
             if (cacheable) {
                 const clone = response.clone();
                 caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));

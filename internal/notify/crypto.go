@@ -24,6 +24,15 @@ func LoadMasterKey() ([]byte, error) {
 	if err == nil && len(b) >= 32 {
 		return b[:32], nil
 	}
+	if err == nil {
+		// The file exists but is too short (corrupt/truncated, or a leftover
+		// short key). Overwriting it would permanently orphan every secret it
+		// protected, so refuse loudly instead.
+		return nil, fmt.Errorf("master.key exists but is invalid (%d bytes); refusing to overwrite it", len(b))
+	}
+	if !os.IsNotExist(err) {
+		return nil, err
+	}
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
 		return nil, err

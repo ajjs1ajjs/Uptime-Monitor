@@ -1,11 +1,13 @@
 package monitor
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -42,6 +44,9 @@ type Worker struct {
 	lastSeen    map[int64]time.Time
 	lastSSL     time.Time
 	lastCleanup time.Time
+	lastBackup  time.Time
+	maintCache  []storage.MaintenanceWindow
+	maintCached time.Time
 	inflight    sync.WaitGroup
 }
 
@@ -71,6 +76,7 @@ func (w *Worker) loop(ctx context.Context) {
 			slog.Error("monitor check cycle failed", "error", err)
 		}
 		w.cleanupIfDue()
+		w.backupIfDue()
 		w.sslIfDue()
 		select {
 		case <-ctx.Done():
@@ -88,6 +94,47 @@ func (w *Worker) cleanupIfDue() {
 	}
 	w.lastCleanup = time.Now()
 	_ = w.Store.Cleanup()
+}
+
+// backupIfDue creates a scheduled backup once per day (when backup.enabled)
+// and rotates old backups down to backup.max_backups.
+func (w *Worker) backupIfDue() {
+	w.mu.Lock()
+	due := w.Cfg.Backup.Enabled && time.Since(w.lastBackup) >= 24*time.Hour
+	if due {
+		w.lastBackup = time.Now()
+	}
+	w.mu.Unlock()
+	if !due {
+		return
+	}
+	if _, err := w.Store.CreateBackup(w.Cfg.BackupDir()); err != nil {
+		slog.Error("scheduled backup failed", "error", err)
+		return
+	}
+	max := w.Cfg.Backup.MaxBackups
+	if max <= 0 {
+		return
+	}
+	all, err := w.Store.Backups(100000)
+	if err != nil || len(all) <= max {
+		return
+	}
+	// Backups() is ordered id DESC (newest first); delete the oldest extras.
+	for i := max; i < len(all); i++ {
+		var id int64
+		switch v := all[i]["id"].(type) {
+		case int64:
+			id = v
+		case float64:
+			id = int64(v)
+		default:
+			continue
+		}
+		if err := w.Store.DeleteBackup(id); err != nil {
+			slog.Error("backup rotation failed", "id", id, "error", err)
+		}
+	}
 }
 
 func (w *Worker) sslIfDue() {
@@ -242,27 +289,22 @@ func (w *Worker) http(ctx context.Context, s *storage.Site, timeout time.Duratio
 	rt = float64(time.Since(start).Milliseconds())
 
 	if s.Keyword != nil && *s.Keyword != "" {
-		buf := make([]byte, 0, 256*1024)
-		tmp := make([]byte, 64*1024)
-		for {
-			n, err := resp.Body.Read(tmp)
-			if n > 0 {
-				buf = append(buf, tmp[:n]...)
-			}
-			if err != nil {
-				break
-			}
+		// Bound the body we read so a misbehaving target cannot exhaust memory
+		// while we search for the keyword.
+		const maxKeywordBody = 512 * 1024
+		content, err := io.ReadAll(io.LimitReader(resp.Body, maxKeywordBody))
+		if err != nil {
+			return "down", resp.StatusCode, rt, "keyword read failed"
 		}
-		content := string(buf)
 		match := false
 		kw := *s.Keyword
 		if strings.HasPrefix(kw, "regex:") {
 			pattern := strings.TrimPrefix(kw, "regex:")
 			if re, err := regexp.Compile(pattern); err == nil {
-				match = re.MatchString(content)
+				match = re.Match(content)
 			}
 		} else {
-			match = strings.Contains(content, kw)
+			match = bytes.Contains(content, []byte(kw))
 		}
 		if !match {
 			return "down", resp.StatusCode, rt, "keyword not found"
@@ -355,10 +397,18 @@ func extractHostPort(raw string, defPort int) (string, int) {
 }
 
 func (w *Worker) isUnderMaintenance(siteID int64) bool {
-	windows, err := w.Store.MaintenanceWindows()
-	if err != nil {
-		return false
+	// Maintenance windows change rarely; cache them briefly so we don't re-query
+	// the DB for every site on every check cycle.
+	w.mu.Lock()
+	if time.Since(w.maintCached) > 5*time.Second {
+		if windows, err := w.Store.MaintenanceWindows(); err == nil {
+			w.maintCache = windows
+			w.maintCached = time.Now()
+		}
 	}
+	windows := w.maintCache
+	w.mu.Unlock()
+
 	now := time.Now()
 	for _, mw := range windows {
 		if !mw.IsActive {
@@ -380,8 +430,11 @@ func maintenanceActive(mw storage.MaintenanceWindow, now time.Time) bool {
 		if mw.StartTime == nil || mw.EndTime == nil {
 			return false
 		}
-		start, err1 := time.Parse("2006-01-02T15:04", *mw.StartTime)
-		end, err2 := time.Parse("2006-01-02T15:04", *mw.EndTime)
+		// The UI sends RFC3339 (new Date(...).toISOString()); older data may use
+		// "2006-01-02T15:04". Parsing to absolute instants makes the comparison
+		// timezone-correct regardless of the stored format.
+		start, err1 := parseFlexTime(*mw.StartTime)
+		end, err2 := parseFlexTime(*mw.EndTime)
 		if err1 != nil || err2 != nil {
 			return false
 		}
@@ -415,6 +468,20 @@ func maintenanceActive(mw storage.MaintenanceWindow, now time.Time) bool {
 		return now.After(startToday) && now.Before(end)
 	}
 	return false
+}
+
+func parseFlexTime(s string) (time.Time, error) {
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return t, nil
+	}
+	// Legacy/no-zone values are treated as server-local time, matching how the
+	// daily and weekly rules compute their windows against time.Now().
+	for _, layout := range []string{"2006-01-02T15:04:05", "2006-01-02T15:04"} {
+		if t, err := time.ParseInLocation(layout, s, time.Local); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("invalid time %q", s)
 }
 
 // persist writes the result, runs the alerting state machine, and broadcasts.
@@ -702,6 +769,14 @@ func (w *Worker) notifySSLThresholds(s *storage.Site, cert *x509.Certificate, da
 	if raw.Valid && raw.String != "" {
 		_ = json.Unmarshal([]byte(raw.String), &notified)
 	}
+	// The certificate was renewed: the new expiry has more days left than any
+	// threshold we have already notified for, so previous notifications no
+	// longer apply. Reset the list or the re-notification would be suppressed.
+	reset := false
+	if len(notified) > 0 && days > maxInt(notified) {
+		notified = nil
+		reset = true
+	}
 	cooldown := time.Duration(w.Cfg.AlertPolicy.SSLNotificationCooldown) * time.Second
 	if lt := parseTime(lastNotified); !lt.IsZero() && time.Since(lt) < cooldown {
 		return
@@ -713,18 +788,25 @@ func (w *Worker) notifySSLThresholds(s *storage.Site, cert *x509.Certificate, da
 			changed = true
 		}
 	}
-	if !changed {
+	if !changed && !reset {
 		return
 	}
-	urgency := "🟡 УВАГА"
-	if days <= 0 || days <= 3 {
-		urgency = "🔴 КРИТИЧНО"
-	} else if days <= 7 {
-		urgency = "🟠 ВАЖЛИВО"
+	if changed {
+		urgency := "🟡 УВАГА"
+		if days <= 0 || days <= 3 {
+			urgency = "🔴 КРИТИЧНО"
+		} else if days <= 7 {
+			urgency = "🟠 ВАЖЛИВО"
+		}
+		msg := fmt.Sprintf("%s SSL сертифікат для %s закінчується через %d днів (%s)", urgency, s.URL, days, cert.NotAfter.Format("02.01.2006"))
+		w.alert("ssl", s, 0, msg, 0)
+		_ = w.Store.UpdateSSLThresholds(s.ID, notified, storage.Now())
+	} else {
+		// Reset-only: persist the cleared list but do not advance the cooldown,
+		// so a future check past the threshold can still alert.
+		b, _ := json.Marshal(notified)
+		_, _ = w.Store.DB.Exec(`UPDATE ssl_certificates SET ssl_notified_thresholds = ? WHERE site_id = ?`, string(b), s.ID)
 	}
-	msg := fmt.Sprintf("%s SSL сертифікат для %s закінчується через %d днів (%s)", urgency, s.URL, days, cert.NotAfter.Format("02.01.2006"))
-	w.alert("ssl", s, 0, msg, 0)
-	_ = w.Store.UpdateSSLThresholds(s.ID, notified, storage.Now())
 }
 
 func contains(list []int, v int) bool {
@@ -734,6 +816,16 @@ func contains(list []int, v int) bool {
 		}
 	}
 	return false
+}
+
+func maxInt(list []int) int {
+	m := 0
+	for _, x := range list {
+		if x > m {
+			m = x
+		}
+	}
+	return m
 }
 
 type sqlNullString2 struct {

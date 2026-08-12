@@ -104,6 +104,18 @@ func (a *App) handleListSites(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
+// allowedMonitorTypes is the whitelist of worker check types. Rejecting unknown
+// values here stops arbitrary strings (e.g. HTML payloads) from being stored
+// and later rendered unescaped by the frontend.
+var allowedMonitorTypes = map[string]bool{
+	"http": true, "https": true, "port": true, "tcp": true,
+	"ping": true, "dns": true, "ssl": true,
+}
+
+func validMonitorType(t string) bool {
+	return allowedMonitorTypes[strings.ToLower(t)]
+}
+
 func (a *App) handleCreateSite(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Name          string   `json:"name"`
@@ -122,6 +134,10 @@ func (a *App) handleCreateSite(w http.ResponseWriter, r *http.Request) {
 	mType := strings.ToLower(body.MonitorType)
 	if mType == "" {
 		mType = "http"
+	}
+	if !validMonitorType(mType) {
+		writeErr(w, http.StatusBadRequest, "Invalid monitor_type")
+		return
 	}
 	rawURL, err := a.normalizeURL(body.URL, mType)
 	if err != nil {
@@ -181,6 +197,10 @@ func (a *App) handleUpdateSite(w http.ResponseWriter, r *http.Request) {
 	fields := map[string]any{}
 	monitorType := s.MonitorType
 	if v, ok := body["monitor_type"].(string); ok && v != "" {
+		if !validMonitorType(v) {
+			writeErr(w, http.StatusBadRequest, "Invalid monitor_type")
+			return
+		}
 		monitorType = strings.ToLower(v)
 		fields["monitor_type"] = monitorType
 	}
@@ -1155,6 +1175,12 @@ func (a *App) normalizeURL(raw string, monitorType string) (string, error) {
 			return "", fmt.Errorf("Invalid host in URL")
 		}
 	} else {
+		// For non-HTTP monitors only a small set of schemes makes sense; reject
+		// javascript:/data:/file: and friends so stored URLs can never be used
+		// as a client-side XSS vector or a surprise navigation target.
+		if u.Scheme != "" && !validMonitorScheme(u.Scheme) {
+			return "", fmt.Errorf("Invalid URL scheme")
+		}
 		host := u.Hostname()
 		if host == "" {
 			host = strings.Split(strings.TrimPrefix(u.Path, "/"), "/")[0]
@@ -1164,6 +1190,16 @@ func (a *App) normalizeURL(raw string, monitorType string) (string, error) {
 		}
 	}
 	return raw, nil
+}
+
+// validMonitorScheme allows only schemes the worker actually understands for
+// non-HTTP monitor types.
+func validMonitorScheme(s string) bool {
+	switch strings.ToLower(s) {
+	case "http", "https", "tcp", "udp", "ping", "dns":
+		return true
+	}
+	return false
 }
 
 // resolvesBlocked reports whether a monitor target host must be rejected. It

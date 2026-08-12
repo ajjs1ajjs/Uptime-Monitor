@@ -20,6 +20,19 @@ try { var __nc = document.getElementById('notify-config');
   if (__nc) notifyConfig = JSON.parse(__nc.textContent || '{}'); } catch (e) { notifyConfig = {}; }
 let currentFilter = 'all';
 
+// escHtml escapes a value for safe insertion into innerHTML strings.
+function escHtml(v) {
+    if (v === null || v === undefined) return '';
+    const d = document.createElement('div');
+    d.textContent = String(v);
+    return d.innerHTML;
+}
+
+// jsAttr escapes a value for use inside a double-quoted HTML attribute.
+function jsAttr(v) {
+    return escHtml(v).replace(/"/g, '&quot;');
+}
+
 function renderNotifyChannelOptions(containerId, selectedChannels) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -44,7 +57,7 @@ function renderNotifyChannelOptions(containerId, selectedChannels) {
                 ? 'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-accent/10 border border-accent/40 cursor-pointer hover:border-accent transition text-xs'
                 : 'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800/50 border border-slate-700/50 cursor-pointer hover:border-accent transition text-xs';
             html += `<label class="${cls}">
-                <input type="checkbox" value="${chId}" data-method="${method}" class="accent-accent w-3 h-3" ${checked ? 'checked' : ''}> ${chName}
+                <input type="checkbox" value="${jsAttr(chId)}" data-method="${jsAttr(method)}" class="accent-accent w-3 h-3" ${checked ? 'checked' : ''}> ${escHtml(chName)}
             </label>`;
         });
         html += `</div></div>`;
@@ -183,7 +196,7 @@ function renderTagsWidget(type) {
     list.forEach(t => {
         const chip = document.createElement('span');
         chip.className = 'tag-chip inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-accent/15 border border-accent/30 text-accent text-xs font-semibold';
-        chip.innerHTML = `📁 ${t} <button class="hover:text-white transition font-bold focus:outline-none ml-1 text-sm leading-none" data-action="removeTagChip" data-type="${type}" data-tag="${t}">&times;</button>`;
+        chip.innerHTML = `📁 ${escHtml(t)} <button class="hover:text-white transition font-bold focus:outline-none ml-1 text-sm leading-none" data-action="removeTagChip" data-type="${type}" data-tag="${jsAttr(t)}">&times;</button>`;
         widget.insertBefore(chip, input);
     });
     
@@ -443,7 +456,7 @@ function renderMonitors() {
         let tagsHtml = '';
         if (tags.length > 0) {
             tagsHtml = `<div class="flex gap-1 mt-1 flex-wrap">` +
-                tags.slice(0, 3).map(tag => `<span class="px-2 py-0.5 bg-slate-700/50 rounded-full text-[10px] text-slate-400">📁 ${tag}</span>`).join('') +
+                tags.slice(0, 3).map(tag => `<span class="px-2 py-0.5 bg-slate-700/50 rounded-full text-[10px] text-slate-400">📁 ${esc(tag)}</span>`).join('') +
                 `</div>`;
         }
         const safeTags = encodeURIComponent(JSON.stringify(tags));
@@ -462,7 +475,7 @@ function renderMonitors() {
                     ${tagsHtml}
                     ${statusClass === 'down' && site.error_message ? `<div class="text-[11px] text-red-400 mt-1 truncate" title="${esc(site.error_message)}">⚠️ ${esc(site.error_message)}</div>` : ''}
                                     </div>
-                <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-accent/10 text-accent">${site.monitor_type}</span>
+                <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-accent/10 text-accent">${esc(monitorType)}</span>
             </div>
             <div class="grid grid-cols-4 gap-2 py-3 border-y border-slate-700/30 text-center text-xs">
                 <div><div class="text-sm font-bold status-badge ${statusClass}" style="color:${statusColor}">${statusText}</div><div class="text-slate-500 mt-0.5">${dict.card_status || 'Status'}</div></div>
@@ -514,11 +527,11 @@ async function loadNotificationsHistory() {
             const statusClass = n.status === 'sent' ? 'text-emerald-400' : 'text-red-400';
             const preview = (n.message_preview || '').substring(0, 80);
             return `<tr class="hover:bg-slate-800/30 transition">
-                <td class="py-3 px-4 text-xs text-slate-400">${time}</td>
-                <td class="py-3 px-4 text-sm">${n.site_name || '-'}</td>
-                <td class="py-3 px-4 text-sm">${icon} ${n.method}</td>
-                <td class="py-3 px-4 text-sm ${statusClass}">${n.status}</td>
-                <td class="py-3 px-4 text-xs text-slate-400 max-w-xs truncate">${preview}</td>
+                <td class="py-3 px-4 text-xs text-slate-400">${escHtml(time)}</td>
+                <td class="py-3 px-4 text-sm">${escHtml(n.site_name)}</td>
+                <td class="py-3 px-4 text-sm">${icon} ${escHtml(n.method)}</td>
+                <td class="py-3 px-4 text-sm ${statusClass}">${escHtml(n.status)}</td>
+                <td class="py-3 px-4 text-xs text-slate-400 max-w-xs truncate">${escHtml(preview)}</td>
             </tr>`;
         }).join('');
     } catch(e) { console.error(e); tbody.innerHTML = '<tr><td colspan="5" class="py-10 text-center text-red-400">Помилка завантаження</td></tr>'; }
@@ -559,8 +572,8 @@ function renderSSLCertificates() {
         const days = cert.days_until_expire;
         const statusColor = days <= 0 ? '#ef4444' : days <= 7 ? '#f59e0b' : '#10b981';
         html += `<div class="rounded-xl p-4 border-l-4" style="border-left-color:${statusColor};background:rgba(30,41,59,0.4);border:1px solid rgba(148,163,184,0.1);">
-            <div class="font-semibold text-sm truncate" title="${cert.site_name}">${cert.site_name}</div>
-            <div class="text-xs text-slate-400 truncate mb-2" title="${cert.hostname}">${cert.hostname}</div>
+            <div class="font-semibold text-sm truncate" title="${escHtml(cert.site_name)}">${escHtml(cert.site_name)}</div>
+            <div class="text-xs text-slate-400 truncate mb-2" title="${escHtml(cert.hostname)}">${escHtml(cert.hostname)}</div>
             <div class="flex justify-between text-xs"><span>Term: ${days} days</span><span style="color:${statusColor}">${days <= 0 ? '❌ Overdue' : '✅ Valid'}</span></div>
         </div>`;
     });
@@ -655,11 +668,11 @@ function renderIncidents() {
         const statusText = isDown ? '🔴 DOWN' : '🟡 SLOW';
         const date = inc.checked_at ? new Date(inc.checked_at).toLocaleString('uk-UA') : '';
         return `<div style="background:${bgColor};border-left:4px solid ${borderColor}" class="p-4 rounded-xl">
-            <div class="flex items-center gap-2 mb-1"><span class="font-semibold text-sm">${inc.site_name}</span><span class="text-xs px-2 py-0.5 rounded" style="background:${borderColor}22;color:${borderColor}">${statusText}</span></div>
-            <div class="text-xs text-slate-400">${inc.site_url}</div>
-            ${inc.duration ? `<div class="text-xs mt-1" style="color:${borderColor}">⏱️ Duration: ${inc.duration}</div>` : ''}
+            <div class="flex items-center gap-2 mb-1"><span class="font-semibold text-sm">${escHtml(inc.site_name)}</span><span class="text-xs px-2 py-0.5 rounded" style="background:${borderColor}22;color:${borderColor}">${statusText}</span></div>
+            <div class="text-xs text-slate-400">${escHtml(inc.site_url)}</div>
+            ${inc.duration ? `<div class="text-xs mt-1" style="color:${borderColor}">⏱️ Duration: ${escHtml(inc.duration)}</div>` : ''}
             <div class="text-xs text-slate-500 mt-1">🕐 ${date}${inc.response_time ? ' ⚡ '+Math.round(inc.response_time)+'ms' : ''}${inc.status_code ? ' 📄 HTTP '+inc.status_code : ''}</div>
-            ${inc.error_message ? `<div class="text-xs text-red-400 mt-2 p-2 bg-black/20 rounded font-mono">${inc.error_message}</div>` : ''}
+            ${inc.error_message ? `<div class="text-xs text-red-400 mt-2 p-2 bg-black/20 rounded font-mono">${escHtml(inc.error_message)}</div>` : ''}
         </div>`;
     }).join('') + '</div>';
 }
@@ -679,7 +692,7 @@ function renderDashboardIncidents() {
         const statusText = isDown ? '🔴 DOWN' : '🟡 SLOW';
         const date = inc.checked_at ? new Date(inc.checked_at).toLocaleString('uk-UA') : '';
         return `<div style="border-left:3px solid ${borderColor}" class="pl-3 py-2 border-b border-slate-700/20 last:border-0">
-            <div class="flex items-center gap-2 text-sm"><span class="font-medium truncate">${inc.site_name}</span><span class="text-[10px] px-1.5 py-0.5 rounded" style="background:${borderColor}22;color:${borderColor}">${statusText}</span></div>
+            <div class="flex items-center gap-2 text-sm"><span class="font-medium truncate">${escHtml(inc.site_name)}</span><span class="text-[10px] px-1.5 py-0.5 rounded" style="background:${borderColor}22;color:${borderColor}">${statusText}</span></div>
             <div class="text-xs text-slate-500 mt-0.5">🕐 ${date}${inc.response_time ? ' ⚡'+Math.round(inc.response_time)+'ms' : ''}</div>
         </div>`;
     }).join('');
@@ -728,9 +741,9 @@ function addNewChannel() {
         if (!token || !chat_id) return alert('Введіть токен та chat_id!');
         __secrets[channelId] = { token, chat_id, message_thread_id };
         html = `<div class="channel-item p-3 rounded-lg bg-slate-800/50 border border-slate-700/50 mb-2" id="ch_${channelId}">
-            <div class="flex justify-between items-center"><span class="text-sm font-medium">📱 ${name}</span>
+            <div class="flex justify-between items-center"><span class="text-sm font-medium">📱 ${escHtml(name)}</span>
             <button data-action="removeChannel" data-method="${method}" data-channel="${channelId}" class="text-red-400 hover:text-red-300 text-xs">✕</button></div>
-            <input type="hidden" id="${method}_${channelId}_name" value="${name}">
+            <input type="hidden" id="${method}_${channelId}_name" value="${jsAttr(name)}">
         </div>`;
     } else if (method === 'email') {
         const smtp_server = document.getElementById('newEmailSmtp').value.trim();
@@ -741,18 +754,18 @@ function addNewChannel() {
         if (!smtp_server || !username || !to_email) return alert('Заповніть всі поля email!');
         __secrets[channelId] = { smtp_server, smtp_port: parseInt(smtp_port), username, password, to_email };
         html = `<div class="channel-item p-3 rounded-lg bg-slate-800/50 border border-slate-700/50 mb-2" id="ch_${channelId}">
-            <div class="flex justify-between items-center"><span class="text-sm font-medium">📧 ${name}</span>
+            <div class="flex justify-between items-center"><span class="text-sm font-medium">📧 ${escHtml(name)}</span>
             <button data-action="removeChannel" data-method="${method}" data-channel="${channelId}" class="text-red-400 hover:text-red-300 text-xs">✕</button></div>
-            <input type="hidden" id="${method}_${channelId}_name" value="${name}">
+            <input type="hidden" id="${method}_${channelId}_name" value="${jsAttr(name)}">
         </div>`;
     } else {
         const webhookUrl = document.getElementById('newWebhookUrl').value.trim();
         if (!webhookUrl) return alert('Введіть URL webhook!');
         __secrets[channelId] = { webhook_url: webhookUrl };
         html = `<div class="channel-item p-3 rounded-lg bg-slate-800/50 border border-slate-700/50 mb-2" id="ch_${channelId}">
-            <div class="flex justify-between items-center"><span class="text-sm font-medium">🔗 ${name}</span>
+            <div class="flex justify-between items-center"><span class="text-sm font-medium">🔗 ${escHtml(name)}</span>
             <button data-action="removeChannel" data-method="${method}" data-channel="${channelId}" class="text-red-400 hover:text-red-300 text-xs">✕</button></div>
-            <input type="hidden" id="${method}_${channelId}_name" value="${name}">
+            <input type="hidden" id="${method}_${channelId}_name" value="${jsAttr(name)}">
         </div>`;
     }
     container.insertAdjacentHTML('beforeend', html);
@@ -958,7 +971,7 @@ async function loadMaintenanceWindows() {
         if (select) {
             select.innerHTML = '<option value="">Всі монітори</option>';
             sites.forEach(s => {
-                select.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+                select.innerHTML += `<option value="${s.id}">${escHtml(s.name)}</option>`;
             });
         }
     } catch(e) {
@@ -988,13 +1001,13 @@ function renderMaintenanceWindows(windows) {
         if (w.rule_type === 'one_off') {
             const start = new Date(w.start_time).toLocaleString('uk-UA');
             const end = new Date(w.end_time).toLocaleString('uk-UA');
-            schedule = `<div>${start}</div><div class="text-xs text-slate-500">до ${end}</div>`;
+            schedule = `<div>${escHtml(start)}</div><div class="text-xs text-slate-500">до ${escHtml(end)}</div>`;
         } else if (w.rule_type === 'daily') {
-            schedule = `<div>Щодня о ${w.start_hour_minute}</div><div class="text-xs text-slate-500">Тривалість: ${w.duration_minutes} хв</div>`;
+            schedule = `<div>Щодня о ${escHtml(w.start_hour_minute)}</div><div class="text-xs text-slate-500">Тривалість: ${escHtml(w.duration_minutes)} хв</div>`;
         } else if (w.rule_type === 'weekly') {
             const days = ['', 'Пн', 'Вв', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
             const dayName = days[w.day_of_week] || '';
-            schedule = `<div>Щотижня (${dayName}) о ${w.start_hour_minute}</div><div class="text-xs text-slate-500">Тривалість: ${w.duration_minutes} хв</div>`;
+            schedule = `<div>Щотижня (${escHtml(dayName)}) о ${escHtml(w.start_hour_minute)}</div><div class="text-xs text-slate-500">Тривалість: ${escHtml(w.duration_minutes)} хв</div>`;
         }
 
         const checked = w.is_active ? 'checked' : '';
@@ -1005,8 +1018,8 @@ function renderMaintenanceWindows(windows) {
 
         html += `<tr class="border-b border-slate-800/30 hover:bg-slate-800/10">
             <td class="py-3.5 px-4">
-                <div class="font-medium">${w.name}</div>
-                <div class="text-xs text-slate-400">${siteName}</div>
+                <div class="font-medium">${escHtml(w.name)}</div>
+                <div class="text-xs text-slate-400">${escHtml(siteName)}</div>
             </td>
             <td class="py-3.5 px-4">${schedule}</td>
             <td class="py-3.5 px-4 text-center">${toggleBtn}</td>

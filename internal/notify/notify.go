@@ -340,6 +340,10 @@ func (s *Service) email(alertType, siteName, message string, cfg map[string]any)
 	if siteName == "" {
 		subject = fmt.Sprintf("Uptime Monitor [%s]", label)
 	}
+	// Neutralize CR/LF so user-controlled site names cannot inject extra SMTP
+	// headers into the message we hand to the mail server.
+	cleanCRLF := strings.NewReplacer("\r", " ", "\n", " ")
+	subject = cleanCRLF.Replace(subject)
 	body := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s",
 		user, to, subject, message)
 	w.Write([]byte(body))
