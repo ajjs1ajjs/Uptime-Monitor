@@ -48,7 +48,38 @@ func (a *App) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
-	a.renderPage(w, "login.html", map[string]any{"error_message": r.URL.Query().Get("error")}, http.StatusOK)
+	a.renderPage(w, "login.html", map[string]any{
+		"error_message": humanErrorMsg(r.URL.Query().Get("error")),
+		"version":       a.Version,
+	}, http.StatusOK)
+}
+
+// humanErrorMsg maps the short error codes passed through redirect URLs (and a
+// few inline strings) to a user-friendly message. Unknown values are passed
+// through unchanged, so messages already written as plain text (e.g. password
+// policy hints) stay as-is.
+func humanErrorMsg(code string) string {
+	switch code {
+	case "invalid_credentials":
+		return "Невірне ім'я користувача або пароль"
+	case "bad_request":
+		return "Невірний запит"
+	case "session_error":
+		return "Не вдалося створити сесію"
+	case "rate_limited":
+		return "Забагато спроб. Спробуйте ще раз через 15 хвилин."
+	case "csrf":
+		return "Термін дії форми минув. Оновіть сторінку та спробуйте ще раз."
+	case "auth":
+		return "Сесія недійсна. Увійдіть ще раз."
+	case "admin_only":
+		return "Ця дія доступна лише адміністратору"
+	case "not_found":
+		return "Користувача не знайдено"
+	case "error":
+		return "Сталася помилка. Спробуйте ще раз."
+	}
+	return code
 }
 
 func (a *App) handleLoginPost(w http.ResponseWriter, r *http.Request) {
@@ -111,7 +142,7 @@ func (a *App) handleChangePasswordPage(w http.ResponseWriter, r *http.Request) {
 	u, _ := a.Store.GetSession(sid)
 	forced := u != nil && u.MustChangePassword == 1
 	a.renderPage(w, "change_password.html", map[string]any{
-		"error_message": r.URL.Query().Get("error"),
+		"error_message": humanErrorMsg(r.URL.Query().Get("error")),
 		"csrf_token":    a.newCSRFToken(sid),
 		"is_forced":     forced,
 	}, http.StatusOK)
@@ -174,7 +205,7 @@ func (a *App) handleForgotPage(w http.ResponseWriter, r *http.Request) {
 		csrf = a.newCSRFToken(sid)
 	}
 	a.renderPage(w, "forgot_password.html", map[string]any{
-		"error_message":   r.URL.Query().Get("error"),
+		"error_message":   humanErrorMsg(r.URL.Query().Get("error")),
 		"success_message": r.URL.Query().Get("success"),
 		"csrf_token":      csrf,
 	}, http.StatusOK)

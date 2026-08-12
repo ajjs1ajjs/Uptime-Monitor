@@ -3,6 +3,7 @@
 dist/
 /uptime-monitor
 /uptime-monitor.exe
+/um-test.exe
 *.test
 *.out
 

@@ -1,3 +1,22 @@
+## [3.0.19] - 2026-08-12
+
+### Fixed
+
+- **Schema migration for old databases** — databases created by the Python/FastAPI
+  backend (or any version lacking newer columns) are now upgraded automatically:
+  `sites.first_failure_at`, `sites.silenced_until`, `sites.acknowledged`,
+  `ssl_certificates.ssl_notified_thresholds`. Previously the monitor worker crashed
+  with `SQL logic error: no such column: first_failure_at` and `/api/sites` returned
+  500 on an old DB.
+- **Login error messages** — raw error codes (`invalid_credentials`, `csrf`, ...)
+  on `/login`, `/change-password` and `/forgot-password` are replaced with
+  user-friendly Ukrainian messages.
+- **Rate-limit on forms** — hitting the login/change-password/forgot-password rate
+  limit now redirects back to the page with a readable message instead of showing
+  a raw JSON `429 Too many requests`.
+- **Login page version** — the footer no longer hardcodes `v2.1.0`; it shows the
+  actual binary version.
+
 ## [3.0.17] - 2026-08-11
 
 ### Security

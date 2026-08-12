@@ -106,7 +106,51 @@ func Open(path string) (*sql.DB, string, error) {
 	if _, err := db.Exec(Schema); err != nil {
 		return nil, abs, fmt.Errorf("apply schema: %w", err)
 	}
+	if err := migrateSchema(db); err != nil {
+		return nil, abs, fmt.Errorf("migrate schema: %w", err)
+	}
 	return db, abs, nil
+}
+
+// migrateSchema upgrades databases created by older versions — including the
+// Python/FastAPI backend — that lack columns added later. CREATE TABLE IF NOT
+// EXISTS only creates missing tables, never missing columns, so the new columns
+// are added explicitly here. Every column has a DEFAULT, so existing rows stay
+// valid and old binary builds keep working against the migrated file.
+func migrateSchema(db *sql.DB) error {
+	type colDef struct{ table, name, ddl string }
+	// (table, column, ADD COLUMN definition) — table/column names are
+	// hardcoded constants, never user input, so ALTER TABLE is safe.
+	steps := []colDef{
+		{"sites", "first_failure_at", "first_failure_at TEXT DEFAULT NULL"},
+		{"sites", "silenced_until", "silenced_until TEXT DEFAULT NULL"},
+		{"sites", "acknowledged", "acknowledged INTEGER DEFAULT 0"},
+		{"ssl_certificates", "ssl_notified_thresholds", "ssl_notified_thresholds TEXT DEFAULT '[]'"},
+	}
+	for _, s := range steps {
+		rows, err := db.Query(`PRAGMA table_info(` + s.table + `)`)
+		if err != nil {
+			return err
+		}
+		found := false
+		for rows.Next() {
+			var cid, name, ctype string
+			var notnull, pk int
+			var dflt any
+			if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err == nil && name == s.name {
+				found = true
+				break
+			}
+		}
+		rows.Close()
+		if found {
+			continue
+		}
+		if _, err := db.Exec(`ALTER TABLE ` + s.table + ` ADD COLUMN ` + s.ddl); err != nil {
+			return fmt.Errorf("add %s.%s: %w", s.table, s.name, err)
+		}
+	}
+	return nil
 }
 
 func Now() string {

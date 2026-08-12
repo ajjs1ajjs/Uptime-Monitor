@@ -183,10 +183,23 @@ func (r *rateLimitStore) allow(key string, max int, window time.Duration) bool {
 	return false
 }
 
+// formEndpoints are rate-limited HTML form endpoints. Hitting their limit
+// redirects back to the page (instead of returning a raw JSON 429), so a
+// locked-out user sees a friendly error instead of an empty JSON page.
+var formEndpoints = map[string]string{
+	"login":           "/login?error=rate_limited",
+	"change_password": "/change-password?error=rate_limited",
+	"forgot_password": "/forgot-password?error=rate_limited",
+}
+
 func (a *App) withRateLimit(endpoint string, max int, window int, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ip := a.clientIP(r)
 		if !a.rateLimiter.allow(endpoint+"|"+ip, max, time.Duration(window)*time.Second) {
+			if target, ok := formEndpoints[endpoint]; ok {
+				http.Redirect(w, r, target, http.StatusFound)
+				return
+			}
 			writeErr(w, http.StatusTooManyRequests, "Too many requests. Try again later.")
 			return
 		}
