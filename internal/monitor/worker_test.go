@@ -175,6 +175,45 @@ func TestSSLThresholdResetOnRenew(t *testing.T) {
 }
 
 
+// TestUpAlertFiresWhenThresholdAboveOne verifies the "up" alert still fires
+// once SuccessAttempts reaches up_success_threshold, even though the site's
+// DB status already flipped to "up" after the first successful check (prev
+// is re-read from the DB on every real check cycle, so gating on prev=="down"
+// would never be true once the threshold is above 1).
+func TestUpAlertFiresWhenThresholdAboveOne(t *testing.T) {
+	w, store, fake := newTestWorker(t, 0)
+	w.Cfg.AlertPolicy.UpSuccessThreshold = 2
+
+	id, err := store.CreateSite("srv", "https://example.com", 60, true, `["telegram"]`, "http", "", "")
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+
+	// site goes down, alert fires immediately (grace=0)
+	s, _ := store.GetSite(id)
+	w.persist(s, "down", 500, 100, "HTTP 500")
+	if len(fake.alerts) != 1 || fake.alerts[0]["alert_type"] != "down" {
+		t.Fatalf("expected 1 down alert, got %v", fake.alerts)
+	}
+
+	// first successful check: SuccessAttempts=1 (< threshold), no up alert yet,
+	// but the site's status is already persisted as "up" in the DB
+	s, _ = store.GetSite(id)
+	w.persist(s, "up", 200, 50, "")
+	if len(fake.alerts) != 1 {
+		t.Fatalf("expected no up alert before threshold reached, got %v", fake.alerts)
+	}
+
+	// second successful check, reloaded fresh from the DB like a real cycle:
+	// prev is now "up" (written above), but SuccessAttempts reaches threshold
+	// and LastDownAlert is still set, so the recovery alert must fire
+	s, _ = store.GetSite(id)
+	w.persist(s, "up", 200, 50, "")
+	if len(fake.alerts) != 2 || fake.alerts[1]["alert_type"] != "up" {
+		t.Fatalf("expected up alert once threshold reached, got %v", fake.alerts)
+	}
+}
+
 // TestStillDownRepeat verifies the still_down alert repeats after
 // StillDownRepeatSeconds.
 func TestStillDownRepeat(t *testing.T) {
