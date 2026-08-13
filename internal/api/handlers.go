@@ -601,7 +601,7 @@ func (a *App) handleSaveAlertPolicy(w http.ResponseWriter, r *http.Request) {
 		var delays []int
 		for _, d := range v {
 			if f, ok := d.(float64); ok {
-				delays = append(delays, int(f))
+				delays = append(delays, clamp(int(f), 0, 3600))
 			}
 		}
 		ap.RetryDelays = delays
