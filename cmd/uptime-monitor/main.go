@@ -22,7 +22,7 @@ import (
 	"github.com/ajjs1ajjs/Uptime-Monitor/internal/storage"
 )
 
-const Version = "3.0.21"
+const Version = "3.0.22"
 
 // fatalf logs an error and exits, mirroring the old log.Fatalf behaviour.
 func fatalf(format string, args ...any) {
@@ -165,7 +165,7 @@ func adminPasswordEnv() (string, bool) {
 }
 
 func createAdmin(store *storage.Store, cfg *config.Config, username string) {
-	pw, _ := adminPasswordEnv()
+	pw, wasSupplied := adminPasswordEnv()
 	if pw == "" {
 		pw = randomToken(18)
 	}
@@ -185,7 +185,20 @@ func createAdmin(store *storage.Store, cfg *config.Config, username string) {
 		}
 	}
 	fmt.Printf("Admin user '%s' created.\n", username)
-	fmt.Printf("Generated password: %s\n", pw)
+	if wasSupplied {
+		// The caller already knows this password (they set it via env var);
+		// echoing it back to stdout would only double its exposure in whatever
+		// captures this process's output (systemd journal, CI logs, Ansible),
+		// with no benefit to the operator.
+		fmt.Println("Password: (as provided via UPTIME_MONITOR_ADMIN_PASSWORD/PYMON_ADMIN_PASSWORD)")
+	} else {
+		// This is the only place the freshly-generated password is ever
+		// available - it is not stored anywhere in recoverable form - so it
+		// must be shown here for an interactive operator to capture. Automated
+		// or headless installs that need the value programmatically should set
+		// UPTIME_MONITOR_ADMIN_PASSWORD explicitly instead of scraping stdout.
+		fmt.Printf("Generated password: %s\n", pw)
+	}
 	if os.Getenv("UPTIME_MONITOR_NO_FORCE_PASSWORD_CHANGE") != "1" {
 		fmt.Println("You will be asked to change this password at first login.")
 	}
@@ -280,9 +293,6 @@ func runRestore(args []string) {
 	restored, err := store.RestoreBackupFile(cfg.BackupDir(), backup)
 	if err != nil {
 		fatalf("restore: %v", err)
-	}
-	if restored == "" {
-		fatalf("restore: backup %q not found in %s", backup, cfg.BackupDir())
 	}
 	fmt.Printf("Restored %s -> %s\n", backup, restored)
 }

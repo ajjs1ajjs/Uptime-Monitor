@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/ajjs1ajjs/Uptime-Monitor/internal/config"
+	"github.com/ajjs1ajjs/Uptime-Monitor/internal/netguard"
 	"github.com/ajjs1ajjs/Uptime-Monitor/internal/storage"
 )
 
@@ -252,9 +253,19 @@ func (w *Worker) doCheck(ctx context.Context, s *storage.Site) (string, int, flo
 	if timeout <= 0 {
 		timeout = 30 * time.Second
 	}
+	// Re-validate the target host on every check cycle, not just at site
+	// creation: a hostname that resolved to a public IP when the monitor was
+	// created can later be repointed (DNS rebinding, or the domain simply
+	// changing hands) at an internal address or the cloud metadata endpoint.
+	// Without this, the one-time check in normalizeURL is a TOCTOU gap that a
+	// periodic background worker would otherwise walk straight through.
+	if host, _ := extractHostPort(s.URL, 0); host != "" &&
+		netguard.HostBlocked(host, w.Cfg.Server.AllowLocalhost, w.Cfg.Server.AllowPrivateNetworks) {
+		return "down", 0, 0, "target host not allowed"
+	}
 	switch s.MonitorType {
 	case "ping":
-		return w.ping(s.URL, timeout)
+		return w.ping(ctx, s.URL, timeout)
 	case "dns":
 		return w.dns(ctx, s.URL, timeout)
 	case "port", "tcp":
@@ -270,7 +281,22 @@ func (w *Worker) doCheck(ctx context.Context, s *storage.Site) (string, int, flo
 
 func (w *Worker) http(ctx context.Context, s *storage.Site, timeout time.Duration) (string, int, float64, string) {
 	start := time.Now()
-	client := &http.Client{Timeout: timeout}
+	client := &http.Client{
+		Timeout: timeout,
+		// A target allowed at creation/re-check time can still redirect to an
+		// internal address or the cloud metadata endpoint; validate every hop,
+		// not just the initial URL, so redirects can't be used to route around
+		// the SSRF guard.
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 {
+				return fmt.Errorf("stopped after 10 redirects")
+			}
+			if netguard.HostBlocked(req.URL.Hostname(), w.Cfg.Server.AllowLocalhost, w.Cfg.Server.AllowPrivateNetworks) {
+				return fmt.Errorf("redirect target not allowed: %s", req.URL.Hostname())
+			}
+			return nil
+		},
+	}
 	if !w.Cfg.AlertPolicy.VerifySSL {
 		client.Transport = &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
@@ -326,7 +352,7 @@ func (w *Worker) http(ctx context.Context, s *storage.Site, timeout time.Duratio
 	return "down", code, rt, fmt.Sprintf("HTTP %d", code)
 }
 
-func (w *Worker) ping(rawURL string, timeout time.Duration) (string, int, float64, string) {
+func (w *Worker) ping(ctx context.Context, rawURL string, timeout time.Duration) (string, int, float64, string) {
 	host, _ := extractHostPort(rawURL, 0)
 	if host == "" || strings.HasPrefix(host, "-") {
 		return "down", 0, 0, "invalid host"
@@ -341,7 +367,12 @@ func (w *Worker) ping(rawURL string, timeout time.Duration) (string, int, float6
 	} else {
 		args = append(args, host)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout+5*time.Second)
+	// Bounded by both the check timeout AND the parent ctx: previously this
+	// ignored the parent (context.Background()), so a worker shutdown
+	// (ctx cancelled) would leave an in-flight ping subprocess running for up
+	// to timeout+5s instead of being killed immediately along with everything
+	// else WaitInflight is supposed to be waiting on.
+	ctx, cancel := context.WithTimeout(ctx, timeout+5*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "ping", args...)
 	err := cmd.Run()

@@ -92,7 +92,15 @@ func (a *App) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 	username := strings.TrimSpace(r.FormValue("username"))
 	password := r.FormValue("password")
 	u, err := a.Store.GetUserByUsername(username)
-	if err != nil || u == nil || !auth.VerifyPassword(u.PasswordHash, password) {
+	// VerifyPasswordOrDummy always runs a bcrypt comparison, even for a
+	// nonexistent username (hash == ""), so this branch takes the same time
+	// either way - a short-circuit here would let response latency reveal
+	// which usernames exist before an attacker ever has to guess a password.
+	passwordHash := ""
+	if u != nil {
+		passwordHash = u.PasswordHash
+	}
+	if err != nil || u == nil || !auth.VerifyPasswordOrDummy(passwordHash, password) {
 		// Brute-force protection counts FAILED attempts only: successful logins
 		// (and invalid-form submissions) can never lock a legitimate user out.
 		if !a.rateLimiter.allow("login_fail|"+a.clientIP(r), loginFailMax, loginFailWindow) {

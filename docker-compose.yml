@@ -13,6 +13,17 @@ services:
       - LOG_DIR=/logs
       - DB_PATH=/data/sites.db
     restart: unless-stopped
+    # Resource limits so a runaway process (or an admin-configured monitor
+    # target that returns huge/slow responses) can't exhaust the host.
+    mem_limit: 512m
+    cpus: 1.0
+    # Container already runs as the non-root "uptime" user (Dockerfile); this
+    # further removes the ability to gain any additional Linux capability or
+    # privilege even if the process were compromised.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
       interval: 30s

@@ -1,3 +1,59 @@
+## [3.0.22] - 2026-08-13
+
+### Security
+
+- **SSRF hardening for monitor targets**: `resolvesBlocked` now also blocks
+  RFC1918/ULA private ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16,
+  fc00::/7) unless explicitly allowed via the new `server.allow_private_networks`
+  config flag. The check is now enforced by a shared `internal/netguard`
+  package used both at site creation AND on every worker check cycle
+  (closing a DNS-rebinding/TOCTOU gap where a host could resolve to a public
+  IP at creation time and an internal one later), and HTTP redirects are now
+  validated hop-by-hop instead of being followed blindly.
+- **Notify secrets no longer silently fall back to plaintext**: an invalid
+  `UPTIME_MONITOR_MASTER_KEY` length or an encryption failure now fails the
+  settings save outright instead of storing Telegram/SMTP/webhook secrets
+  unencrypted in the database.
+- **`install.sh` checksum verification is fail-closed**: a missing/unreachable
+  `checksums.txt`, a missing entry for the target binary, or no SHA-256 tool
+  available now aborts the install instead of silently skipping verification.
+  An explicit `UPTIME_MONITOR_SKIP_CHECKSUM=1` opt-out is available for
+  air-gapped/legacy scenarios.
+- **Foreign key constraints added** to `status_history`, `ssl_certificates`,
+  `notification_history`, `maintenance_windows`, `sessions` and `api_keys`
+  (`REFERENCES ... ON DELETE CASCADE`), with an automatic one-time migration
+  that rebuilds pre-existing tables and drops any orphan rows first.
+- **Added `Strict-Transport-Security`** header when serving over HTTPS.
+- **Constant-time login check**: a nonexistent username no longer skips the
+  bcrypt comparison, removing a timing side channel that could be used to
+  enumerate valid usernames.
+- Admin's freshly-generated password is only printed to stdout when it was
+  actually auto-generated; a password supplied via
+  `UPTIME_MONITOR_ADMIN_PASSWORD`/`PYMON_ADMIN_PASSWORD` is no longer echoed
+  back, reducing exposure in automation logs.
+- GitHub Actions are now pinned to a full commit SHA instead of a mutable tag,
+  and CI runs `govulncheck` on every push.
+
+### Fixed
+
+- `restoreFromPath` now returns the actual failure reason (missing file,
+  permissions, reopen failure, ...) instead of collapsing every error into an
+  empty string, and always leaves the `Store` with a working `*sql.DB`
+  afterwards even if a step fails mid-restore.
+- `SaveSSLCertificate` is now a single atomic `INSERT ... ON CONFLICT DO
+  UPDATE`, removing a rare race where two overlapping SSL check cycles for
+  the same site could both attempt an `INSERT` and one would fail on the
+  `UNIQUE` constraint.
+- `CreateBackup`/`DeleteBackup` no longer leave an orphaned file or DB row
+  behind if one half of the operation fails.
+- `GetAppSettings` no longer swallows non-`ErrNoRows` SQL errors silently.
+- `ping()` monitor checks now respect the worker's shutdown context instead
+  of running to their own independent timeout.
+- `limit`/`days` query parameters on audit-log, notification-history and SLA
+  report/export/PDF endpoints are now capped instead of unbounded.
+- `docker-compose.yml` now sets memory/CPU limits and drops all Linux
+  capabilities (`no-new-privileges`, `cap_drop: ALL`).
+
 ## [3.0.21] - 2026-08-13
 
 ### Fixed

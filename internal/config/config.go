@@ -20,6 +20,13 @@ type Server struct {
 	// AllowLocalhost, when true, permits creating monitors that target the
 	// "localhost" hostname (otherwise the SSRF guard blocks it).
 	AllowLocalhost bool `json:"allow_localhost"`
+	// AllowPrivateNetworks, when true, permits creating monitors that target
+	// RFC1918/ULA private-range addresses (10.0.0.0/8, 172.16.0.0/12,
+	// 192.168.0.0/16, fc00::/7). Off by default so a monitor pointed at an
+	// attacker-controlled hostname cannot be used to probe the internal
+	// network the server runs on; enable explicitly for legitimate internal
+	// infrastructure monitoring.
+	AllowPrivateNetworks bool `json:"allow_private_networks"`
 }
 
 type CORS struct {
@@ -106,7 +113,7 @@ func defaultLogDir() string {
 
 func Default() *Config {
 	return &Config{
-		Server:        Server{Port: 8080, Host: "auto", Domain: "auto", AllowLocalhost: false},
+		Server:        Server{Port: 8080, Host: "auto", Domain: "auto", AllowLocalhost: false, AllowPrivateNetworks: false},
 		CORS:          CORS{AllowOrigins: []string{"http://localhost:8080"}},
 		SSL:           SSL{HSTSMaxAge: 31536000},
 		DataDir:       defaultDataDir(),
@@ -173,7 +180,12 @@ func Load(path string) (*Config, error) {
 	}
 	var raw map[string]any
 	if err := json.Unmarshal(data, &raw); err != nil {
-		fmt.Fprintf(os.Stderr, "config: %s is invalid JSON, using defaults\n", path)
+		// Loud and impossible to miss in journalctl/logs: an operator who
+		// edited config.json and made a syntax error must know their changes
+		// were NOT applied, not just see a quiet one-liner buried in startup
+		// output while security-relevant settings (allow_localhost, CORS,
+		// trusted_proxies) silently reverted to defaults.
+		fmt.Fprintf(os.Stderr, "config: ERROR: %s is invalid JSON (%v) - IGNORING IT, using built-in defaults instead. Your configuration was NOT applied.\n", path, err)
 		return cfg, nil
 	}
 	base, _ := json.Marshal(cfg)
@@ -185,7 +197,7 @@ func Load(path string) (*Config, error) {
 		// Tolerant: a malformed section (e.g. alert_policy written by an older
 		// version) must not prevent the server from starting. Drop the bad
 		// top-level sections and keep the rest.
-		fmt.Fprintf(os.Stderr, "config: warning: %v (falling back to defaults for that section)\n", err)
+		fmt.Fprintf(os.Stderr, "config: ERROR: %s has an invalid section (%v) - that section falls back to defaults; the rest of the file was applied.\n", path, err)
 		for k := range raw {
 			merged2 := deepMerge(baseMap, raw)
 			delete(merged2, k)
