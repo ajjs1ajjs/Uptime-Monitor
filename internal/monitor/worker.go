@@ -280,6 +280,10 @@ func (w *Worker) http(ctx context.Context, s *storage.Site, timeout time.Duratio
 	if err != nil {
 		return "down", 0, 0, "invalid url"
 	}
+	// Some targets' WAF/anti-bot layers silently tarpit the default Go
+	// User-Agent (hanging until our timeout instead of responding), which
+	// looks identical to a real outage. A normal browser-like UA avoids that.
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; UptimeMonitor/1.0; +https://github.com/ajjs1ajjs/Uptime-Monitor)")
 	resp, err := client.Do(req)
 	rt := float64(time.Since(start).Milliseconds())
 	if err != nil {
