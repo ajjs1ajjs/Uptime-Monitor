@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -340,20 +341,22 @@ func (st *Store) GetSSLCertificates() ([]SSLCert, error) {
 	return out, rows.Err()
 }
 
+// SaveSSLCertificate upserts the certificate row for a site in a single
+// statement. Previously this was a read-then-write (SELECT COUNT then INSERT
+// or UPDATE); if two SSL check cycles for the same site overlapped (e.g. a
+// slow check plus a retry), both could see exists=0 and both attempt INSERT,
+// and the second would fail on the ssl_certificates.site_id UNIQUE
+// constraint. ON CONFLICT makes the whole operation atomic from SQLite's
+// point of view, so a concurrent second writer updates instead of erroring.
 func (st *Store) SaveSSLCertificate(siteID int64, cert map[string]any) error {
-	var exists int
-	if err := st.DB.QueryRow(`SELECT COUNT(*) FROM ssl_certificates WHERE site_id = ?`, siteID).Scan(&exists); err != nil {
-		return err
-	}
-	if exists > 0 {
-		_, err := st.DB.Exec(`UPDATE ssl_certificates SET hostname=?, issuer=?, subject=?, start_date=?,
-		  expire_date=?, days_until_expire=?, is_valid=?, last_checked=? WHERE site_id=?`,
-			cert["hostname"], cert["issuer"], cert["subject"], cert["start_date"], cert["expire_date"],
-			cert["days_until_expire"], cert["is_valid"], Now(), siteID)
-		return err
-	}
 	_, err := st.DB.Exec(`INSERT INTO ssl_certificates (site_id, hostname, issuer, subject, start_date, expire_date, days_until_expire, is_valid, last_checked)
-	  VALUES (?,?,?,?,?,?,?,?,?)`, siteID, cert["hostname"], cert["issuer"], cert["subject"],
+	  VALUES (?,?,?,?,?,?,?,?,?)
+	  ON CONFLICT(site_id) DO UPDATE SET
+	    hostname=excluded.hostname, issuer=excluded.issuer, subject=excluded.subject,
+	    start_date=excluded.start_date, expire_date=excluded.expire_date,
+	    days_until_expire=excluded.days_until_expire, is_valid=excluded.is_valid,
+	    last_checked=excluded.last_checked`,
+		siteID, cert["hostname"], cert["issuer"], cert["subject"],
 		cert["start_date"], cert["expire_date"], cert["days_until_expire"], cert["is_valid"], Now())
 	return err
 }
@@ -396,6 +399,14 @@ func (st *Store) GetAppSettings() AppSettings {
 	err := st.DB.QueryRow(`SELECT id, display_address, site_title, logo_url, footer_text, primary_color, brand_accent_color FROM app_settings WHERE id = 1`).
 		Scan(&a.ID, &a.DisplayAddress, &a.SiteTitle, &a.LogoURL, &a.FooterText, &a.PrimaryColor, &a.BrandAccentColor)
 	if err != nil {
+		// sql.ErrNoRows just means settings were never saved yet - defaults are
+		// the correct, expected behavior. Anything else (disk I/O error,
+		// corrupted database, connection pool exhaustion) is a real problem
+		// that must not be silently masked as "using defaults", or an
+		// operator has no signal that the database itself is unhealthy.
+		if err != sql.ErrNoRows {
+			slog.Error("GetAppSettings: query failed, falling back to defaults", "error", err)
+		}
 		return AppSettings{ID: 1, SiteTitle: "Uptime Monitor", PrimaryColor: "#00ff88", BrandAccentColor: "#06b6d4"}
 	}
 	return a
@@ -410,8 +421,17 @@ func (st *Store) SaveAppSettings(a AppSettings) error {
 // --- notification history / audit / backups ---
 
 func (st *Store) LogNotification(siteID int64, siteName, method, status, preview string) error {
+	// site_id <= 0 is the sentinel used for notifications with no real site
+	// behind them (e.g. the admin "send test notification" button). Store it
+	// as NULL rather than the literal value: notification_history.site_id now
+	// has a FOREIGN KEY on sites(id), and site id 0 never exists (AUTOINCREMENT
+	// starts at 1), so inserting it literally would violate the constraint.
+	var siteIDArg any
+	if siteID > 0 {
+		siteIDArg = siteID
+	}
 	_, err := st.DB.Exec(`INSERT INTO notification_history (site_id, site_name, method, status, message_preview, sent_at)
-	  VALUES (?,?,?,?,?,?)`, siteID, siteName, method, status, truncate(preview, 200), Now())
+	  VALUES (?,?,?,?,?,?)`, siteIDArg, siteName, method, status, truncate(preview, 200), Now())
 	return err
 }
 
@@ -498,11 +518,18 @@ func (st *Store) CreateBackup(dir string) (map[string]any, error) {
 	}
 	var siteCount int
 	_ = st.DB.QueryRow(`SELECT COUNT(*) FROM sites`).Scan(&siteCount)
-	info, _ := os.Stat(dst)
-	_, err := st.DB.Exec(`INSERT INTO backups (filename, filepath, size_bytes, site_count, created_at) VALUES (?,?,?,?,?)`,
-		filename, dst, info.Size(), siteCount, Now())
+	info, err := os.Stat(dst)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("stat backup file: %w", err)
+	}
+	if _, err := st.DB.Exec(`INSERT INTO backups (filename, filepath, size_bytes, site_count, created_at) VALUES (?,?,?,?,?)`,
+		filename, dst, info.Size(), siteCount, Now()); err != nil {
+		// Without this, a crash/error between VACUUM INTO succeeding and the
+		// row insert would leave the file on disk forever: invisible to
+		// Backups()/DeleteBackup (which only see rows in the table), so it
+		// can never be cleaned up or count against max_backups rotation.
+		_ = os.Remove(dst)
+		return nil, fmt.Errorf("record backup: %w", err)
 	}
 	return map[string]any{"filename": filename, "path": dst, "site_count": siteCount}, nil
 }
@@ -522,10 +549,18 @@ func (st *Store) DeleteBackup(id int64) error {
 	if err := st.DB.QueryRow(`SELECT filepath FROM backups WHERE id = ?`, id).Scan(&fp); err != nil {
 		return err
 	}
+	// File first, DB row second: if removing the file fails (permissions,
+	// still open elsewhere, etc.) the row must survive so the backup stays
+	// visible in the UI and the delete can be retried. Doing it in the
+	// other order (as before) meant a failed os.Remove left a file on disk
+	// with no corresponding row - invisible to Backups(), impossible to
+	// retry deleting through the app, and never rotated out.
+	if err := os.Remove(fp); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove backup file: %w", err)
+	}
 	if _, err := st.DB.Exec(`DELETE FROM backups WHERE id = ?`, id); err != nil {
 		return err
 	}
-	_ = os.Remove(fp)
 	return nil
 }
 
@@ -535,9 +570,9 @@ func (st *Store) RestoreBackup(id int64) (string, error) {
 	var filename, filepathS string
 	err := st.DB.QueryRow(`SELECT filename, filepath FROM backups WHERE id = ?`, id).Scan(&filename, &filepathS)
 	if err != nil {
-		return "", fmt.Errorf("backup not found")
+		return "", fmt.Errorf("backup not found: %w", err)
 	}
-	return st.restoreFromPath(filepathS), nil
+	return st.restoreFromPath(filepathS)
 }
 
 // RestoreBackupFile restores a backup by filename from the given directory.
@@ -547,33 +582,48 @@ func (st *Store) RestoreBackupFile(dir, filename string) (string, error) {
 	}
 	st.mu <- struct{}{}
 	defer func() { <-st.mu }()
-	return st.restoreFromPath(filepath.Join(dir, filename)), nil
+	return st.restoreFromPath(filepath.Join(dir, filename))
 }
 
-func (st *Store) restoreFromPath(src string) string {
-	if _, err := os.Stat(src); err != nil {
-		return ""
+// restoreFromPath overwrites the live database file with a backup and
+// reopens it. Every failure path returns a specific, actionable error
+// instead of swallowing the cause - an operator running this during a
+// database emergency needs to know exactly what went wrong (backup missing,
+// permissions, disk full, etc.), not just "it didn't work". The final defer
+// unconditionally attempts to reopen the database file, whatever ended up on
+// disk: leaving st.DB closed after a failed step here would take down every
+// subsequent query against this Store until the process restarts.
+func (st *Store) restoreFromPath(src string) (result string, err error) {
+	if _, statErr := os.Stat(src); statErr != nil {
+		return "", fmt.Errorf("backup file not found: %w", statErr)
 	}
-	if err := st.DB.Close(); err != nil {
-		return ""
+	if closeErr := st.DB.Close(); closeErr != nil {
+		return "", fmt.Errorf("close current database: %w", closeErr)
 	}
+	defer func() {
+		newDB, abs, openErr := Open(st.DBPath)
+		if openErr != nil {
+			if err == nil {
+				err = fmt.Errorf("reopen database after restore: %w", openErr)
+			} else {
+				err = fmt.Errorf("%w (additionally, reopening the database failed: %v)", err, openErr)
+			}
+			return
+		}
+		st.DB = newDB
+		st.DBPath = abs
+	}()
 	for _, sidecar := range []string{st.DBPath + "-wal", st.DBPath + "-shm"} {
 		_ = os.Remove(sidecar)
 	}
-	data, err := os.ReadFile(src)
-	if err != nil {
-		return ""
+	data, readErr := os.ReadFile(src)
+	if readErr != nil {
+		return "", fmt.Errorf("read backup file: %w", readErr)
 	}
-	if err := os.WriteFile(st.DBPath, data, 0o644); err != nil {
-		return ""
+	if writeErr := os.WriteFile(st.DBPath, data, 0o644); writeErr != nil {
+		return "", fmt.Errorf("write database file: %w", writeErr)
 	}
-	newDB, abs, err := Open(st.DBPath)
-	if err != nil {
-		return ""
-	}
-	st.DB = newDB
-	st.DBPath = abs
-	return src
+	return src, nil
 }
 
 // --- maintenance windows ---

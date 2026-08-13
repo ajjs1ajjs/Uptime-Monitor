@@ -1,11 +1,9 @@
 package api
 
 import (
-	"context"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -16,6 +14,7 @@ import (
 
 	"github.com/ajjs1ajjs/Uptime-Monitor/internal/auth"
 	"github.com/ajjs1ajjs/Uptime-Monitor/internal/config"
+	"github.com/ajjs1ajjs/Uptime-Monitor/internal/netguard"
 	"github.com/ajjs1ajjs/Uptime-Monitor/internal/notify"
 	"github.com/ajjs1ajjs/Uptime-Monitor/internal/storage"
 )
@@ -499,7 +498,11 @@ func (a *App) handleSaveNotify(w http.ResponseWriter, r *http.Request) {
 			existing[k] = v
 		}
 	}
-	enc := notify.EncryptSecrets(existing)
+	enc, err := notify.EncryptSecrets(existing)
+	if err != nil {
+		writeErr(w, http.StatusServiceUnavailable, "Could not save settings (encryption unavailable)")
+		return
+	}
 	b, _ := json.Marshal(enc)
 	if err := a.Store.SaveNotifyConfig(string(b)); err != nil {
 		writeErr(w, http.StatusServiceUnavailable, "Could not save settings (encryption unavailable)")
@@ -931,7 +934,7 @@ func (a *App) slaReport(days int) ([]map[string]any, error) {
 func (a *App) handleSLAResponse(w http.ResponseWriter, r *http.Request) {
 	days := 7
 	if v := r.URL.Query().Get("days"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 366 {
 			days = n
 		}
 	}
@@ -946,7 +949,7 @@ func (a *App) handleSLAResponse(w http.ResponseWriter, r *http.Request) {
 func (a *App) handleSLAExport(w http.ResponseWriter, r *http.Request) {
 	days := 7
 	if v := r.URL.Query().Get("days"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 366 {
 			days = n
 		}
 	}
@@ -988,7 +991,7 @@ func csvSafe(v string) string {
 func (a *App) handleSLAPDF(w http.ResponseWriter, r *http.Request) {
 	days := 30
 	if v := r.URL.Query().Get("days"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 366 {
 			days = n
 		}
 	}
@@ -1052,7 +1055,7 @@ func (a *App) handleRevokeAPIKey(w http.ResponseWriter, r *http.Request) {
 func (a *App) handleAuditLog(w http.ResponseWriter, r *http.Request) {
 	limit := 200
 	if v := r.URL.Query().Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 5000 {
 			limit = n
 		}
 	}
@@ -1067,7 +1070,7 @@ func (a *App) handleAuditLog(w http.ResponseWriter, r *http.Request) {
 func (a *App) handleNotificationHistory(w http.ResponseWriter, r *http.Request) {
 	limit := 100
 	if v := r.URL.Query().Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 5000 {
 			limit = n
 		}
 	}
@@ -1202,29 +1205,13 @@ func validMonitorScheme(s string) bool {
 	return false
 }
 
-// resolvesBlocked reports whether a monitor target host must be rejected. It
-// blocks loopback, link-local, multicast and unspecified addresses, and the
-// "localhost" hostname unless server.allow_localhost is enabled. DNS lookups
-// are bounded by a timeout so user-controlled hosts cannot stall a handler.
+// resolvesBlocked reports whether a monitor target host must be rejected.
+// Delegates to netguard so the exact same policy (loopback/link-local/
+// multicast always blocked; localhost/private ranges blocked unless the
+// matching config flag allows them) is enforced here at creation time AND
+// by the monitor worker on every check, closing the TOCTOU/DNS-rebinding gap
+// where a host could validate as public at creation and resolve to an
+// internal address later.
 func (a *App) resolvesBlocked(host string) bool {
-	if strings.EqualFold(host, "localhost") {
-		return !a.Cfg.Server.AllowLocalhost
-	}
-	if ip := net.ParseIP(strings.Trim(host, "[]")); ip != nil {
-		return ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsMulticast() || ip.IsUnspecified()
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	addrs, err := net.DefaultResolver.LookupHost(ctx, host)
-	if err != nil {
-		return false
-	}
-	for _, addr := range addrs {
-		if ip := net.ParseIP(addr); ip != nil && (ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsMulticast() || ip.IsUnspecified()) {
-			return true
-		}
-	}
-	return false
+	return netguard.HostBlocked(host, a.Cfg.Server.AllowLocalhost, a.Cfg.Server.AllowPrivateNetworks)
 }
-
-var _ = time.Now

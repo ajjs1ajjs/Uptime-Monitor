@@ -38,6 +38,34 @@ func VerifyPassword(hash, pw string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(pw)) == nil
 }
 
+// dummyHash is a valid bcrypt hash of a password nobody will ever type. Use
+// it via VerifyPasswordOrDummy when the username presented at login doesn't
+// exist: comparing against a real hash costs ~the same as bcrypt on a real
+// user's hash (same cost factor), while short-circuiting on "user not found"
+// would return in microseconds instead - a timing side channel an attacker
+// can use to enumerate valid usernames well before ever guessing a password.
+var dummyHash = func() string {
+	h, err := HashPassword("uptime-monitor-constant-time-login-placeholder")
+	if err != nil {
+		// bcrypt.GenerateFromPassword only fails on a password >72 bytes or an
+		// invalid cost, neither of which applies to the fixed input above.
+		panic("auth: failed to precompute dummy bcrypt hash: " + err.Error())
+	}
+	return h
+}()
+
+// VerifyPasswordOrDummy behaves like VerifyPassword, but always performs a
+// bcrypt comparison of the same cost even when hash is empty (i.e. the
+// looked-up user didn't exist), so the login handler takes the same time
+// either way and can't be used to enumerate valid usernames via timing.
+func VerifyPasswordOrDummy(hash, pw string) bool {
+	if hash == "" {
+		VerifyPassword(dummyHash, pw)
+		return false
+	}
+	return VerifyPassword(hash, pw)
+}
+
 // HashAPIKey derives a deterministic PBKDF2-HMAC-SHA256 digest so lookups work
 // by hashing the presented key. New keys embed a random per-key salt in the
 // key itself ("um_<salt>.<secret>"), so identical secrets never produce the

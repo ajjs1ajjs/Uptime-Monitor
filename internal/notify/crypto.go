@@ -16,7 +16,17 @@ import (
 // directory) so it survives systemd services that run with CWD="/".
 func LoadMasterKey() ([]byte, error) {
 	if env := os.Getenv("UPTIME_MONITOR_MASTER_KEY"); env != "" {
-		return []byte(env), nil
+		// AES-256-GCM requires an exact 16/24/32-byte key. Any other length
+		// must fail loudly here: silently accepting it means every later
+		// aes.NewCipher call in encrypt() fails too, and without this check
+		// that failure used to be swallowed by walkSecrets, which fell back to
+		// storing secrets (Telegram bot tokens, SMTP passwords) in plaintext.
+		switch len(env) {
+		case 16, 24, 32:
+			return []byte(env), nil
+		default:
+			return nil, fmt.Errorf("UPTIME_MONITOR_MASTER_KEY must be exactly 16, 24, or 32 bytes (got %d)", len(env))
+		}
 	}
 	dir := configDir()
 	path := filepath.Join(dir, "master.key")
@@ -149,35 +159,50 @@ var secretFields = map[string]string{
 	"auth_token":  "auth_token",
 }
 
-// EncryptSecrets walks the settings map and encrypts known secret fields.
-func EncryptSecrets(settings map[string]any) map[string]any {
+// EncryptSecrets walks the settings map and encrypts known secret fields. It
+// fails closed: if the master key is unusable or any secret field fails to
+// encrypt, it returns an error instead of a map containing plaintext
+// secrets, so callers must not persist the settings on error.
+func EncryptSecrets(settings map[string]any) (map[string]any, error) {
 	key, err := LoadMasterKey()
 	if err != nil {
-		return settings
+		return nil, fmt.Errorf("load master key: %w", err)
 	}
-	return walkSecrets(settings, key, true)
+	return walkEncrypt(settings, key)
 }
 
-// DecryptSecrets walks the settings map and decrypts __ENC__ values.
+// DecryptSecrets walks the settings map and decrypts __ENC__ values. This
+// path is best-effort by design: a field that fails to decrypt is left as
+// its (ciphertext-looking) stored value rather than blocking the caller,
+// since decrypt failures surface as a broken alert channel, not a secret
+// exposure.
 func DecryptSecrets(settings map[string]any) map[string]any {
 	key, err := LoadMasterKey()
 	if err != nil {
 		return settings
 	}
-	return walkSecrets(settings, key, false)
+	return walkDecrypt(settings, key)
 }
 
-func walkSecrets(settings map[string]any, key []byte, encryptMode bool) map[string]any {
+func walkEncrypt(settings map[string]any, key []byte) (map[string]any, error) {
 	out := map[string]any{}
 	for k, v := range settings {
 		switch val := v.(type) {
 		case map[string]any:
-			out[k] = walkSecrets(val, key, encryptMode)
+			sub, err := walkEncrypt(val, key)
+			if err != nil {
+				return nil, err
+			}
+			out[k] = sub
 		case []any:
 			list := make([]any, 0, len(val))
 			for _, item := range val {
 				if m, ok := item.(map[string]any); ok {
-					list = append(list, walkSecrets(m, key, encryptMode))
+					sub, err := walkEncrypt(m, key)
+					if err != nil {
+						return nil, err
+					}
+					list = append(list, sub)
 				} else {
 					list = append(list, item)
 				}
@@ -185,16 +210,42 @@ func walkSecrets(settings map[string]any, key []byte, encryptMode bool) map[stri
 			out[k] = list
 		case string:
 			if isSecretField(k) && val != "" {
-				if encryptMode {
-					if enc, err := encrypt(key, val); err == nil {
-						out[k] = enc
-						continue
-					}
+				enc, err := encrypt(key, val)
+				if err != nil {
+					return nil, fmt.Errorf("encrypt field %q: %w", k, err)
+				}
+				out[k] = enc
+				continue
+			}
+			out[k] = v
+		default:
+			out[k] = v
+		}
+	}
+	return out, nil
+}
+
+func walkDecrypt(settings map[string]any, key []byte) map[string]any {
+	out := map[string]any{}
+	for k, v := range settings {
+		switch val := v.(type) {
+		case map[string]any:
+			out[k] = walkDecrypt(val, key)
+		case []any:
+			list := make([]any, 0, len(val))
+			for _, item := range val {
+				if m, ok := item.(map[string]any); ok {
+					list = append(list, walkDecrypt(m, key))
 				} else {
-					if dec, err := decrypt(key, val); err == nil {
-						out[k] = dec
-						continue
-					}
+					list = append(list, item)
+				}
+			}
+			out[k] = list
+		case string:
+			if isSecretField(k) && val != "" {
+				if dec, err := decrypt(key, val); err == nil {
+					out[k] = dec
+					continue
 				}
 			}
 			out[k] = v

@@ -77,29 +77,54 @@ else
     exit 1
 fi
 
-# --- Checksum ----------------------------------------------------------------
+# --- Checksum (fail-closed: refuse to install an unverified binary) ---------
+# Every release since checksums.txt was introduced publishes one; if it can't
+# be fetched, doesn't contain this binary, or no SHA-256 tool is available, we
+# do NOT fall back to installing unverified. UPTIME_MONITOR_SKIP_CHECKSUM=1 is
+# an explicit, documented opt-out for air-gapped/legacy scenarios only.
 echo "Verifying checksum..."
-TMP_SUM="$(mktemp)"
-if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "https://github.com/${REPO}/releases/${VERSION_URL}checksums.txt" -o "$TMP_SUM" 2>/dev/null || true
-elif command -v wget >/dev/null 2>&1; then
-    wget -q -O "$TMP_SUM" "https://github.com/${REPO}/releases/${VERSION_URL}checksums.txt" 2>/dev/null || true
-fi
-if [ -s "$TMP_SUM" ]; then
-    EXPECTED="$(grep "${BINARY_NAME}$" "$TMP_SUM" | awk '{print $1}')"
-    if [ -n "$EXPECTED" ]; then
-        if command -v sha256sum >/dev/null 2>&1; then ACTUAL="$(sha256sum "$TMP_BIN" | awk '{print $1}')"
-        elif command -v shasum >/dev/null 2>&1; then ACTUAL="$(shasum -a 256 "$TMP_BIN" | awk '{print $1}')"
-        else ACTUAL=""; fi
-        if [ -n "$ACTUAL" ] && [ "$EXPECTED" != "$ACTUAL" ]; then
-            echo "ERROR: checksum mismatch for ${BINARY_NAME}."
-            rm -f "$TMP_BIN" "$TMP_SUM"
-            exit 1
-        fi
-        echo "Checksum OK."
+if [ "$UPTIME_MONITOR_SKIP_CHECKSUM" = "1" ]; then
+    echo "WARNING: checksum verification explicitly skipped (UPTIME_MONITOR_SKIP_CHECKSUM=1). Installing unverified binary."
+else
+    CHECKSUMS_URL="https://github.com/${REPO}/releases/${VERSION_URL}checksums.txt"
+    TMP_SUM="$(mktemp)"
+    DL_OK=0
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL "$CHECKSUMS_URL" -o "$TMP_SUM" && DL_OK=1
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q -O "$TMP_SUM" "$CHECKSUMS_URL" && DL_OK=1
     fi
+    if [ "$DL_OK" != "1" ] || [ ! -s "$TMP_SUM" ]; then
+        echo "ERROR: could not download checksums.txt from ${CHECKSUMS_URL}."
+        echo "Refusing to install an unverified binary. Re-run once GitHub is reachable,"
+        echo "or set UPTIME_MONITOR_SKIP_CHECKSUM=1 to explicitly bypass verification."
+        rm -f "$TMP_BIN" "$TMP_SUM"
+        exit 1
+    fi
+    EXPECTED="$(grep "${BINARY_NAME}$" "$TMP_SUM" | awk '{print $1}')"
+    if [ -z "$EXPECTED" ]; then
+        echo "ERROR: checksums.txt has no entry for ${BINARY_NAME}; refusing to install an unverified binary."
+        rm -f "$TMP_BIN" "$TMP_SUM"
+        exit 1
+    fi
+    if command -v sha256sum >/dev/null 2>&1; then
+        ACTUAL="$(sha256sum "$TMP_BIN" | awk '{print $1}')"
+    elif command -v shasum >/dev/null 2>&1; then
+        ACTUAL="$(shasum -a 256 "$TMP_BIN" | awk '{print $1}')"
+    else
+        echo "ERROR: neither sha256sum nor shasum is installed; cannot verify checksum."
+        echo "Install one of them and re-run, or set UPTIME_MONITOR_SKIP_CHECKSUM=1 to bypass."
+        rm -f "$TMP_BIN" "$TMP_SUM"
+        exit 1
+    fi
+    if [ "$EXPECTED" != "$ACTUAL" ]; then
+        echo "ERROR: checksum mismatch for ${BINARY_NAME}. Expected ${EXPECTED}, got ${ACTUAL}."
+        rm -f "$TMP_BIN" "$TMP_SUM"
+        exit 1
+    fi
+    echo "Checksum OK."
+    rm -f "$TMP_SUM"
 fi
-rm -f "$TMP_SUM"
 chmod +x "$TMP_BIN"
 "$TMP_BIN" --version >/dev/null 2>&1 || { echo "ERROR: downloaded file is not a valid binary"; rm -f "$TMP_BIN"; exit 1; }
 NEW_VERSION="$("$TMP_BIN" --version 2>/dev/null || echo "?")"
@@ -128,7 +153,8 @@ if [ ! -f "$CONFIG_FILE" ]; then
     "port": 8080,
     "host": "0.0.0.0",
     "trusted_proxies": [],
-    "allow_localhost": false
+    "allow_localhost": false,
+    "allow_private_networks": false
   },
   "data_dir": "/var/lib/uptime-monitor",
   "log_dir": "/var/log/uptime-monitor",
