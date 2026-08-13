@@ -1,3 +1,20 @@
+## [3.0.21] - 2026-08-13
+
+### Fixed
+
+- **"up" recovery alert never fired when `up_success_threshold > 1`** — the
+  alert was gated on `prev == "down"`, but the site's DB status flips to
+  `"up"` after the *first* successful check, before `SuccessAttempts` reaches
+  the threshold, so the gate could never be true again. `LastDownAlert` was
+  also being cleared on every successful check instead of only once the
+  threshold was reached. Both are now gated on the threshold being reached.
+- **`retry_delays` accepted unclamped values** in `POST /api/alert-policy`,
+  unlike every other numeric field on that endpoint. Now clamped to 0-3600s.
+- **HTTP checks send an identifying User-Agent** instead of the default
+  `Go-http-client/1.1` — some targets' WAF/anti-bot layers silently tarpit
+  that default UA (hang until timeout instead of responding), which reads
+  identically to a real outage in status history.
+
 ## [3.0.20] - 2026-08-12
 
 ### Security
