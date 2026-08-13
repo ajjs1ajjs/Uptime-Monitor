@@ -546,13 +546,21 @@ func (w *Worker) persist(s *storage.Site, status string, code int, rt float64, e
 		if threshold <= 0 {
 			threshold = 2
 		}
-		if s.SuccessAttempts >= threshold && (prev == "down" || prev == "slow") {
-			w.alert("up", s, code, "", rt)
+		// Only clear the down-tracking fields once the threshold is actually
+		// reached: clearing LastDownAlert on every successful check (even
+		// before the threshold) erased the signal the "up" alert depends on,
+		// so with a threshold above 1 the alert would never fire — the check
+		// reloads s fresh from the DB every cycle, so prev alone can't be
+		// used as the gate either (it flips to "up" after the first success).
+		if s.SuccessAttempts >= threshold {
+			if s.LastDownAlert != nil {
+				w.alert("up", s, code, "", rt)
+			}
+			s.FirstFailureAt = nil
+			s.LastDownAlert = nil
+			s.SilencedUntil = nil
+			s.Acknowledged = 0
 		}
-		s.FirstFailureAt = nil
-		s.LastDownAlert = nil
-		s.SilencedUntil = nil
-		s.Acknowledged = 0
 	}
 
 	_ = w.Store.UpdateSite(s.ID, map[string]any{
