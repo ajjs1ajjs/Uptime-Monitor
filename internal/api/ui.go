@@ -642,5 +642,9 @@ func monitorCardCtx(s storage.Site) map[string]any {
 		"mtype": s.MonitorType, "uptime": uptime, "uptime_str": fmt.Sprintf("%.1f", uptime),
 		"rt": rt, "sc": sc,
 		"sid": s.ID, "check_interval": s.CheckInterval,
+		"request_timeout_seconds": s.RequestTimeoutSeconds,
+		"retry_interval_seconds":  s.RetryIntervalSeconds,
+		"max_retries":             s.MaxRetries,
+		"up_success_threshold":    s.UpSuccessThreshold,
 	}
 }

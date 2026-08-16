@@ -38,7 +38,7 @@
     </div>
     <div class="flex gap-2 mt-4">
         <button data-action="checkSite" data-id="{{ sid }}" class="flex-1 py-2.5 rounded-lg gradient-accent text-black text-xs font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition" data-i18n="card_check">Check</button>
-        <button data-action="openEditModal" data-id="{{ sid }}" data-name="{{ name }}" data-url="{{ url }}" data-methods="{{ escaped_methods }}" data-interval="{{ check_interval }}" data-mtype="{{ mtype }}" data-keyword="{{ escaped_keyword }}" data-tags="{{ escaped_tags }}" class="flex-1 py-2.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium" data-i18n="card_edit">Edit</button>
+        <button data-action="openEditModal" data-id="{{ sid }}" data-name="{{ name }}" data-url="{{ url }}" data-methods="{{ escaped_methods }}" data-interval="{{ check_interval }}" data-timeout="{{ request_timeout_seconds }}" data-retry-interval="{{ retry_interval_seconds }}" data-max-retries="{{ max_retries }}" data-up-threshold="{{ up_success_threshold }}" data-mtype="{{ mtype }}" data-keyword="{{ escaped_keyword }}" data-tags="{{ escaped_tags }}" class="flex-1 py-2.5 rounded-lg bg-amber-500/10 text-amber-400 hover:border-accent hover:text-white transition text-xs font-medium" data-i18n="card_edit">Edit</button>
         <button data-action="deleteSite" data-id="{{ sid }}" class="flex-1 py-2.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-xs font-medium" data-i18n="card_delete">Delete</button>
     </div>
 </div>

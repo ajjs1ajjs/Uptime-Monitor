@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -291,6 +292,39 @@ func TestSiteLifecycleWithCSRF(t *testing.T) {
 	}
 	if !strings.Contains(string(b), `"notify_methods":[]`) {
 		t.Fatalf("sites notify_methods not []: %s", string(b))
+	}
+}
+
+func TestPerMonitorAntiFlapSettingsUpdate(t *testing.T) {
+	app, base, pw := newTestApp(t)
+	jar := map[string]string{}
+	login(base, pw, "NewStrongPass123", jar)
+	postForm(base, "/login", map[string]string{"username": "admin", "password": "NewStrongPass123"}, jar)
+
+	id, err := app.Store.CreateSite("FlapTest", "https://example.com", 60, true, `[]`, "http", "", "[]")
+	if err != nil {
+		t.Fatalf("create site: %v", err)
+	}
+	payload := `{"request_timeout_seconds":45,"retry_interval_seconds":25,"max_retries":4,"up_success_threshold":3}`
+	req, _ := http.NewRequest(http.MethodPut, base+"/api/sites/"+strconv.FormatInt(id, 10), strings.NewReader(payload))
+	req.AddCookie(&http.Cookie{Name: "session_id", Value: jar["session_id"]})
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", base)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("update site: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("update site = %d, want 200", resp.StatusCode)
+	}
+
+	s, err := app.Store.GetSite(id)
+	if err != nil {
+		t.Fatalf("read site: %v", err)
+	}
+	if s.RequestTimeoutSeconds != 45 || s.RetryIntervalSeconds != 25 || s.MaxRetries != 4 || s.UpSuccessThreshold != 3 {
+		t.Fatalf("policy = %d/%d/%d/%d, want 45/25/4/3", s.RequestTimeoutSeconds, s.RetryIntervalSeconds, s.MaxRetries, s.UpSuccessThreshold)
 	}
 }
 

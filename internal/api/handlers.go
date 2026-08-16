@@ -80,7 +80,11 @@ func siteToMap(s storage.Site) map[string]any {
 	}
 	return map[string]any{
 		"id": s.ID, "name": s.Name, "url": s.URL, "check_interval": s.CheckInterval,
-		"is_active": s.IsActive, "last_notification": s.LastNotification,
+		"request_timeout_seconds": s.RequestTimeoutSeconds,
+		"retry_interval_seconds":  s.RetryIntervalSeconds,
+		"max_retries":             s.MaxRetries,
+		"up_success_threshold":    s.UpSuccessThreshold,
+		"is_active":               s.IsActive, "last_notification": s.LastNotification,
 		"notify_methods": nm, "status": s.Status, "status_code": s.StatusCode,
 		"response_time": s.ResponseTime, "error_message": s.ErrorMessage,
 		"monitor_type": s.MonitorType, "failed_attempts": s.FailedAttempts,
@@ -215,7 +219,44 @@ func (a *App) handleUpdateSite(w http.ResponseWriter, r *http.Request) {
 		fields["url"] = u
 	}
 	if v, ok := body["check_interval"].(float64); ok {
-		fields["check_interval"] = int(v)
+		value := int(v)
+		if value < 5 || value > 86400 {
+			writeErr(w, http.StatusBadRequest, "check_interval must be 5..86400")
+			return
+		}
+		fields["check_interval"] = value
+	}
+	if v, ok := body["request_timeout_seconds"].(float64); ok {
+		value := int(v)
+		if value < 1 || value > 300 {
+			writeErr(w, http.StatusBadRequest, "request_timeout_seconds must be 1..300")
+			return
+		}
+		fields["request_timeout_seconds"] = value
+	}
+	if v, ok := body["retry_interval_seconds"].(float64); ok {
+		value := int(v)
+		if value < 1 || value > 3600 {
+			writeErr(w, http.StatusBadRequest, "retry_interval_seconds must be 1..3600")
+			return
+		}
+		fields["retry_interval_seconds"] = value
+	}
+	if v, ok := body["max_retries"].(float64); ok {
+		value := int(v)
+		if value < 0 || value > 10 {
+			writeErr(w, http.StatusBadRequest, "max_retries must be 0..10")
+			return
+		}
+		fields["max_retries"] = value
+	}
+	if v, ok := body["up_success_threshold"].(float64); ok {
+		value := int(v)
+		if value < 1 || value > 20 {
+			writeErr(w, http.StatusBadRequest, "up_success_threshold must be 1..20")
+			return
+		}
+		fields["up_success_threshold"] = value
 	}
 	if v, ok := body["is_active"].(bool); ok {
 		fields["is_active"] = v

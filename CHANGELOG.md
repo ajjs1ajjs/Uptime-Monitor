@@ -620,3 +620,18 @@ To report a security vulnerability, please email security@example.com
 ---
 
 **Last updated:** 2026-03-19
+## [3.0.23] - 2026-08-16
+
+### Added
+
+- **Per-monitor anti-flapping settings**: request timeout, retry interval,
+  retry count, and successful checks required before recovery are now stored
+  and configured per monitor.
+- Existing databases automatically receive safe defaults for the new monitor
+  settings during migration.
+
+### Changed
+
+- Removed anti-flapping controls from the global settings screen; SSL and
+  other truly global checks remain there.
+- Monitor checks now use each monitor's own retry and recovery policy.

@@ -485,7 +485,7 @@ function renderMonitors() {
             </div>
             <div class="flex gap-2 mt-4">
                 <button data-action="checkSite" data-id="${site.id}" class="flex-1 py-2.5 rounded-lg gradient-accent text-black text-xs font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">${dict.card_check || '🔄 Check'}</button>
-                <button data-action="openEditModal" data-id="${site.id}" data-name="${esc(site.name)}" data-url="${encodeURIComponent(site.url)}" data-methods="${encodeURIComponent(JSON.stringify(methods))}" data-interval="${site.check_interval||60}" data-mtype="${monitorType}" data-keyword="${encodeURIComponent(site.keyword||'')}" data-tags="${safeTags}" class="flex-1 py-2.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium">${dict.card_edit || '✏️ Edit'}</button>
+                <button data-action="openEditModal" data-id="${site.id}" data-name="${esc(site.name)}" data-url="${encodeURIComponent(site.url)}" data-methods="${encodeURIComponent(JSON.stringify(methods))}" data-interval="${site.check_interval||60}" data-timeout="${site.request_timeout_seconds||30}" data-retry-interval="${site.retry_interval_seconds||20}" data-max-retries="${site.max_retries ?? 3}" data-up-threshold="${site.up_success_threshold||2}" data-mtype="${monitorType}" data-keyword="${encodeURIComponent(site.keyword||'')}" data-tags="${safeTags}" class="flex-1 py-2.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium">${dict.card_edit || '✏️ Edit'}</button>
                 <button data-action="deleteSite" data-id="${site.id}" class="flex-1 py-2.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-xs font-medium">${dict.card_delete || '🗑️ Delete'}</button>
             </div>
         </div>`;
@@ -824,12 +824,6 @@ async function loadAlertPolicy() {
     try {
         const resp = await fetch('/api/alert-policy');
         const data = await resp.json();
-        document.getElementById('alertTimeout').value = data.request_timeout_seconds ?? 30;
-        document.getElementById('alertGracePeriod').value = data.grace_period_seconds ?? 0;
-        document.getElementById('alertUpThreshold').value = data.up_success_threshold ?? 2;
-        document.getElementById('alertStillDownRepeat').value = data.still_down_repeat_seconds ?? 600;
-        document.getElementById('alertRetryDelays').value = (data.retry_delays || [30,30]).join(', ');
-        document.getElementById('alertMaxRetries').value = data.max_retries ?? 2;
         document.getElementById('alertSslDays').value = (data.ssl_notification_days || [30,14,7,5,3,1]).join(', ');
         document.getElementById('alertSslCooldown').value = data.ssl_notification_cooldown_seconds ?? 21600;
         document.getElementById('alertSslInterval').value = data.ssl_check_interval_hours ?? 6;
@@ -842,12 +836,6 @@ async function saveAlertPolicy() {
     const getChecked = (id) => document.getElementById(id).checked;
     const parseCsv = (id) => document.getElementById(id).value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
     const payload = {
-        request_timeout_seconds: getNum('alertTimeout'),
-        grace_period_seconds: getNum('alertGracePeriod'),
-        up_success_threshold: getNum('alertUpThreshold'),
-        still_down_repeat_seconds: getNum('alertStillDownRepeat'),
-        retry_delays: parseCsv('alertRetryDelays'),
-        max_retries: getNum('alertMaxRetries'),
         ssl_notification_days: parseCsv('alertSslDays'),
         ssl_notification_cooldown_seconds: getNum('alertSslCooldown'),
         ssl_check_interval_hours: getNum('alertSslInterval'),
@@ -891,11 +879,15 @@ async function saveStatusSettings() {
     } catch(e) { console.error(e); }
 }
 
-function openEditModal(id, name, url, notifyMethods, checkInterval, monitorType, keyword, tagsEncoded) {
+function openEditModal(id, name, url, notifyMethods, checkInterval, requestTimeout, retryInterval, maxRetries, upThreshold, monitorType, keyword, tagsEncoded) {
     document.getElementById('editSiteId').value = id;
     document.getElementById('editSiteName').value = name;
     document.getElementById('editSiteUrl').value = decodeURIComponent(url);
     document.getElementById('editSiteInterval').value = checkInterval || 60;
+    document.getElementById('editSiteRequestTimeout').value = requestTimeout || 30;
+    document.getElementById('editSiteRetryInterval').value = retryInterval || 20;
+    document.getElementById('editSiteMaxRetries').value = maxRetries ?? 3;
+    document.getElementById('editSiteUpThreshold').value = upThreshold || 2;
     document.getElementById('editSiteType').value = monitorType || 'http';
     document.getElementById('editSiteKeyword').value = keyword ? decodeURIComponent(keyword) : '';
     toggleKeywordField('editSiteType', 'editKeywordFieldContainer');
@@ -919,6 +911,10 @@ async function saveEdit() {
     const monitorType = document.getElementById('editSiteType').value;
     const keyword = document.getElementById('editSiteKeyword').value.trim();
     const checkInterval = parseInt(document.getElementById('editSiteInterval').value) || 60;
+    const requestTimeout = parseInt(document.getElementById('editSiteRequestTimeout').value) || 30;
+    const retryInterval = parseInt(document.getElementById('editSiteRetryInterval').value) || 20;
+    const maxRetries = parseInt(document.getElementById('editSiteMaxRetries').value);
+    const upThreshold = parseInt(document.getElementById('editSiteUpThreshold').value) || 2;
     
     const tags = selectedEditTags;
 
@@ -933,6 +929,10 @@ async function saveEdit() {
                 url,
                 monitor_type: monitorType,
                 check_interval: checkInterval,
+                request_timeout_seconds: requestTimeout,
+                retry_interval_seconds: retryInterval,
+                max_retries: Number.isNaN(maxRetries) ? 3 : maxRetries,
+                up_success_threshold: upThreshold,
                 notify_methods,
                 keyword,
                 tags
@@ -1233,6 +1233,10 @@ window.AppActions = Object.assign(window.AppActions || {}, {
     el.dataset.url || '',
     el.dataset.methods || '',
     parseInt(el.dataset.interval) || 60,
+    parseInt(el.dataset.timeout) || 30,
+    parseInt(el.dataset.retryInterval) || 20,
+    el.dataset.maxRetries === undefined ? 3 : parseInt(el.dataset.maxRetries),
+    parseInt(el.dataset.upThreshold) || 2,
     el.dataset.mtype || 'http',
     el.dataset.keyword || '',
     el.dataset.tags || '[]'

@@ -70,7 +70,7 @@ func TestOpenMigratesOldSchema(t *testing.T) {
 	defer migrated.Close()
 
 	siteCols := columns(t, migrated, "sites")
-	for _, col := range []string{"first_failure_at", "silenced_until", "acknowledged"} {
+	for _, col := range []string{"request_timeout_seconds", "retry_interval_seconds", "max_retries", "up_success_threshold", "first_failure_at", "silenced_until", "acknowledged"} {
 		if !siteCols[col] {
 			t.Errorf("sites is missing migrated column %q", col)
 		}
@@ -83,6 +83,13 @@ func TestOpenMigratesOldSchema(t *testing.T) {
 	// Existing rows must remain valid after the migration.
 	if _, err := migrated.Exec(`INSERT INTO sites (name, url) VALUES ('a', 'https://example.com')`); err != nil {
 		t.Errorf("insert after migration: %v", err)
+	}
+	var timeout, retryInterval, maxRetries, upThreshold int
+	if err := migrated.QueryRow(`SELECT request_timeout_seconds, retry_interval_seconds, max_retries, up_success_threshold FROM sites WHERE name = 'a'`).Scan(&timeout, &retryInterval, &maxRetries, &upThreshold); err != nil {
+		t.Fatalf("read migrated monitor policy: %v", err)
+	}
+	if timeout != 30 || retryInterval != 20 || maxRetries != 3 || upThreshold != 2 {
+		t.Fatalf("migrated monitor policy = %d/%d/%d/%d, want 30/20/3/2", timeout, retryInterval, maxRetries, upThreshold)
 	}
 
 	// Re-opening must be idempotent.

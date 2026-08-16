@@ -13,30 +13,35 @@ import (
 )
 
 type Site struct {
-	ID               int64    `json:"id"`
-	Name             string   `json:"name"`
-	URL              string   `json:"url"`
-	CheckInterval    int      `json:"check_interval"`
-	IsActive         bool     `json:"is_active"`
-	LastNotification *string  `json:"last_notification"`
-	NotifyMethods    string   `json:"-"`
-	Status           string   `json:"status"`
-	StatusCode       *int     `json:"status_code"`
-	ResponseTime     *float64 `json:"response_time"`
-	ErrorMessage     *string  `json:"error_message"`
-	MonitorType      string   `json:"monitor_type"`
-	FailedAttempts   int      `json:"failed_attempts"`
-	SuccessAttempts  int      `json:"success_attempts"`
-	LastDownAlert    *string  `json:"last_down_alert"`
-	FirstFailureAt   *string  `json:"first_failure_at"`
-	Keyword          *string  `json:"keyword"`
-	Tags             string   `json:"-"`
-	SilencedUntil    *string  `json:"silenced_until"`
-	Acknowledged     int      `json:"acknowledged"`
-	Uptime           float64  `json:"uptime"`
+	ID                    int64    `json:"id"`
+	Name                  string   `json:"name"`
+	URL                   string   `json:"url"`
+	CheckInterval         int      `json:"check_interval"`
+	RequestTimeoutSeconds int      `json:"request_timeout_seconds"`
+	RetryIntervalSeconds  int      `json:"retry_interval_seconds"`
+	MaxRetries            int      `json:"max_retries"`
+	UpSuccessThreshold    int      `json:"up_success_threshold"`
+	IsActive              bool     `json:"is_active"`
+	LastNotification      *string  `json:"last_notification"`
+	NotifyMethods         string   `json:"-"`
+	Status                string   `json:"status"`
+	StatusCode            *int     `json:"status_code"`
+	ResponseTime          *float64 `json:"response_time"`
+	ErrorMessage          *string  `json:"error_message"`
+	MonitorType           string   `json:"monitor_type"`
+	FailedAttempts        int      `json:"failed_attempts"`
+	SuccessAttempts       int      `json:"success_attempts"`
+	LastDownAlert         *string  `json:"last_down_alert"`
+	FirstFailureAt        *string  `json:"first_failure_at"`
+	Keyword               *string  `json:"keyword"`
+	Tags                  string   `json:"-"`
+	SilencedUntil         *string  `json:"silenced_until"`
+	Acknowledged          int      `json:"acknowledged"`
+	Uptime                float64  `json:"uptime"`
 }
 
-const siteCols = `id, name, url, check_interval, is_active, last_notification, notify_methods,
+const siteCols = `id, name, url, check_interval, request_timeout_seconds, retry_interval_seconds,
+ max_retries, up_success_threshold, is_active, last_notification, notify_methods,
  status, status_code, response_time, error_message, monitor_type, failed_attempts, success_attempts,
  last_down_alert, first_failure_at, keyword, tags, silenced_until, acknowledged`
 
@@ -67,7 +72,8 @@ func scanSite(row interface{ Scan(...any) error }) (*Site, error) {
 	_ = firstFailS
 	_ = keywordS
 	_ = silencedS
-	err := row.Scan(&s.ID, &s.Name, &s.URL, &s.CheckInterval, &active, &lastNotif,
+	err := row.Scan(&s.ID, &s.Name, &s.URL, &s.CheckInterval, &s.RequestTimeoutSeconds,
+		&s.RetryIntervalSeconds, &s.MaxRetries, &s.UpSuccessThreshold, &active, &lastNotif,
 		&s.NotifyMethods, &s.Status, &statusCode, &respTime, &errMsg, &s.MonitorType,
 		&s.FailedAttempts, &s.SuccessAttempts, &lastDown, &firstFail, &keyword, &s.Tags,
 		&silenced, &ack)

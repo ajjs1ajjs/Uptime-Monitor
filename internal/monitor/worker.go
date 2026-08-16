@@ -215,9 +215,19 @@ func (w *Worker) CheckSite(ctx context.Context, s *storage.Site) {
 		return
 	}
 	status, code, rt, errMsg := "down", 0, 0.0, ""
-	retries := policy.MaxRetries
+	retries := s.MaxRetries
+	if retries < 0 {
+		retries = policy.MaxRetries
+	}
 	if retries < 0 {
 		retries = 0
+	}
+	retryInterval := s.RetryIntervalSeconds
+	if retryInterval <= 0 {
+		retryInterval = 30
+		if len(policy.RetryDelays) > 0 {
+			retryInterval = policy.RetryDelays[0]
+		}
 	}
 	for attempt := 0; attempt <= retries; attempt++ {
 		select {
@@ -230,12 +240,7 @@ func (w *Worker) CheckSite(ctx context.Context, s *storage.Site) {
 			break
 		}
 		if attempt < retries {
-			delay := 30
-			if attempt < len(policy.RetryDelays) {
-				delay = policy.RetryDelays[attempt]
-			} else if len(policy.RetryDelays) > 0 {
-				delay = policy.RetryDelays[len(policy.RetryDelays)-1]
-			}
+			delay := retryInterval
 			if delay > 0 {
 				select {
 				case <-ctx.Done():
@@ -249,7 +254,11 @@ func (w *Worker) CheckSite(ctx context.Context, s *storage.Site) {
 }
 
 func (w *Worker) doCheck(ctx context.Context, s *storage.Site) (string, int, float64, string) {
-	timeout := time.Duration(w.Cfg.AlertPolicy.RequestTimeoutSeconds) * time.Second
+	timeoutSeconds := s.RequestTimeoutSeconds
+	if timeoutSeconds <= 0 {
+		timeoutSeconds = w.Cfg.AlertPolicy.RequestTimeoutSeconds
+	}
+	timeout := time.Duration(timeoutSeconds) * time.Second
 	if timeout <= 0 {
 		timeout = 30 * time.Second
 	}
@@ -577,7 +586,10 @@ func (w *Worker) persist(s *storage.Site, status string, code int, rt float64, e
 	} else if status == "up" {
 		s.FailedAttempts = 0
 		s.SuccessAttempts++
-		threshold := w.Cfg.AlertPolicy.UpSuccessThreshold
+		threshold := s.UpSuccessThreshold
+		if threshold <= 0 {
+			threshold = w.Cfg.AlertPolicy.UpSuccessThreshold
+		}
 		if threshold <= 0 {
 			threshold = 2
 		}
