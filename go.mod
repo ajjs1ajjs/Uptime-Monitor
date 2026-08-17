@@ -1,6 +1,6 @@
 module github.com/ajjs1ajjs/Uptime-Monitor
 
-go 1.25.7
+go 1.26.6
 
 require (
 	github.com/fernet/fernet-go v0.0.0-20240119011108-303da6aec611

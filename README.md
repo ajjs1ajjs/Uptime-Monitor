@@ -6,7 +6,7 @@
 
 **Enterprise uptime & SSL monitoring** — перевірка доступності сайтів, сервісів і SSL-сертифікатів з багатоканальними сповіщеннями, SLA-звітами та публічною сторінкою статусу.
 
-[![Go 1.25](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)](https://go.dev)
+[![Go 1.26.6](https://img.shields.io/badge/Go-1.26.6-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![Version](https://img.shields.io/github/v/release/ajjs1ajjs/Uptime-Monitor?label=version&color=06b6d4)](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
 [![Downloads](https://img.shields.io/github/downloads/ajjs1ajjs/Uptime-Monitor/total?label=downloads&color=10b981)](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
 [![CI](https://img.shields.io/github/actions/workflow/status/ajjs1ajjs/Uptime-Monitor/ci.yml?label=CI&color=8b5cf6)](https://github.com/ajjs1ajjs/Uptime-Monitor/actions)
@@ -152,7 +152,7 @@ uptime-monitor restore --backup FILENAME
 
 ## 🧩 Технології
 
-**Бекенд:** Go 1.25 · net/http · SQLite (WAL, modernc.org/sqlite) · gorilla/websocket · pongo2 (Jinja2-шаблони) · golang.org/x/crypto
+**Бекенд:** Go 1.26.6 · net/http · SQLite (WAL, modernc.org/sqlite) · gorilla/websocket · pongo2 (Jinja2-шаблони) · golang.org/x/crypto
 
 **Фронтенд:** Vanilla JS · Tailwind · PWA · WebSocket (embedded через `go:embed`)
 

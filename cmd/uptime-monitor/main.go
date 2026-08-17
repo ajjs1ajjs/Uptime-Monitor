@@ -22,7 +22,7 @@ import (
 	"github.com/ajjs1ajjs/Uptime-Monitor/internal/storage"
 )
 
-const Version = "3.0.25"
+const Version = "3.0.26"
 
 // fatalf logs an error and exits, mirroring the old log.Fatalf behaviour.
 func fatalf(format string, args ...any) {

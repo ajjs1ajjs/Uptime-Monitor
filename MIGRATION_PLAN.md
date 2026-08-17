@@ -6,7 +6,7 @@
 
 | Аспект | Було (Python) | Стало (Go) |
 |--------|---------------|------------|
-| Мова | Python 3.11 | **Go 1.25** |
+| Мова | Python 3.11 | **Go 1.26.6** |
 | Веб | FastAPI + Uvicorn | **net/http** |
 | Перевірки | aiohttp + asyncio | **goroutines + net/http** |
 | БД | aiosqlite | **modernc.org/sqlite** (pure-Go, WAL) |

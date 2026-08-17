@@ -635,6 +635,13 @@ To report a security vulnerability, please email security@example.com
 - Removed anti-flapping controls from the global settings screen; SSL and
   other truly global checks remain there.
 - Monitor checks now use each monitor's own retry and recovery policy.
+## [3.0.26] - 2026-08-17
+
+### Security
+
+- Updated the CI, release workflow, Docker builder, module baseline, and project documentation to Go 1.26.6.
+- The vulnerability scan now runs against the patched Go standard library instead of Go 1.25.12/1.26.5.
+
 ## [3.0.25] - 2026-08-17
 
 ### Changed

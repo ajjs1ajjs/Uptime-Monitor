@@ -1,5 +1,5 @@
 # Multi-stage build for production (Go)
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26.6-alpine AS builder
 
 WORKDIR /src
 COPY go.mod go.sum ./
@@ -33,7 +33,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 VOLUME ["/data", "/config", "/logs"]
 
 LABEL maintainer="Uptime Monitor"
-LABEL version="3.0.25"
+LABEL version="3.0.26"
 LABEL description="Enterprise uptime & SSL monitoring (Go)"
 
 CMD ["uptime-monitor", "server", "--config", "/config/config.json"]
