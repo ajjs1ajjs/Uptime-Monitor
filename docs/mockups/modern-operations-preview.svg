@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a1220"/>
+      <stop offset="1" stop-color="#101b2d"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+    <linearGradient id="chart" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#38bdf8" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#38bdf8" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="20" flood-color="#000" flood-opacity=".18"/>
+    </filter>
+    <style>
+      .ui{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;fill:#e5edf8}
+      .muted{fill:#8291a8}.subtle{fill:#64748b}.line{stroke:#223149;stroke-width:1}
+      .card{fill:#111e31;stroke:#223149;stroke-width:1}.small{font-size:13px}.tiny{font-size:11px}
+      .label{font-size:12px;letter-spacing:1.2px;text-transform:uppercase}.title{font-size:22px;font-weight:700}
+      .value{font-size:28px;font-weight:700}.bold{font-weight:650}.green{fill:#34d399}.red{fill:#fb7185}.amber{fill:#fbbf24}.blue{fill:#38bdf8}
+    </style>
+  </defs>
+
+  <rect width="1600" height="1000" fill="url(#bg)"/>
+  <rect x="0" y="0" width="252" height="1000" fill="#0c1728"/>
+  <path d="M252 0V1000" stroke="#1d2b40"/>
+
+  <!-- Brand -->
+  <rect x="28" y="28" width="38" height="38" rx="11" fill="url(#brand)"/>
+  <path d="M48 36l-7 13h6l-2 10 9-15h-6z" fill="#fff"/>
+  <text x="78" y="53" class="ui" font-size="17" font-weight="700">Uptime Monitor</text>
+  <text x="28" y="108" class="muted tiny" letter-spacing="1.5">WORKSPACE</text>
+  <rect x="20" y="125" width="212" height="42" rx="10" fill="#17263b" stroke="#27405f"/>
+  <circle cx="42" cy="146" r="9" fill="#34d399"/>
+  <text x="61" y="151" class="ui small">Production</text>
+  <path d="M207 143l5 5-5 5" fill="none" stroke="#8797ae" stroke-width="1.5"/>
+
+  <!-- Nav -->
+  <text x="28" y="215" class="muted tiny" letter-spacing="1.5">MONITORING</text>
+  <rect x="20" y="234" width="212" height="42" rx="10" fill="#17304a"/>
+  <rect x="20" y="234" width="3" height="42" rx="1.5" fill="#38bdf8"/>
+  <circle cx="43" cy="255" r="8" fill="#38bdf8" opacity=".18"/><path d="M39 258l3-6 3 4 3-5" fill="none" stroke="#7dd3fc" stroke-width="1.5"/>
+  <text x="61" y="260" class="ui small bold">Overview</text>
+  <text x="28" y="327" class="muted tiny" letter-spacing="1.5">MANAGE</text>
+  <g class="ui small">
+    <text x="61" y="368">Monitors</text><text x="61" y="414">SSL certificates</text><text x="61" y="460">Incidents</text><text x="61" y="506">Notifications</text>
+  </g>
+  <g fill="none" stroke="#8291a8" stroke-width="1.5">
+    <rect x="35" y="353" width="15" height="12" rx="2"/><path d="M38 349v4m9-4v4"/>
+    <rect x="36" y="399" width="14" height="17" rx="2"/><path d="M39 395h8m-8 9h8m-8 4h6"/>
+    <path d="M43 442l8 14H35z"/><path d="M43 447v5m0 3h.1"/>
+    <path d="M36 492h14v14H36z"/><path d="M39 496h8m-8 4h6"/>
+  </g>
+  <text x="28" y="577" class="muted tiny" letter-spacing="1.5">SYSTEM</text>
+  <g class="ui small"><text x="61" y="618">Settings</text><text x="61" y="664">Audit log</text></g>
+  <g fill="none" stroke="#8291a8" stroke-width="1.5"><circle cx="43" cy="613" r="7"/><path d="M43 603v3m0 14v3m-10-10h3m14 0h3"/><path d="M36 652l14 14m0-14l-14 14"/></g>
+  <line x1="28" y1="872" x2="224" y2="872" class="line"/>
+  <circle cx="45" cy="918" r="17" fill="#243852"/><text x="45" y="923" text-anchor="middle" class="ui small bold">A</text>
+  <text x="73" y="916" class="ui small bold">Admin</text><text x="73" y="934" class="subtle tiny">Administrator</text>
+  <circle cx="207" cy="918" r="3" fill="#34d399"/>
+
+  <!-- Top bar -->
+  <rect x="252" y="0" width="1348" height="76" fill="#0d192b" opacity=".92"/>
+  <line x1="252" y1="75" x2="1600" y2="75" class="line"/>
+  <text x="292" y="47" class="ui title">Overview</text>
+  <text x="1264" y="43" class="muted small">Last updated 11:22:09</text>
+  <circle cx="1246" cy="40" r="4" fill="#34d399"/>
+  <rect x="1450" y="23" width="42" height="32" rx="9" fill="#17263b"/><text x="1471" y="44" text-anchor="middle" class="ui small">UA</text>
+  <rect x="1502" y="23" width="42" height="32" rx="9" fill="#17263b"/><path d="M1523 32a8 8 0 1 0 6 13 7 7 0 0 1-6-13z" fill="#fbbf24"/>
+  <rect x="1554" y="23" width="24" height="32" rx="9" fill="#17304a"/><path d="M1564 34v10m-4-5h8" stroke="#7dd3fc" stroke-width="1.5"/>
+
+  <!-- Main content -->
+  <text x="292" y="121" class="muted small">Monday, August 17, 2026</text>
+  <text x="292" y="157" class="ui" font-size="28" font-weight="700">Good morning, Admin</text>
+  <rect x="1394" y="111" width="150" height="42" rx="10" fill="url(#brand)" filter="url(#shadow)"/><text x="1469" y="137" text-anchor="middle" fill="#fff" class="ui small bold">+ Add monitor</text>
+
+  <!-- KPI cards -->
+  <g filter="url(#shadow)">
+    <rect x="292" y="193" width="286" height="128" rx="14" class="card"/><rect x="598" y="193" width="286" height="128" rx="14" class="card"/><rect x="904" y="193" width="286" height="128" rx="14" class="card"/><rect x="1210" y="193" width="334" height="128" rx="14" class="card"/>
+  </g>
+  <g class="label muted"><text x="316" y="225">TOTAL MONITORS</text><text x="622" y="225">HEALTHY</text><text x="928" y="225">AVG. RESPONSE</text><text x="1234" y="225">INCIDENTS · 24H</text></g>
+  <text x="316" y="276" class="ui value">24</text><text x="622" y="276" class="green value">23</text><text x="928" y="276" class="blue value">142 ms</text><text x="1234" y="276" class="amber value">1</text>
+  <text x="316" y="298" class="subtle tiny">+2 this month</text><text x="622" y="298" class="green tiny">95.8% of all monitors</text><text x="928" y="298" class="subtle tiny">−18 ms vs yesterday</text><text x="1234" y="298" class="amber tiny">Needs attention</text>
+
+  <!-- Left panel monitors -->
+  <rect x="292" y="349" width="804" height="424" rx="14" class="card"/>
+  <text x="320" y="389" class="ui" font-size="17" font-weight="700">Monitor status</text>
+  <text x="320" y="413" class="muted small">Real-time health across all endpoints</text>
+  <rect x="844" y="373" width="112" height="34" rx="8" fill="#17263b"/><text x="900" y="395" text-anchor="middle" class="muted tiny">All monitors⌄</text>
+  <rect x="968" y="373" width="100" height="34" rx="8" fill="#17304a"/><text x="1018" y="395" text-anchor="middle" class="blue tiny">Refresh ↻</text>
+  <line x1="320" y1="438" x2="1068" y2="438" class="line"/>
+  <g class="label subtle"><text x="320" y="464">MONITOR</text><text x="690" y="464">UPTIME</text><text x="826" y="464">LATENCY</text><text x="964" y="464">STATUS</text></g>
+  <g class="ui small">
+    <text x="344" y="507" class="bold">Cloudflare DNS</text><text x="344" y="527" class="subtle tiny">1.1.1.1 · DNS</text>
+    <text x="344" y="579" class="bold">GitHub API</text><text x="344" y="599" class="subtle tiny">api.github.com · HTTPS</text>
+    <text x="344" y="651" class="bold">Production website</text><text x="344" y="671" class="subtle tiny">app.example.com · HTTPS</text>
+    <text x="344" y="723" class="bold">Payments API</text><text x="344" y="743" class="subtle tiny">api.example.com · HTTPS</text>
+  </g>
+  <g class="green small"><text x="690" y="507">100.00%</text><text x="690" y="579">99.99%</text><text x="690" y="651">99.98%</text><text x="690" y="723">99.94%</text></g>
+  <g class="ui small"><text x="826" y="507">22 ms</text><text x="826" y="579">84 ms</text><text x="826" y="651">126 ms</text><text x="826" y="723">248 ms</text></g>
+  <g><circle cx="980" cy="502" r="5" fill="#34d399"/><text x="994" y="507" class="green small">Operational</text><circle cx="980" cy="574" r="5" fill="#34d399"/><text x="994" y="579" class="green small">Operational</text><circle cx="980" cy="646" r="5" fill="#34d399"/><text x="994" y="651" class="green small">Operational</text><circle cx="980" cy="718" r="5" fill="#fbbf24"/><text x="994" y="723" class="amber small">Degraded</text></g>
+  <line x1="320" y1="543" x2="1068" y2="543" class="line"/><line x1="320" y1="615" x2="1068" y2="615" class="line"/><line x1="320" y1="687" x2="1068" y2="687" class="line"/>
+  <text x="320" y="805" class="blue small">View all monitors →</text>
+
+  <!-- Incidents -->
+  <rect x="1120" y="349" width="424" height="424" rx="14" class="card"/>
+  <text x="1148" y="389" class="ui" font-size="17" font-weight="700">Active incidents</text>
+  <text x="1148" y="413" class="muted small">Latest events that need attention</text>
+  <rect x="1148" y="446" width="368" height="90" rx="10" fill="#332a1a" stroke="#604b24"/>
+  <circle cx="1173" cy="473" r="8" fill="#fbbf24"/><text x="1192" y="476" class="amber small bold">Degraded performance</text>
+  <text x="1160" y="502" class="ui small">Payments API response time is elevated</text><text x="1160" y="521" class="subtle tiny">Started 12 minutes ago · 248 ms avg.</text>
+  <text x="1148" y="579" class="label subtle">RECENTLY RESOLVED</text>
+  <circle cx="1172" cy="619" r="7" fill="#34d399"/><text x="1192" y="623" class="ui small">Production website</text><text x="1192" y="643" class="subtle tiny">Resolved 2 hours ago · 4 min duration</text>
+  <circle cx="1172" cy="684" r="7" fill="#34d399"/><text x="1192" y="688" class="ui small">GitHub API</text><text x="1192" y="708" class="subtle tiny">Resolved yesterday · 1 min duration</text>
+  <line x1="1148" y1="741" x2="1516" y2="741" class="line"/><text x="1148" y="765" class="blue small">Open incident history →</text>
+
+  <!-- Chart -->
+  <rect x="292" y="801" width="1252" height="168" rx="14" class="card"/>
+  <text x="320" y="838" class="ui" font-size="17" font-weight="700">Response time</text><text x="320" y="861" class="muted small">Average latency across all monitors · Last 24 hours</text>
+  <text x="1456" y="838" text-anchor="end" class="blue small bold">142 ms</text>
+  <path d="M320 934 L378 928 L436 931 L494 912 L552 919 L610 899 L668 906 L726 890 L784 899 L842 881 L900 889 L958 870 L1016 878 L1074 862 L1132 871 L1190 849 L1248 858 L1306 844 L1364 851 L1422 835 L1480 842 L1480 945 L320 945Z" fill="url(#chart)"/>
+  <path d="M320 934 L378 928 L436 931 L494 912 L552 919 L610 899 L668 906 L726 890 L784 899 L842 881 L900 889 L958 870 L1016 878 L1074 862 L1132 871 L1190 849 L1248 858 L1306 844 L1364 851 L1422 835 L1480 842" fill="none" stroke="#38bdf8" stroke-width="2.5"/>
+  <g class="subtle tiny"><text x="320" y="958">00:00</text><text x="610" y="958">06:00</text><text x="900" y="958">12:00</text><text x="1190" y="958">18:00</text><text x="1452" y="958">Now</text></g>
+</svg>

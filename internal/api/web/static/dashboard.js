@@ -466,8 +466,8 @@ function renderMonitors() {
         else if (statusClass === 'paused') borderClass = 'border-amber-500';
         else if (statusClass === 'maintenance') borderClass = 'border-purple-500';
 
-        html += `<div class="gradient-card rounded-xl p-5 border-l-4 ${borderClass} border border-slate-700/30 card-hover transition" data-site-id="${site.id}">
-            <div class="flex justify-between items-start mb-4">
+        html += `<div class="monitor-card gradient-card rounded-xl p-5 border-l-4 ${borderClass} border border-slate-700/30 card-hover transition" data-site-id="${site.id}">
+            <div class="monitor-card-header flex justify-between items-start mb-4">
                 <div class="min-w-0 flex-1">
                     <div class="text-base font-semibold truncate" title="${safeName}">${safeName}</div>
                     <a href="${esc(site.url)}" target="_blank" class="text-xs text-slate-400 hover:text-accent hover:underline truncate mt-0.5 block" title="${safeUrl}">${safeUrl}</a>
@@ -477,13 +477,13 @@ function renderMonitors() {
                                     </div>
                 <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-accent/10 text-accent">${esc(monitorType)}</span>
             </div>
-            <div class="grid grid-cols-4 gap-2 py-3 border-y border-slate-700/30 text-center text-xs">
+            <div class="monitor-card-metrics grid grid-cols-4 gap-2 py-3 border-y border-slate-700/30 text-center text-xs">
                 <div><div class="text-sm font-bold status-badge ${statusClass}" style="color:${statusColor}">${statusText}</div><div class="text-slate-500 mt-0.5">${dict.card_status || 'Status'}</div></div>
                 <div><div class="text-sm font-bold text-slate-200 response-time">${site.response_time || '—'}ms</div><div class="text-slate-500 mt-0.5">${dict.card_time || 'Time'}</div></div>
                 <div><div class="text-sm font-bold text-slate-200">${(site.uptime || 100).toFixed(1)}%</div><div class="text-slate-500 mt-0.5">${dict.card_uptime || 'Uptime'}</div></div>
                 <div><div class="text-sm font-bold text-slate-200">${site.status_code || '—'}</div><div class="text-slate-500 mt-0.5">${dict.card_http || 'HTTP'}</div></div>
             </div>
-            <div class="flex gap-2 mt-4">
+            <div class="monitor-card-actions flex gap-2 mt-4">
                 <button data-action="checkSite" data-id="${site.id}" class="flex-1 py-2.5 rounded-lg gradient-accent text-black text-xs font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">${dict.card_check || '🔄 Check'}</button>
                 <button data-action="openEditModal" data-id="${site.id}" data-name="${esc(site.name)}" data-url="${encodeURIComponent(site.url)}" data-methods="${encodeURIComponent(JSON.stringify(methods))}" data-interval="${site.check_interval||60}" data-timeout="${site.request_timeout_seconds||30}" data-retry-interval="${site.retry_interval_seconds||20}" data-max-retries="${site.max_retries ?? 3}" data-up-threshold="${site.up_success_threshold||2}" data-mtype="${monitorType}" data-keyword="${encodeURIComponent(site.keyword||'')}" data-tags="${safeTags}" class="flex-1 py-2.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-xs font-medium">${dict.card_edit || '✏️ Edit'}</button>
                 <button data-action="deleteSite" data-id="${site.id}" class="flex-1 py-2.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition text-xs font-medium">${dict.card_delete || '🗑️ Delete'}</button>

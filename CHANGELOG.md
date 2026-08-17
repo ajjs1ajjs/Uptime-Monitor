@@ -635,3 +635,14 @@ To report a security vulnerability, please email security@example.com
 - Removed anti-flapping controls from the global settings screen; SSL and
   other truly global checks remain there.
 - Monitor checks now use each monitor's own retry and recovery policy.
+## [3.0.24] - 2026-08-17
+
+### Changed
+
+- Modernized the dashboard into a responsive Operations layout with a sidebar,
+  compact top bar, operational monitor list, and mobile-friendly navigation.
+- Replaced primary navigation and application actions with consistent inline SVG
+  icons and aligned the login, users, and public status views with the new UI.
+- Reduced visual effects and unnecessary motion while keeping the existing Go
+  templates, HTMX targets, API contracts, WebSocket updates, and monitor logic
+  unchanged.
