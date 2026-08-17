@@ -33,7 +33,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 VOLUME ["/data", "/config", "/logs"]
 
 LABEL maintainer="Uptime Monitor"
-LABEL version="3.0.24"
+LABEL version="3.0.25"
 LABEL description="Enterprise uptime & SSL monitoring (Go)"
 
 CMD ["uptime-monitor", "server", "--config", "/config/config.json"]

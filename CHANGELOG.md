@@ -635,6 +635,14 @@ To report a security vulnerability, please email security@example.com
 - Removed anti-flapping controls from the global settings screen; SSL and
   other truly global checks remain there.
 - Monitor checks now use each monitor's own retry and recovery policy.
+## [3.0.25] - 2026-08-17
+
+### Changed
+
+- Widened the operations UI on large screens for better use of available space.
+- Removed remaining decorative emoji from dashboard controls, headings, tags, and notification history.
+- Clarified the dashboard incident summary as recent events.
+
 ## [3.0.24] - 2026-08-17
 
 ### Changed

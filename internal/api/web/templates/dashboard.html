@@ -70,21 +70,21 @@
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div class="gauge-card glass rounded-xl p-5 text-center flex flex-col justify-between">
-            <h3 class="text-slate-400 text-sm uppercase tracking-wider mb-3">📊 Аптайм (24год)</h3>
+            <h3 class="text-slate-400 text-sm uppercase tracking-wider mb-3">Аптайм (24год)</h3>
             <div class="h-[100px] flex items-center justify-center relative">
                 <canvas id="uptimeGauge" class="mx-auto gauge-chart"></canvas>
             </div>
             <div class="text-2xl font-bold text-emerald-400 mt-2" id="uptimeValue">100%</div>
         </div>
         <div class="gauge-card glass rounded-xl p-5 text-center flex flex-col justify-between">
-            <h3 class="text-slate-400 text-sm uppercase tracking-wider mb-3">⚡ Сер. відповідь</h3>
+            <h3 class="text-slate-400 text-sm uppercase tracking-wider mb-3">Сер. відповідь</h3>
             <div class="h-[100px] flex items-center justify-center relative">
                 <canvas id="responseGauge" class="mx-auto gauge-chart"></canvas>
             </div>
             <div class="text-2xl font-bold text-accent mt-2" id="responseValue">0ms</div>
         </div>
         <div class="gauge-card glass rounded-xl p-5 text-center flex flex-col justify-between">
-            <h3 class="text-slate-400 text-sm uppercase tracking-wider mb-3">🔒 Статус SSL</h3>
+            <h3 class="text-slate-400 text-sm uppercase tracking-wider mb-3">Статус SSL</h3>
             <div class="h-[100px] flex items-center justify-center relative">
                 <canvas id="sslGauge" class="mx-auto gauge-chart"></canvas>
             </div>
@@ -95,13 +95,13 @@
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div class="lg:col-span-3 space-y-6">
             <div class="glass rounded-2xl p-6 card-hover transition">
-                <h3 class="text-lg font-semibold mb-4">📈 Час відповіді (24год)</h3>
+                <h3 class="text-lg font-semibold mb-4">Час відповіді (24год)</h3>
                 <div class="relative h-64">
                     <canvas id="responseTimeChart"></canvas>
                 </div>
             </div>
             <div class="glass rounded-2xl p-6 card-hover transition">
-                <h3 class="text-lg font-semibold mb-4">🔒 Термін SSL</h3>
+                <h3 class="text-lg font-semibold mb-4">Термін SSL</h3>
                 <div class="relative h-64">
                     <canvas id="sslTimelineChart"></canvas>
                 </div>
@@ -109,11 +109,11 @@
         </div>
         <div class="lg:col-span-1">
             <div class="glass rounded-2xl p-6 card-hover transition border-l-4 border-amber-500/50 sticky top-24">
-                <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">⚠️ Останні інциденти</h3>
+                <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">Останні події</h3>
                 <div id="dashboardIncidents" class="space-y-2">
                     <div class="text-center py-8 text-slate-500">Завантаження...</div>
                 </div>
-                <button data-action="switchTab" data-tab="incidents" class="mt-4 w-full py-2.5 rounded-xl bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-sm font-medium">📋 Всі інциденти</button>
+                <button data-action="switchTab" data-tab="incidents" class="mt-4 w-full py-2.5 rounded-xl bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-sm font-medium">Всі інциденти</button>
             </div>
         </div>
     </div>
@@ -122,7 +122,7 @@
 <div id="tab-monitors" class="tab-content mt-6 px-4 md:px-8 hidden">
     <div class="max-w-6xl mx-auto space-y-6">
         <div class="glass rounded-2xl p-6">
-            <h3 class="text-lg font-semibold mb-4" data-i18n="add_monitor_title">➕ Додати монітор</h3>
+            <h3 class="text-lg font-semibold mb-4" data-i18n="add_monitor_title">Додати монітор</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <input type="text" id="siteName" placeholder="Назва" data-i18n="monitor_name_lbl" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
                 <input type="url" id="siteUrl" placeholder="URL" data-i18n="monitor_url_lbl" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
@@ -131,8 +131,8 @@
                 <select id="monitorType" data-change="toggleKeywordFieldAdd" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
                     <option value="http">🌐 HTTP(S)</option>
                     <option value="port">🔌 Порт</option>
-                    <option value="ping">📡 Пінг</option>
-                    <option value="ssl">🔒 SSL</option>
+                    <option value="ping">Пінг</option>
+                    <option value="ssl">SSL</option>
                     <option value="dns">🔍 DNS</option>
                 </select>
                 <div class="flex items-center gap-3">
@@ -145,7 +145,7 @@
                 <input type="text" id="siteKeyword" placeholder="напр. Welcome, Success, або regex:^Welcome to .*$" data-i18n="keyword_lbl" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
             </div>
             <div class="mt-4">
-                <label class="text-slate-400 text-sm mb-1.5 block">📁 Папки / Теги (виберіть зі списку або введіть назву)</label>
+                <label class="text-slate-400 text-sm mb-1.5 block">Папки / Теги (виберіть зі списку або введіть назву)</label>
                 <div id="siteTagsWidget" class="w-full min-h-[48px] px-4 py-2 rounded-xl bg-[#0f172a] border border-slate-700/50 flex flex-wrap gap-2 items-center focus-within:border-accent focus-within:ring-1 focus-within:ring-accent transition cursor-text" data-action="focusInput" data-target="siteTagsInput">
                     <input type="text" id="siteTagsInput" placeholder="Додати папку..." class="bg-transparent border-none text-white text-sm outline-none flex-grow min-w-[120px] focus:ring-0 p-0 placeholder-slate-500">
                 </div>
@@ -153,19 +153,19 @@
                 <div class="flex flex-wrap gap-1.5 mt-2" id="existingTagsContainer"></div>
             </div>
             <div class="mt-4">
-                <label class="text-slate-400 text-sm mb-2 block">📨 Канали сповіщень</label>
+                <label class="text-slate-400 text-sm mb-2 block">Канали сповіщень</label>
                 <div id="siteNotifyOptions" class="space-y-1 max-h-64 overflow-y-auto pr-1"></div>
             </div>
-            <button data-action="addSite" class="mt-6 w-full py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition" data-i18n="add_monitor_btn">➕ Додати монітор</button>
+            <button data-action="addSite" class="mt-6 w-full py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition" data-i18n="add_monitor_btn">Додати монітор</button>
         </div>
 
         <div class="glass rounded-2xl p-6 card-hover transition">
-            <h3 class="text-lg font-semibold mb-4" data-i18n="all_monitors">📊 Всі монітори</h3>
+            <h3 class="text-lg font-semibold mb-4" data-i18n="all_monitors">Всі монітори</h3>
             <div class="flex flex-wrap gap-2 mb-4" id="monitorFilters">
                 <button class="monitor-type-btn px-4 py-2 rounded-lg bg-accent/10 text-accent font-medium text-xs" data-filter="all" data-action="setFilter" data-filter="all">Всі</button>
             </div>
             <div class="flex items-center gap-2 mb-4 text-xs text-slate-400">
-                <span class="whitespace-nowrap">📁 Папки:</span>
+                <span class="whitespace-nowrap">Папки:</span>
                 <div class="flex flex-wrap gap-2" id="tagFilters">
                     <button class="tag-filter-btn px-3 py-1.5 rounded-lg bg-accent/20 border border-accent text-accent font-medium text-xs" data-tag="all" data-action="setTagFilter" data-tag="all">Всі</button>
                 </div>
@@ -194,7 +194,7 @@
 <div id="tab-ssl" class="tab-content mt-6 px-4 md:px-8 hidden">
     <div class="glass rounded-2xl p-6">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-            <h3 class="text-lg font-semibold">🔒 SSL Сертифікати</h3>
+            <h3 class="text-lg font-semibold">SSL Сертифікати</h3>
             <button data-action="checkSSLCertificates" class="px-5 py-2.5 rounded-xl gradient-accent text-black font-semibold text-sm hover:shadow-lg hover:shadow-cyan-500/30 transition">🔄 Перевірити зараз</button>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" id="sslGrid"></div>
@@ -203,7 +203,7 @@
 
 <div id="tab-incidents" class="tab-content mt-6 px-4 md:px-8 hidden">
     <div class="glass rounded-2xl p-6">
-        <h3 class="text-lg font-semibold mb-4">⚠️ Історія інцидентів</h3>
+        <h3 class="text-lg font-semibold mb-4">Історія інцидентів</h3>
         <div id="incidentsList" class="text-center py-10 text-slate-500">Немає інцидентів — всі монітори працюють!</div>
     </div>
 </div>
@@ -213,7 +213,7 @@
     <div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Add Maintenance Window Form -->
         <div class="glass rounded-2xl p-6 h-fit">
-            <h3 class="text-lg font-semibold mb-4">➕ Додати обслуговування</h3>
+            <h3 class="text-lg font-semibold mb-4">Додати обслуговування</h3>
             <div class="space-y-4">
                 <div>
                     <label class="text-slate-400 text-sm mb-1.5 block">Назва періоду</label>
@@ -270,13 +270,13 @@
                     </div>
                 </div>
 
-                <button data-action="addMaintenanceWindow" class="w-full py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">➕ Додати правило</button>
+                <button data-action="addMaintenanceWindow" class="w-full py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">Додати правило</button>
             </div>
         </div>
 
         <!-- Maintenance Windows List -->
         <div class="glass rounded-2xl p-6 lg:col-span-2">
-            <h3 class="text-lg font-semibold mb-4">📋 Активні та заплановані роботи</h3>
+            <h3 class="text-lg font-semibold mb-4">Активні та заплановані роботи</h3>
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse text-sm">
                     <thead>
@@ -300,7 +300,7 @@
 
 <div id="tab-notifications" class="tab-content mt-6 px-4 md:px-8 hidden">
     <div class="glass rounded-2xl p-6">
-        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">🔔 Історія сповіщень</h3>
+        <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">Історія сповіщень</h3>
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse text-sm">
                 <thead>
@@ -325,7 +325,7 @@
 <div id="tab-settings" class="tab-content mt-6 px-4 md:px-8 hidden">
     <div class="max-w-4xl mx-auto space-y-6">
         <div class="glass rounded-2xl p-6">
-            <h3 class="text-lg font-semibold mb-4">🎨 Налаштування сторінки статусу</h3>
+            <h3 class="text-lg font-semibold mb-4">Налаштування сторінки статусу</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="text-xs text-slate-400 block mb-1">Назва сторінки</label>
@@ -362,7 +362,7 @@
         </div>
 
         <div class="glass rounded-2xl p-6">
-            <h3 class="text-lg font-semibold mb-4">📊 Звіти про доступність (SLA)</h3>
+            <h3 class="text-lg font-semibold mb-4">Звіти про доступність (SLA)</h3>
             <p class="text-slate-400 text-sm mb-4">Виберіть період та завантажте звіт про доступність моніторів.</p>
             <div class="flex flex-wrap gap-3">
                 <a href="/api/reports/sla/export?days=7" class="px-5 py-3 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:border-accent hover:text-white transition text-sm font-medium">7d CSV</a>
@@ -375,7 +375,7 @@
         </div>
 
         <div class="glass rounded-2xl p-6">
-            <h3 class="text-lg font-semibold mb-4">⚡ Глобальні перевірки</h3>
+            <h3 class="text-lg font-semibold mb-4">Глобальні перевірки</h3>
             <p class="text-slate-400 text-sm mb-4">Антифлапінг налаштовується окремо для кожного монітора у вкладці «Монітори».</p>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
@@ -408,7 +408,7 @@
         </div>
 
         <div class="glass rounded-2xl p-6">
-            <h3 class="text-lg font-semibold mb-4">🔔 Налаштування сповіщень</h3>
+            <h3 class="text-lg font-semibold mb-4">Налаштування сповіщень</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="notifyGrid">{{ notification_cards | safe }}</div>
             <button data-action="saveNotifySettings" class="mt-6 w-full py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">💾 Зберегти налаштування</button>
         </div>
@@ -464,8 +464,8 @@
                 <select id="editSiteType" data-change="toggleKeywordFieldEdit" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
                     <option value="http">🌐 HTTP(S)</option>
                     <option value="port">🔌 Порт</option>
-                    <option value="ping">📡 Пінг</option>
-                    <option value="ssl">🔒 SSL</option>
+                    <option value="ping">Пінг</option>
+                    <option value="ssl">SSL</option>
                     <option value="dns">🔍 DNS</option>
                 </select>
             </div>
@@ -474,7 +474,7 @@
                 <input type="text" id="editSiteKeyword" placeholder="напр. Welcome, Success, або regex:^Welcome to .*$" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent focus:ring-1 focus:ring-accent outline-none transition">
             </div>
             <div>
-                <label class="text-slate-400 text-sm mb-1.5 block">📁 Папки / Теги (виберіть зі списку або введіть назву)</label>
+                <label class="text-slate-400 text-sm mb-1.5 block">Папки / Теги (виберіть зі списку або введіть назву)</label>
                 <div id="editSiteTagsWidget" class="w-full min-h-[48px] px-4 py-2 rounded-xl bg-[#0f172a] border border-slate-700/50 flex flex-wrap gap-2 items-center focus-within:border-accent focus-within:ring-1 focus-within:ring-accent transition cursor-text" data-action="focusInput" data-target="editSiteTagsInput">
                     <input type="text" id="editSiteTagsInput" placeholder="Додати папку..." class="bg-transparent border-none text-white text-sm outline-none flex-grow min-w-[120px] focus:ring-0 p-0 placeholder-slate-500">
                 </div>
@@ -482,7 +482,7 @@
                 <div class="flex flex-wrap gap-1.5 mt-2" id="editExistingTagsContainer"></div>
             </div>
             <div>
-                <label class="text-slate-400 text-sm mb-2 block">📨 Канали сповіщень</label>
+                <label class="text-slate-400 text-sm mb-2 block">Канали сповіщень</label>
                 <div id="editSiteNotify" class="space-y-1 max-h-64 overflow-y-auto pr-1"></div>
             </div>
         </div>
@@ -496,7 +496,7 @@
 <!-- Modal додавання каналу -->
 <div id="addChannelModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
     <div class="glass rounded-2xl p-6 md:p-8 max-w-lg w-full animate-fade-in">
-        <h3 class="text-xl font-bold mb-6">➕ Додати канал сповіщень</h3>
+        <h3 class="text-xl font-bold mb-6">Додати канал сповіщень</h3>
         <div class="space-y-4">
             <div>
                 <label class="text-slate-400 text-sm mb-1.5 block">Тип</label>

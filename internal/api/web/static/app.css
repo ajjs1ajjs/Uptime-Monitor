@@ -619,6 +619,36 @@ table thead th {
     max-height: 64px;
 }
 
+/* Give dense operations pages a more useful reading width on large displays
+   without changing their mobile breakpoints or existing component markup. */
+@media (min-width: 1400px) {
+    #tab-dashboard,
+    #tab-monitors,
+    #tab-ssl,
+    #tab-incidents,
+    #tab-settings,
+    #tab-maintenance,
+    #tab-notifications {
+        max-width: 1680px;
+    }
+
+    .app-main .max-w-6xl {
+        max-width: 1560px;
+    }
+
+    .app-main .max-w-4xl {
+        max-width: 1280px;
+    }
+
+    .app-main > #tab-ssl > .glass,
+    .app-main > #tab-incidents > .glass,
+    .app-main > #tab-notifications > .glass {
+        max-width: 1560px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+}
+
 @media (max-width: 640px) {
     .app-topbar > div:last-child {
         gap: 5px !important;

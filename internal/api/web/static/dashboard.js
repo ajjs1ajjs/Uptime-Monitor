@@ -37,17 +37,15 @@ function renderNotifyChannelOptions(containerId, selectedChannels) {
     const container = document.getElementById(containerId);
     if (!container) return;
     const selected = selectedChannels || [];
-    const methodIcons = {telegram:'📱', discord:'🎮', teams:'🏢', email:'📧', slack:'💬', sms:'📱', webhook:'🔗', pushover:'📲', gotify:'🔔', ntfy:'📡'};
     const methodNames = {telegram:'Telegram', discord:'Discord', teams:'MS Teams', email:'Email', slack:'Slack', sms:'SMS', webhook:'Webhook', pushover:'Pushover', gotify:'Gotify', ntfy:'Ntfy'};
     let html = '';
     for (const [method, config] of Object.entries(notifyConfig)) {
         if (!config.enabled) continue;
         const channels = config.channels || [];
         if (channels.length === 0) continue;
-        const icon = methodIcons[method] || '🔔';
         const name = methodNames[method] || method;
         html += `<div class="mb-1.5">
-            <div class="text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wider">${icon} ${name}</div>
+            <div class="text-[11px] font-semibold text-slate-500 mb-1 uppercase tracking-wider">${name}</div>
             <div class="flex flex-wrap gap-1.5">`;
         channels.forEach(ch => {
             const chId = ch.id || '';
@@ -196,7 +194,7 @@ function renderTagsWidget(type) {
     list.forEach(t => {
         const chip = document.createElement('span');
         chip.className = 'tag-chip inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-accent/15 border border-accent/30 text-accent text-xs font-semibold';
-        chip.innerHTML = `📁 ${escHtml(t)} <button class="hover:text-white transition font-bold focus:outline-none ml-1 text-sm leading-none" data-action="removeTagChip" data-type="${type}" data-tag="${jsAttr(t)}">&times;</button>`;
+        chip.innerHTML = `${escHtml(t)} <button class="hover:text-white transition font-bold focus:outline-none ml-1 text-sm leading-none" data-action="removeTagChip" data-type="${type}" data-tag="${jsAttr(t)}">&times;</button>`;
         widget.insertBefore(chip, input);
     });
     
@@ -363,7 +361,7 @@ function updateGauges() {
 
     document.getElementById('uptimeValue').textContent = uptimePercent + '%';
     document.getElementById('responseValue').textContent = avgResponse + 'ms';
-    document.getElementById('sslValue').textContent = sslExpiring > 0 ? '⚠️ ' + sslExpiring : '✅ OK';
+    document.getElementById('sslValue').textContent = sslExpiring > 0 ? String(sslExpiring) : 'OK';
 
     const uptimeColor = uptimePercent >= 99 ? '#10b981' : uptimePercent >= 95 ? '#f59e0b' : '#ef4444';
     const responseColor = avgResponse <= 200 ? '#10b981' : avgResponse <= 500 ? '#f59e0b' : '#ef4444';
@@ -456,7 +454,7 @@ function renderMonitors() {
         let tagsHtml = '';
         if (tags.length > 0) {
             tagsHtml = `<div class="flex gap-1 mt-1 flex-wrap">` +
-                tags.slice(0, 3).map(tag => `<span class="px-2 py-0.5 bg-slate-700/50 rounded-full text-[10px] text-slate-400">📁 ${esc(tag)}</span>`).join('') +
+                tags.slice(0, 3).map(tag => `<span class="px-2 py-0.5 bg-slate-700/50 rounded-full text-[10px] text-slate-400">${esc(tag)}</span>`).join('') +
                 `</div>`;
         }
         const safeTags = encodeURIComponent(JSON.stringify(tags));
@@ -473,7 +471,7 @@ function renderMonitors() {
                     <a href="${esc(site.url)}" target="_blank" class="text-xs text-slate-400 hover:text-accent hover:underline truncate mt-0.5 block" title="${safeUrl}">${safeUrl}</a>
                     ${keywordHtml}
                     ${tagsHtml}
-                    ${statusClass === 'down' && site.error_message ? `<div class="text-[11px] text-red-400 mt-1 truncate" title="${esc(site.error_message)}">⚠️ ${esc(site.error_message)}</div>` : ''}
+                    ${statusClass === 'down' && site.error_message ? `<div class="text-[11px] text-red-400 mt-1 truncate" title="${esc(site.error_message)}">${esc(site.error_message)}</div>` : ''}
                                     </div>
                 <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase bg-accent/10 text-accent">${esc(monitorType)}</span>
             </div>
@@ -521,15 +519,13 @@ async function loadNotificationsHistory() {
             return;
         }
         tbody.innerHTML = data.map(n => {
-            const methodIcons = {telegram:'📱', discord:'🎮', teams:'🏢', email:'📧', slack:'💬', sms:'📱', webhook:'🔗', pushover:'📲', gotify:'🔔', ntfy:'📡'};
-            const icon = methodIcons[n.method] || '🔔';
             const time = (n.sent_at || '').substring(0, 19).replace('T', ' ');
             const statusClass = n.status === 'sent' ? 'text-emerald-400' : 'text-red-400';
             const preview = (n.message_preview || '').substring(0, 80);
             return `<tr class="hover:bg-slate-800/30 transition">
                 <td class="py-3 px-4 text-xs text-slate-400">${escHtml(time)}</td>
                 <td class="py-3 px-4 text-sm">${escHtml(n.site_name)}</td>
-                <td class="py-3 px-4 text-sm">${icon} ${escHtml(n.method)}</td>
+                <td class="py-3 px-4 text-sm uppercase tracking-wide">${escHtml(n.method)}</td>
                 <td class="py-3 px-4 text-sm ${statusClass}">${escHtml(n.status)}</td>
                 <td class="py-3 px-4 text-xs text-slate-400 max-w-xs truncate">${escHtml(preview)}</td>
             </tr>`;
@@ -574,7 +570,7 @@ function renderSSLCertificates() {
         html += `<div class="rounded-xl p-4 border-l-4" style="border-left-color:${statusColor};background:rgba(30,41,59,0.4);border:1px solid rgba(148,163,184,0.1);">
             <div class="font-semibold text-sm truncate" title="${escHtml(cert.site_name)}">${escHtml(cert.site_name)}</div>
             <div class="text-xs text-slate-400 truncate mb-2" title="${escHtml(cert.hostname)}">${escHtml(cert.hostname)}</div>
-            <div class="flex justify-between text-xs"><span>Term: ${days} days</span><span style="color:${statusColor}">${days <= 0 ? '❌ Overdue' : '✅ Valid'}</span></div>
+            <div class="flex justify-between text-xs"><span>Term: ${days} days</span><span style="color:${statusColor}">${days <= 0 ? 'Overdue' : 'Valid'}</span></div>
         </div>`;
     });
     grid.innerHTML = html;
@@ -671,7 +667,7 @@ function renderIncidents() {
             <div class="flex items-center gap-2 mb-1"><span class="font-semibold text-sm">${escHtml(inc.site_name)}</span><span class="text-xs px-2 py-0.5 rounded" style="background:${borderColor}22;color:${borderColor}">${statusText}</span></div>
             <div class="text-xs text-slate-400">${escHtml(inc.site_url)}</div>
             ${inc.duration ? `<div class="text-xs mt-1" style="color:${borderColor}">⏱️ Duration: ${escHtml(inc.duration)}</div>` : ''}
-            <div class="text-xs text-slate-500 mt-1">🕐 ${date}${inc.response_time ? ' ⚡ '+Math.round(inc.response_time)+'ms' : ''}${inc.status_code ? ' 📄 HTTP '+inc.status_code : ''}</div>
+            <div class="text-xs text-slate-500 mt-1">${date}${inc.response_time ? ' · '+Math.round(inc.response_time)+'ms' : ''}${inc.status_code ? ' · HTTP '+inc.status_code : ''}</div>
             ${inc.error_message ? `<div class="text-xs text-red-400 mt-2 p-2 bg-black/20 rounded font-mono">${escHtml(inc.error_message)}</div>` : ''}
         </div>`;
     }).join('') + '</div>';
@@ -682,7 +678,7 @@ function renderDashboardIncidents() {
     const container = document.getElementById('dashboardIncidents');
     if (!container) return;
     if (!incidentsData || incidentsData.length === 0) {
-        container.innerHTML = '<div class="text-center py-6 text-slate-500">✅ Немає інцидентів — всі монітори працюють!</div>';
+        container.innerHTML = '<div class="text-center py-6 text-slate-500">Немає інцидентів — всі монітори працюють!</div>';
         return;
     }
     const recent = incidentsData.slice(0, 5);
@@ -693,7 +689,7 @@ function renderDashboardIncidents() {
         const date = inc.checked_at ? new Date(inc.checked_at).toLocaleString('uk-UA') : '';
         return `<div style="border-left:3px solid ${borderColor}" class="pl-3 py-2 border-b border-slate-700/20 last:border-0">
             <div class="flex items-center gap-2 text-sm"><span class="font-medium truncate">${escHtml(inc.site_name)}</span><span class="text-[10px] px-1.5 py-0.5 rounded" style="background:${borderColor}22;color:${borderColor}">${statusText}</span></div>
-            <div class="text-xs text-slate-500 mt-0.5">🕐 ${date}${inc.response_time ? ' ⚡'+Math.round(inc.response_time)+'ms' : ''}</div>
+            <div class="text-xs text-slate-500 mt-0.5">${date}${inc.response_time ? ' · '+Math.round(inc.response_time)+'ms' : ''}</div>
         </div>`;
     }).join('');
 }
@@ -816,7 +812,7 @@ async function saveNotifySettings() {
     });
     try {
         await fetch('/api/notify-settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(settings)});
-        alert('✅ Налаштування збережено!');
+        alert('Налаштування збережено!');
     } catch(e) { console.error(e); }
 }
 
@@ -844,7 +840,7 @@ async function saveAlertPolicy() {
     };
     try {
         await fetch('/api/alert-policy', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
-        alert('✅ Політику сповіщень збережено!');
+        alert('Політику сповіщень збережено!');
     } catch(e) { console.error(e); }
 }
 
@@ -875,7 +871,7 @@ async function saveStatusSettings() {
     };
     try {
         await fetch('/api/app-settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
-        alert('✅ Налаштування сторінки збережено!');
+        alert('Налаштування сторінки збережено!');
     } catch(e) { console.error(e); }
 }
 
