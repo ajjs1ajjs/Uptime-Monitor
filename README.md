@@ -41,14 +41,9 @@
 
 ## 🚀 Швидкий старт
 
-**Linux / macOS / WSL:**
+**Ubuntu / Debian** (одна команда і встановлює, і оновлює):
 ```bash
 curl -sSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
-```
-
-**Windows (PowerShell):**
-```powershell
-iwr https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh -OutFile install.sh
 ```
 
 > **Одна команда** і встановлює, і оновлює. При оновленні зберігаються конфіг, БД, користувачі та паролі; замінюється лише бінарник (попередній лишається як `.old`).

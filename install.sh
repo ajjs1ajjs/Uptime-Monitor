@@ -1,5 +1,5 @@
 #!/bin/bash
-# Uptime Monitor (Go) - one-line installer/updater (Linux/macOS)
+# Uptime Monitor (Go) - one-line installer/updater (Ubuntu / Debian)
 # The SAME command installs on first run and safely UPDATES on subsequent runs:
 #   - keeps config, database, users and admin password
 #   - replaces only the binary and restarts the service
@@ -47,14 +47,7 @@ case "$(uname -m)" in
         exit 1
         ;;
 esac
-OS="linux"
-[ "$(uname -s)" = "Darwin" ] && OS="darwin"
-BINARY_NAME="uptime-monitor-${OS}-${ARCH}"
-case "$OS:$ARCH" in
-    linux:amd64) BINARY_NAME="uptime-monitor-linux-amd64" ;;
-    linux:arm64) BINARY_NAME="uptime-monitor-linux-arm64" ;;
-    darwin:*)    BINARY_NAME="uptime-monitor-darwin-amd64" ;;
-esac
+BINARY_NAME="uptime-monitor-linux-${ARCH}"
 
 if [ "$VERSION" = "latest" ]; then
     DOWNLOAD_URL="https://github.com/${REPO}/releases/latest/download/${BINARY_NAME}"

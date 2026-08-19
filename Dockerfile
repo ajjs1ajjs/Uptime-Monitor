@@ -1,5 +1,5 @@
 # Multi-stage build for production (Go)
-FROM golang:1.26.6-alpine AS builder
+FROM golang:1.26.6-ubuntu AS builder
 
 WORKDIR /src
 COPY go.mod go.sum ./
@@ -7,10 +7,12 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/uptime-monitor ./cmd/uptime-monitor
 
-FROM alpine:3.20
+FROM ubuntu:24.04
 
-RUN apk add --no-cache ca-certificates iputils bind-tools \
-    && addgroup -S uptime && adduser -S -G uptime uptime \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates iputils-ping dnsutils \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd -r uptime && useradd -r -g uptime -d /var/lib/uptime-monitor -s /usr/sbin/nologin uptime \
     && mkdir -p /data /config /logs \
     && chown -R uptime:uptime /data /config /logs
 
@@ -33,7 +35,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 VOLUME ["/data", "/config", "/logs"]
 
 LABEL maintainer="Uptime Monitor"
-LABEL version="3.0.26"
+LABEL version="3.1.0"
 LABEL description="Enterprise uptime & SSL monitoring (Go)"
 
 CMD ["uptime-monitor", "server", "--config", "/config/config.json"]
