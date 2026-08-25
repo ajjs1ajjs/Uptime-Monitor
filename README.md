@@ -1,6 +1,6 @@
-<p align="center">
-  <img src="docs/banner.svg" width="100%" alt="Uptime Monitor">
-</p>
+<div align="center">
+
+<img src="docs/banner.svg" width="100%" alt="Uptime Monitor">
 
 # ⏱️ Uptime Monitor
 
@@ -12,9 +12,11 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/ajjs1ajjs/Uptime-Monitor/ci.yml?label=CI&color=8b5cf6)](https://github.com/ajjs1ajjs/Uptime-Monitor/actions)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
+</div>
+
 ---
 
-## ✨ Можливості
+## ✨ Features
 
 | | | |
 |---|---|---|
@@ -27,7 +29,7 @@
 | 🔒 **Безпека** | Ролі admin/viewer, API-ключі, CSRF, rate-limit, SSRF-guard | 
 | 🗂️ **Обслуговування** | Maintenance windows, бекапи та відновлення БД | 
 
-## 🖼️ Інтерфейс
+## 🖼️ Screenshots
 
 | Дашборд | Публічна сторінка статусу |
 |---|---|
