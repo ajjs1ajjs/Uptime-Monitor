@@ -48,7 +48,16 @@
 curl -sSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 ```
 
-> **Одна команда** і встановлює, і оновлює. При оновленні зберігаються конфіг, БД, користувачі та паролі; замінюється лише бінарник (попередній лишається як `.old`).
+**Windows 10/11 & Server 2016+** (PowerShell від імені адміністратора, також встановлює й оновлює):
+```powershell
+irm https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.ps1 | iex
+```
+Або з параметрами:
+```powershell
+.\install.ps1 [-Version v1.2.3] [-SkipChecksum] [-AdminPassword 'YourPass']
+```
+
+> **Одна команда** і встановлює, і оновлює. При оновленні зберігаються конфіг, БД, користувачі та паролі; замінюється лише бінарник (попередній лишається як `.old`). Бінарники доступні для Linux (amd64/arm64), Windows (amd64/arm64) та macOS (amd64/arm64).
 
 ### 🐳 Docker
 
@@ -103,7 +112,11 @@ sudo systemctl restart uptime-monitor
 ## 🔧 Команди
 
 ```bash
-sudo systemctl start|stop|restart|status uptime-monitor
+sudo systemctl start|stop|restart|status uptime-monitor   # Linux
+
+# Windows
+Start-Service|Stop-Service|Restart-Service uptime-monitor
+Get-Service uptime-monitor
 
 # Оновлення = та сама команда встановлення
 curl -sSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash

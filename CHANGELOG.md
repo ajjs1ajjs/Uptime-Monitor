@@ -1,3 +1,19 @@
+## [3.2.0] - 2026-08-26
+
+### Added
+
+- **Windows support**: releases now ship `uptime-monitor-windows-amd64.exe` and
+  `uptime-monitor-windows-arm64.exe` (plus macOS amd64/arm64 builds), all covered
+  by the same fail-closed `checksums.txt` verification.
+- **One-line Windows installer/updater** (`install.ps1`, PowerShell 5.1+):
+  downloads the release binary, verifies its SHA-256, installs to
+  `%ProgramFiles%\uptime-monitor` with data under `%ProgramData%\uptime-monitor`,
+  registers an auto-restarting Windows service (`sc.exe failure` recovery),
+  locks down data-dir ACLs to SYSTEM/Administrators and generates the admin
+  password on first install. The same command safely updates an existing
+  installation, preserving config, database and users.
+- CI now also runs vet/tests/build on `windows-latest`.
+
 ## [3.0.22] - 2026-08-13
 
 ### Security
