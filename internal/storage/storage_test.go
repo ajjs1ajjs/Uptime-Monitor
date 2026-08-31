@@ -88,8 +88,8 @@ func TestOpenMigratesOldSchema(t *testing.T) {
 	if err := migrated.QueryRow(`SELECT request_timeout_seconds, retry_interval_seconds, max_retries, up_success_threshold FROM sites WHERE name = 'a'`).Scan(&timeout, &retryInterval, &maxRetries, &upThreshold); err != nil {
 		t.Fatalf("read migrated monitor policy: %v", err)
 	}
-	if timeout != 15 || retryInterval != 10 || maxRetries != 5 || upThreshold != 3 {
-		t.Fatalf("migrated monitor policy = %d/%d/%d/%d, want 15/10/5/3", timeout, retryInterval, maxRetries, upThreshold)
+	if timeout != 15 || retryInterval != 10 || maxRetries != 3 || upThreshold != 3 {
+		t.Fatalf("migrated monitor policy = %d/%d/%d/%d, want 15/10/3/3", timeout, retryInterval, maxRetries, upThreshold)
 	}
 
 	// Re-opening must be idempotent.

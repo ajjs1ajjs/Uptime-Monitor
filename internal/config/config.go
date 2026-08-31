@@ -129,7 +129,7 @@ func Default() *Config {
 			SSLNotificationCooldown: 21600,
 			SSLCheckIntervalHours:   6,
 			RetryDelays:             []int{10},
-			MaxRetries:              5,
+			MaxRetries:              3,
 		},
 		Backup: Backup{Enabled: true, MaxBackups: 10},
 	}

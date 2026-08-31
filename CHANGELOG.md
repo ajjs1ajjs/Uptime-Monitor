@@ -1,3 +1,9 @@
+## [3.2.2] - 2026-08-31
+
+### Changed
+
+- **Reduced `max_retries` default from 5 to 3** across config, database schema, example configs and installer for tighter flapping control.
+
 ## [3.2.1] - 2026-08-31
 
 ### Changed

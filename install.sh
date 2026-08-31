@@ -163,7 +163,7 @@ if [ ! -f "$CONFIG_FILE" ]; then
     "ssl_notification_cooldown_seconds": 21600,
     "ssl_check_interval_hours": 6,
     "retry_delays": [10],
-    "max_retries": 5
+    "max_retries": 3
   },
   "backup": {
     "enabled": true,
