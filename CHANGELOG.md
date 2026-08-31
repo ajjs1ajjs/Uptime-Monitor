@@ -1,3 +1,9 @@
+## [3.2.1] - 2026-08-31
+
+### Changed
+
+- **Ubuntu / Debian only**: removed `install.ps1` (Windows installer), Windows/macOS builds from `release.yml`, Windows tests from `ci.yml` and Docker deployment (Dockerfile, docker-compose.yml). Installation/deployment now supported only on Ubuntu / Debian via `install.sh`.
+
 ## [3.2.0] - 2026-08-26
 
 ### Added

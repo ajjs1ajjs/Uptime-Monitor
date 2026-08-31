@@ -196,7 +196,7 @@ func TestUpAlertFiresWhenThresholdAboveOne(t *testing.T) {
 		t.Fatalf("expected 1 down alert, got %v", fake.alerts)
 	}
 
-	// first successful check: SuccessAttempts=1 (< threshold), no up alert yet,
+	// first successful check: SuccessAttempts=1 (< threshold=3), no up alert yet,
 	// but the site's status is already persisted as "up" in the DB
 	s, _ = store.GetSite(id)
 	w.persist(s, "up", 200, 50, "")
@@ -204,8 +204,15 @@ func TestUpAlertFiresWhenThresholdAboveOne(t *testing.T) {
 		t.Fatalf("expected no up alert before threshold reached, got %v", fake.alerts)
 	}
 
-	// second successful check, reloaded fresh from the DB like a real cycle:
-	// prev is now "up" (written above), but SuccessAttempts reaches threshold
+	// second successful check: SuccessAttempts=2 (< threshold=3), still no up alert
+	s, _ = store.GetSite(id)
+	w.persist(s, "up", 200, 50, "")
+	if len(fake.alerts) != 1 {
+		t.Fatalf("expected no up alert before threshold reached, got %v", fake.alerts)
+	}
+
+	// third successful check, reloaded fresh from the DB like a real cycle:
+	// prev is now "up" (written above), but SuccessAttempts reaches threshold=3
 	// and LastDownAlert is still set, so the recovery alert must fire
 	s, _ = store.GetSite(id)
 	w.persist(s, "up", 200, 50, "")

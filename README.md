@@ -58,23 +58,7 @@
 curl -sSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
 ```
 
-**Windows 10/11 & Server 2016+** (PowerShell від імені адміністратора, також встановлює й оновлює):
-```powershell
-irm https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.ps1 | iex
-```
-Або з параметрами:
-```powershell
-.\install.ps1 [-Version v1.2.3] [-SkipChecksum] [-AdminPassword 'YourPass']
-```
-
-> **Одна команда** і встановлює, і оновлює. При оновленні зберігаються конфіг, БД, користувачі та паролі; замінюється лише бінарник (попередній лишається як `.old`). Бінарники доступні для Linux (amd64/arm64), Windows (amd64/arm64) та macOS (amd64/arm64).
-
-### 🐳 Docker
-
-```bash
-docker compose up -d
-curl http://localhost:8080/health
-```
+> **Одна команда** і встановлює, і оновлює. При оновленні зберігаються конфіг, БД, користувачі та паролі; замінюється лише бінарник (попередній лишається як `.old`). Бінарники доступні для Linux (amd64/arm64).
 
 ### 🛠️ З сирців
 
@@ -122,11 +106,7 @@ sudo systemctl restart uptime-monitor
 ## 🔧 Команди
 
 ```bash
-sudo systemctl start|stop|restart|status uptime-monitor   # Linux
-
-# Windows
-Start-Service|Stop-Service|Restart-Service uptime-monitor
-Get-Service uptime-monitor
+sudo systemctl start|stop|restart|status uptime-monitor
 
 # Оновлення = та сама команда встановлення
 curl -sSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.sh | sudo bash
@@ -149,14 +129,16 @@ uptime-monitor restore --backup FILENAME
   "log_dir": "/var/log/uptime-monitor",
   "check_interval": 60,
   "alert_policy": {
-    "request_timeout_seconds": 30,
+    "request_timeout_seconds": 15,
     "grace_period_seconds": 0,
-    "up_success_threshold": 2,
+    "up_success_threshold": 3,
     "still_down_repeat_seconds": 600,
     "treat_4xx_as_down": true,
     "verify_ssl": true,
     "ssl_notification_days": [30, 14, 7, 5, 3, 1],
-    "ssl_check_interval_hours": 6
+    "ssl_check_interval_hours": 6,
+    "retry_delays": [10],
+    "max_retries": 5
   }
 }
 ```
