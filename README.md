@@ -1,4 +1,15 @@
-<div align="center">
+﻿<div align="center">
+
+# Uptime Monitor — Source Code
+
+[![Deployed to](https://img.shields.io/badge/Deployed_to-Uptime--Monitor-blue)](https://github.com/ajjs1ajjs/Uptime-Monitor)
+[![Website](https://img.shields.io/badge/Website-ajjs1ajjs.github.io%2FUptime--Monitor-green)](https://ajjs1ajjs.github.io/Uptime-Monitor/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/ajjs1ajjs/Uptime-Monitor-source/ci.yml?label=CI)](https://github.com/ajjs1ajjs/Uptime-Monitor-source/actions)
+
+> **Це репозиторій з вихідним кодом Uptime Monitor monitoring server.**
+> Готовий продукт деплоїться в: **https://github.com/ajjs1ajjs/Uptime-Monitor**
+> Офіційний сайт: **https://ajjs1ajjs.github.io/Uptime-Monitor/**
 
 <img src="docs/banner.svg" width="100%" alt="Uptime Monitor">
 
@@ -10,10 +21,9 @@
 [![Version](https://img.shields.io/github/v/release/ajjs1ajjs/Uptime-Monitor?label=version&color=06b6d4)](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
 [![Downloads](https://img.shields.io/github/downloads/ajjs1ajjs/Uptime-Monitor/total?label=downloads&color=10b981)](https://github.com/ajjs1ajjs/Uptime-Monitor/releases)
 [![CI](https://img.shields.io/github/actions/workflow/status/ajjs1ajjs/Uptime-Monitor/ci.yml?label=CI&color=8b5cf6)](https://github.com/ajjs1ajjs/Uptime-Monitor/actions)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 </div>
-
 ---
 
 ## ✨ Features
