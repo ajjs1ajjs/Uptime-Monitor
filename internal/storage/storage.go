@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS sites (
   check_interval INTEGER DEFAULT 60, is_active BOOLEAN DEFAULT 1,
   request_timeout_seconds INTEGER DEFAULT 15,
   retry_interval_seconds INTEGER DEFAULT 10,
-  max_retries INTEGER DEFAULT 3,
+  max_retries INTEGER DEFAULT 5,
   up_success_threshold INTEGER DEFAULT 3,
   last_notification TEXT, notify_methods TEXT DEFAULT '[]',
   status TEXT DEFAULT 'unknown', status_code INTEGER, response_time REAL,
@@ -138,7 +138,7 @@ func migrateSchema(db *sql.DB) error {
 	steps := []colDef{
 		{"sites", "request_timeout_seconds", "request_timeout_seconds INTEGER DEFAULT 15"},
 		{"sites", "retry_interval_seconds", "retry_interval_seconds INTEGER DEFAULT 10"},
-		{"sites", "max_retries", "max_retries INTEGER DEFAULT 3"},
+		{"sites", "max_retries", "max_retries INTEGER DEFAULT 5"},
 		{"sites", "up_success_threshold", "up_success_threshold INTEGER DEFAULT 3"},
 		{"sites", "first_failure_at", "first_failure_at TEXT DEFAULT NULL"},
 		{"sites", "silenced_until", "silenced_until TEXT DEFAULT NULL"},

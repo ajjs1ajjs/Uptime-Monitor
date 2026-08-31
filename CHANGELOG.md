@@ -1,3 +1,9 @@
+## [3.2.3] - 2026-08-31
+
+### Changed
+
+- **Reverted `max_retries` default back to 5** and expanded `retry_delays` to `[10, 10, 10, 10, 10]` for consistent 5-retry behaviour.
+
 ## [3.2.2] - 2026-08-31
 
 ### Changed

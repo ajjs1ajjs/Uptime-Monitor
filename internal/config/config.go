@@ -128,8 +128,8 @@ func Default() *Config {
 			SSLNotificationDays:     []int{30, 14, 7, 5, 3, 1},
 			SSLNotificationCooldown: 21600,
 			SSLCheckIntervalHours:   6,
-			RetryDelays:             []int{10},
-			MaxRetries:              3,
+			RetryDelays:             []int{10, 10, 10, 10, 10},
+			MaxRetries:              5,
 		},
 		Backup: Backup{Enabled: true, MaxBackups: 10},
 	}

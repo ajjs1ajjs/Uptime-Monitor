@@ -137,8 +137,8 @@ uptime-monitor restore --backup FILENAME
     "verify_ssl": true,
     "ssl_notification_days": [30, 14, 7, 5, 3, 1],
     "ssl_check_interval_hours": 6,
-    "retry_delays": [10],
-    "max_retries": 3
+    "retry_delays": [10, 10, 10, 10, 10],
+    "max_retries": 5
   }
 }
 ```
