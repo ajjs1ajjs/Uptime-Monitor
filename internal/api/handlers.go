@@ -29,7 +29,7 @@ func (a *App) handleHealth(w http.ResponseWriter, r *http.Request) {
 		status = "degraded"
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"status": status, "timestamp": time.Now().UTC().Format(time.RFC3339),
+		"status": status, "timestamp": time.Now().In(storage.KyivLocation()).Format(time.RFC3339),
 		"checks":  map[string]any{"database": "ok", "monitor_thread": "ok"},
 		"version": a.Version,
 	})
@@ -345,9 +345,9 @@ func (a *App) handleSiteHistory(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleServerTime(w http.ResponseWriter, r *http.Request) {
-	now := time.Now().UTC()
+	now := time.Now().In(storage.KyivLocation())
 	writeJSON(w, http.StatusOK, map[string]any{
-		"timestamp": now.Unix(), "iso": now.Format("2006-01-02T15:04:05.000000+00:00"), "timezone": "UTC",
+		"timestamp": now.Unix(), "iso": now.Format("2006-01-02T15:04:05.000000-07:00"), "timezone": "Europe/Kyiv",
 	})
 }
 

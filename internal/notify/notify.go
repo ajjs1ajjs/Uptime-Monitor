@@ -248,7 +248,7 @@ func (s *Service) discord(alertType, message string, cfg map[string]any) bool {
 	return s.postJSON(webhook, map[string]any{
 		"embeds": []map[string]any{{
 			"title": "Uptime Monitor", "description": message, "color": color,
-			"timestamp": time.Now().UTC().Format(time.RFC3339),
+			"timestamp": time.Now().In(storage.KyivLocation()).Format(time.RFC3339),
 		}},
 	})
 }

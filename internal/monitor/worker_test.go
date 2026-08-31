@@ -64,7 +64,7 @@ func TestGracePeriodAlertsOnLaterCheck(t *testing.T) {
 	}
 
 	// simulate the grace period elapsing: push first_failure_at back in time
-	old := time.Now().UTC().Add(-60 * time.Second).Format("2006-01-02T15:04:05.999999-07:00")
+	old := time.Now().In(storage.KyivLocation()).Add(-60 * time.Second).Format("2006-01-02T15:04:05.999999-07:00")
 	if err := store.UpdateSite(id, map[string]any{"first_failure_at": old}); err != nil {
 		t.Fatalf("update: %v", err)
 	}
@@ -154,7 +154,7 @@ func TestSSLThresholdResetOnRenew(t *testing.T) {
 	// seed an SSL row already notified at threshold 30, with an old last_notified
 	// so the cooldown does not suppress the re-notification
 	_ = store.SaveSSLCertificate(id, map[string]any{"hostname": "example.com", "days_until_expire": 20, "is_valid": true})
-	_ = store.UpdateSSLThresholds(id, []int{30}, time.Now().UTC().Add(-24*time.Hour).Format("2006-01-02T15:04:05.000000+00:00"))
+	_ = store.UpdateSSLThresholds(id, []int{30}, time.Now().In(storage.KyivLocation()).Add(-24*time.Hour).Format("2006-01-02T15:04:05.000000-07:00"))
 	s, _ := store.GetSite(id)
 	cert := &x509.Certificate{}
 
@@ -245,7 +245,7 @@ func TestStillDownRepeat(t *testing.T) {
 	}
 
 	// simulate elapsed repeat window
-	old := time.Now().UTC().Add(-700 * time.Second).Format("2006-01-02T15:04:05.999999-07:00")
+	old := time.Now().In(storage.KyivLocation()).Add(-700 * time.Second).Format("2006-01-02T15:04:05.999999-07:00")
 	s, _ = store.GetSite(id)
 	s.LastDownAlert = &old
 	s.FirstFailureAt = &old

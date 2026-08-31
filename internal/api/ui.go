@@ -447,7 +447,7 @@ func (a *App) handlePublicStatus(w http.ResponseWriter, r *http.Request) {
 		"up_count":             upCount,
 		"down_count":           downCount,
 		"sites":                views,
-		"timestamp":            time.Now().UTC().Format("2006-01-02 15:04:05"),
+		"timestamp":            time.Now().In(storage.KyivLocation()).Format("2006-01-02 15:04:05"),
 		"site_title":           as.SiteTitle,
 		"logo_url":             as.LogoURL,
 		"footer_text":          as.FooterText,

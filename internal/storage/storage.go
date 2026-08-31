@@ -330,8 +330,18 @@ func rebuildWithForeignKey(db *sql.DB, t fkTable) error {
 	return tx.Commit()
 }
 
+var kyivLoc = func() *time.Location {
+	loc, err := time.LoadLocation("Europe/Kyiv")
+	if err != nil {
+		loc = time.FixedZone("EET", 3*60*60)
+	}
+	return loc
+}()
+
+func KyivLocation() *time.Location { return kyivLoc }
+
 func Now() string {
-	return time.Now().UTC().Format("2006-01-02T15:04:05.000000+00:00")
+	return time.Now().In(kyivLoc).Format("2006-01-02T15:04:05.000000-07:00")
 }
 
 type Store struct {
