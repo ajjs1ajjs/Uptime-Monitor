@@ -27,6 +27,8 @@ jobs:
           mkdir -p dist
           GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/uptime-monitor-linux-amd64 ./cmd/uptime-monitor
           GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/uptime-monitor-linux-arm64 ./cmd/uptime-monitor
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/uptime-monitor-windows-amd64.exe ./cmd/uptime-monitor
+          GOOS=windows GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/uptime-monitor-windows-arm64.exe ./cmd/uptime-monitor
           cd dist
           sha256sum * > checksums.txt
 

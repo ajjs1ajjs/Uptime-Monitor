@@ -1,3 +1,33 @@
+## [3.4.0] - 2026-09-01
+
+### Fixed
+
+- **Version bump omission in v3.3.0 / v3.3.1**: the `v3.3.0` tag/release binary was published with `Version = "3.2.3"` still compiled in (the Kyiv-timezone commit updated several `internal/**` packages but missed `cmd/uptime-monitor/main.go`). A `v3.3.1` tag was later created pointing at the exact same commit and released as well, so it carries the identical bug. `uptime-monitor --version` on either release incorrectly prints `3.2.3`. This release corrects `Version` to `3.4.0`; `3.3.0`/`3.3.1` are intentionally skipped as version numbers since both were already published with the wrong binary.
+- Pinned `govulncheck` to `v1.7.0` in CI instead of `@latest`, removing an unpinned supply-chain dependency from the vulnerability-scan step.
+- Fixed the CI badge in `README.md` pointing at the non-existent `ajjs1ajjs/Uptime-Monitor-source` actions page; it now points at `ajjs1ajjs/Uptime-Monitor/actions/workflows/ci.yml`.
+
+### Added
+
+- **Windows installer restored**: `install.ps1` is back (removed in `3.2.1`'s "Ubuntu/Debian only" cleanup), rewritten to match the current `install.sh` behaviour — fail-closed SHA-256 checksum verification against `checksums.txt` (with an explicit `UPTIME_MONITOR_SKIP_CHECKSUM=1` opt-out), `.old` binary backup on update, config/database/admin-password preservation across updates, and registration as a self-restarting Windows service. Run via `irm https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.ps1 | iex` (as Administrator).
+- `release.yml` now also cross-compiles `uptime-monitor-windows-amd64.exe` and `uptime-monitor-windows-arm64.exe`, covered by the same `checksums.txt`.
+- README: added a Windows installation section alongside the existing Ubuntu/Debian instructions.
+
+## [3.3.1] - 2026-08-31
+
+### Known issue (documented post-release, fixed in 3.4.0)
+
+- This tag points at the exact same commit as `3.3.0` (see below) and its binary also reports `--version` as `3.2.3` instead of `3.3.1`/`3.3.0`. No functional changes over `3.3.0`. See `3.4.0` above for the fix.
+
+## [3.3.0] - 2026-08-31
+
+### Changed
+
+- Use `Europe/Kyiv` timezone for all incident timestamps.
+
+### Known issue (documented post-release, fixed in 3.4.0)
+
+- This release's binary reports `--version` as `3.2.3` instead of `3.3.0` — the version bump was missed for this commit. Functionality is unaffected; only the reported version string is wrong. See `3.4.0` above for the fix. If you installed `3.3.0` or `3.3.1`, upgrading to `3.4.0` (or later) is recommended for a correct version string; no config/data migration is needed.
+
 ## [3.2.3] - 2026-08-31
 
 ### Changed

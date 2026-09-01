@@ -5,7 +5,7 @@
 [![Deployed to](https://img.shields.io/badge/Deployed_to-Uptime--Monitor-blue)](https://github.com/ajjs1ajjs/Uptime-Monitor)
 [![Website](https://img.shields.io/badge/Website-ajjs1ajjs.github.io%2FUptime--Monitor-green)](https://ajjs1ajjs.github.io/Uptime-Monitor/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/ajjs1ajjs/Uptime-Monitor-source/ci.yml?label=CI)](https://github.com/ajjs1ajjs/Uptime-Monitor-source/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/ajjs1ajjs/Uptime-Monitor/ci.yml?label=CI)](https://github.com/ajjs1ajjs/Uptime-Monitor/actions/workflows/ci.yml)
 
 > **Це репозиторій з вихідним кодом Uptime Monitor monitoring server.**
 > Готовий продукт деплоїться в: **https://github.com/ajjs1ajjs/Uptime-Monitor**
@@ -59,6 +59,13 @@ curl -sSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/instal
 ```
 
 > **Одна команда** і встановлює, і оновлює. При оновленні зберігаються конфіг, БД, користувачі та паролі; замінюється лише бінарник (попередній лишається як `.old`). Бінарники доступні для Linux (amd64/arm64).
+
+**Windows** (PowerShell від імені адміністратора; та сама команда встановлює й оновлює):
+```powershell
+irm https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.ps1 | iex
+```
+
+> Встановлює бінарник у `%ProgramFiles%\uptime-monitor`, дані/конфіг — у `%ProgramData%\uptime-monitor`, реєструє автоматично перезапускний Windows-сервіс `uptime-monitor`. Перевірка SHA-256 (fail-closed) проти `checksums.txt`, як і в Linux-версії; явний обхід через `$env:UPTIME_MONITOR_SKIP_CHECKSUM=1`. При оновленні конфіг/БД/паролі зберігаються, попередній бінарник лишається як `.old`. Бінарники доступні для Windows (amd64/arm64).
 
 ### 🛠️ З сирців
 
@@ -116,6 +123,15 @@ uptime-monitor server [--port 8080] [--config PATH]
 uptime-monitor reset-admin [--config PATH]
 uptime-monitor has-admin [--config PATH]
 uptime-monitor restore --backup FILENAME
+```
+
+Windows:
+```powershell
+Start-Service|Stop-Service|Restart-Service uptime-monitor
+Get-Service uptime-monitor
+
+# Оновлення = та сама команда встановлення
+irm https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.ps1 | iex
 ```
 
 ## ⚙️ Конфігурація
