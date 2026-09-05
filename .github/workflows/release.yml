@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: "1.26.6"
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build binaries
+        run: |
+          mkdir -p dist
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/uptime-monitor-linux-amd64 ./cmd/uptime-monitor
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/uptime-monitor-linux-arm64 ./cmd/uptime-monitor
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/uptime-monitor-windows-amd64.exe ./cmd/uptime-monitor
+          GOOS=windows GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/uptime-monitor-windows-arm64.exe ./cmd/uptime-monitor
+          GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/uptime-monitor-darwin-amd64 ./cmd/uptime-monitor
+          GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w" -o dist/uptime-monitor-darwin-arm64 ./cmd/uptime-monitor
+          cd dist
+          sha256sum * > checksums.txt
+
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ secrets.PUBLIC_RELEASE_TOKEN }}
+          PUBLIC_REPO: ajjs1ajjs/Uptime-Monitor
+          TAG: ${{ github.ref_name }}
+        run: |
+          test -n "$GH_TOKEN"
+          gh release create "$TAG" dist/* \
+            --repo "$PUBLIC_REPO" \
+            --title "Uptime Monitor $TAG" \
+            --generate-notes

@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 360" width="1280" height="360">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="0.55" stop-color="#16223b"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#00d9ff"/>
+      <stop offset="1" stop-color="#06b6d4"/>
+    </linearGradient>
+    <linearGradient id="upGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#10b981"/>
+      <stop offset="1" stop-color="#34d399"/>
+    </linearGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="textGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="6"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="360" fill="url(#bg)"/>
+
+  <g opacity="0.06" stroke="#38bdf8" stroke-width="1">
+    <path d="M0 90H1280M0 180H1280M0 270H1280M320 0V360M640 0V360M960 0V360"/>
+  </g>
+
+  <rect x="60" y="112" width="150" height="150" rx="16" fill="none" stroke="url(#accent)" stroke-width="3" filter="url(#glow)"/>
+  <rect x="70" y="122" width="130" height="104" rx="8" fill="url(#accent)" opacity="0.12"/>
+  <rect x="108" y="262" width="54" height="12" fill="url(#accent)" opacity="0.8"/>
+  <path d="M70 190 L118 190 L134 158 L156 218 L174 182 L200 182" fill="none" stroke="url(#upGrad)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+  <circle cx="118" cy="190" r="6" fill="#10b981" filter="url(#glow)"/>
+  <circle cx="134" cy="158" r="6" fill="#34d399" filter="url(#glow)"/>
+  <circle cx="156" cy="218" r="6" fill="#10b981" filter="url(#glow)"/>
+
+  <g fill="#10b981" opacity="0.9">
+    <circle cx="282" cy="118" r="5"/>
+    <circle cx="282" cy="140" r="5"/>
+    <circle cx="282" cy="162" r="5"/>
+  </g>
+  <text x="302" y="123" font-family="Segoe UI, sans-serif" font-size="15" fill="#e2e8f0">HTTP 200 · ok</text>
+  <text x="302" y="145" font-family="Segoe UI, sans-serif" font-size="15" fill="#e2e8f0">SSL expires in 42 days</text>
+  <text x="302" y="167" font-family="Segoe UI, sans-serif" font-size="15" fill="#e2e8f0">uptime 99.98%</text>
+
+  <text x="420" y="168" font-family="Segoe UI, sans-serif" font-size="66" font-weight="700" fill="#ffffff" filter="url(#textGlow)">Uptime <tspan fill="url(#accent)">Monitor</tspan></text>
+  <text x="424" y="212" font-family="Segoe UI, sans-serif" font-size="24" fill="#94a3b8">Enterprise uptime &amp; SSL monitoring</text>
+
+  <g transform="translate(420,252)">
+    <rect x="0" y="0" width="98" height="34" rx="17" fill="#10b981" opacity="0.14" stroke="#10b981" stroke-width="1"/>
+    <text x="49" y="23" font-family="Segoe UI, sans-serif" font-size="16" font-weight="600" fill="#34d399" text-anchor="middle">5 check types</text>
+    <rect x="108" y="0" width="158" height="34" rx="17" fill="#06b6d4" opacity="0.12" stroke="#06b6d4" stroke-width="1"/>
+    <text x="187" y="23" font-family="Segoe UI, sans-serif" font-size="16" font-weight="600" fill="#22d3ee" text-anchor="middle">10+ notification channels</text>
+    <rect x="276" y="0" width="72" height="34" rx="17" fill="#8b5cf6" opacity="0.12" stroke="#8b5cf6" stroke-width="1"/>
+    <text x="312" y="23" font-family="Segoe UI, sans-serif" font-size="16" font-weight="600" fill="#a78bfa" text-anchor="middle">PWA</text>
+  </g>
+
+  <path d="M0 318 Q40 312 80 318 T160 318 T240 318 T320 318 T400 318 T480 318 T560 318 T640 318 T720 318 T800 318 T880 318 T960 318 T1040 318 T1120 318 T1200 318 T1280 318" fill="none" stroke="url(#upGrad)" stroke-width="2" opacity="0.35"/>
+  <circle cx="0" cy="318" r="3" fill="#10b981" opacity="0.7"/>
+  <circle cx="1280" cy="318" r="3" fill="#10b981" opacity="0.7"/>
+</svg>

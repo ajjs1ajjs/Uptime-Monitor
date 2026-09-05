@@ -1,0 +1,33 @@
+<script id="channel-secrets" type="application/json">{{ notify_settings | tojson }}</script>
+
+{% for m in methods %}
+<div class="gradient-card rounded-xl p-5 border {% if m.enabled %}border-emerald-500/40{% else %}border-slate-700/30{% endif %} transition" id="card-{{ m.key }}" style="border-color: {% if m.enabled %}rgba(16,185,129,0.4){% else %}rgba(148,163,184,0.1){% endif %};">
+    <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-3">
+            <span class="text-2xl">{{ m.icon }}</span>
+            <div>
+                <div class="font-semibold text-sm">{{ m.name }}</div>
+                <div class="text-xs text-slate-400">{{ m.desc }}</div>
+            </div>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="toggle-{{ m.key }}" class="sr-only peer" data-change="toggleNotify" data-method="{{ m.key }}" {% if m.enabled %}checked{% endif %}>
+            <div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-accent peer-focus:ring-1 peer-focus:ring-accent transition after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+        </label>
+    </div>
+    <div id="channels-{{ m.key }}" class="mb-3">
+    {% for ch in m.channels %}
+        {% set ch_id = ch.id %}
+        {% set ch_name = ch.name %}
+        <div class="p-3 rounded-lg bg-slate-800/50 border {% if m.enabled %}border-emerald-500/30{% else %}border-slate-700/30{% endif %} mb-2" id="ch_{{ ch_id }}">
+            <div class="flex justify-between items-center mb-1">
+                <span class="text-sm font-medium">{{ m.icon }} {{ ch_name }}</span>
+                <button data-action="removeChannel" data-method="{{ m.key }}" data-channel="{{ ch_id }}" class="text-red-400 hover:text-red-300 text-xs transition">✕</button>
+            </div>
+            <input type="hidden" id="{{ m.key }}_{{ ch_id }}_name" value="{{ ch_name }}">
+        </div>
+    {% endfor %}
+    </div>
+    <button data-action="openAddChannelModal" data-method="{{ m.key }}" class="w-full py-2.5 rounded-lg border border-dashed border-slate-600 text-slate-400 hover:border-accent hover:text-accent transition text-xs font-medium bg-transparent">Add Channel</button>
+</div>
+{% endfor %}

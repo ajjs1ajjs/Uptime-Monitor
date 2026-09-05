@@ -1,0 +1,674 @@
+:root {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-card: #1e293b;
+    --text-primary: #ffffff;
+    --text-secondary: #94a3b8;
+    --border-color: rgba(148,163,184,0.1);
+    --glass-bg: rgba(30,41,59,0.6);
+    --card-grad: linear-gradient(180deg, rgba(30,41,59,0.7), rgba(15,23,42,0.9));
+    --body-grad: linear-gradient(to bottom right, #0f172a, #1e293b, #0f172a);
+    --input-bg: #0f172a;
+    --input-border: rgba(51,65,85,0.5);
+}
+.light {
+    --bg-primary: #f8fafc;
+    --bg-secondary: #ffffff;
+    --bg-card: #ffffff;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --border-color: rgba(0,0,0,0.08);
+    --glass-bg: rgba(255,255,255,0.85);
+    --card-grad: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(248,250,252,0.95));
+    --body-grad: linear-gradient(to bottom right, #f1f5f9, #f8fafc, #f1f5f9);
+    --input-bg: #ffffff;
+    --input-border: rgba(0,0,0,0.1);
+}
+body { min-height: 100vh; background: var(--body-grad); color: var(--text-primary); }
+.status-up { color: #10b981; }
+.status-down { color: #ef4444; }
+.status-warning { color: #f59e0b; }
+.bg-status-up { background: rgba(16,185,129,0.15); }
+.bg-status-down { background: rgba(239,68,68,0.15); }
+.bg-status-warning { background: rgba(245,158,11,0.15); }
+.glass { background: var(--glass-bg); backdrop-filter: blur(12px); border: 1px solid var(--border-color); }
+.card-hover:hover { border-color: rgba(0,217,255,0.3); box-shadow: 0 0 30px rgba(0,217,255,0.1); transform: translateY(-2px); }
+.animate-fade-in { animation: fadeIn 0.4s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+.gradient-accent { background: linear-gradient(135deg, #00d9ff, #06b6d4); }
+.gradient-card { background: var(--card-grad); }
+.scrollbar-thin::-webkit-scrollbar { width: 6px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+input, select { background: var(--input-bg) !important; border-color: var(--input-border) !important; color: var(--text-primary) !important; }
+table { color: var(--text-primary); }
+.text-slate-400 { color: var(--text-secondary) !important; }
+
+/* -------------------------------------------------------------------------
+   Modern Operations visual layer
+
+   This section is intentionally presentation-only. It keeps the existing
+   IDs, data attributes, HTMX targets and JavaScript hooks unchanged while
+   replacing the heavy glass/neon treatment with a denser operations UI.
+   ------------------------------------------------------------------------- */
+:root {
+    --bg-primary: #0a1220;
+    --bg-secondary: #0d192b;
+    --bg-card: #111e31;
+    --text-primary: #e5edf8;
+    --text-secondary: #8291a8;
+    --border-color: #223149;
+    --glass-bg: #111e31;
+    --card-grad: #111e31;
+    --body-grad: #0a1220;
+    --input-bg: #0c1829;
+    --input-border: #263a55;
+    --accent: #38bdf8;
+}
+
+html.light {
+    --bg-primary: #f4f7fb;
+    --bg-secondary: #ffffff;
+    --bg-card: #ffffff;
+    --text-primary: #152238;
+    --text-secondary: #64748b;
+    --border-color: #d9e2ee;
+    --glass-bg: #ffffff;
+    --card-grad: #ffffff;
+    --body-grad: #f4f7fb;
+    --input-bg: #ffffff;
+    --input-border: #cbd5e1;
+    --accent: #0284c7;
+}
+
+body {
+    background: var(--body-grad);
+    color: var(--text-primary);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px;
+    letter-spacing: .005em;
+}
+
+.app-topbar {
+    min-height: 72px;
+    background: rgba(13, 25, 43, .96) !important;
+    border-color: #1d2b40 !important;
+    box-shadow: 0 1px 0 rgba(255,255,255,.02), 0 12px 28px rgba(0,0,0,.12);
+    backdrop-filter: none;
+}
+
+.light .app-topbar {
+    background: rgba(255,255,255,.96) !important;
+}
+
+.app-topbar > div:last-child {
+    gap: 8px !important;
+}
+
+.app-topbar button,
+.app-topbar a {
+    border: 1px solid transparent;
+    transition: background-color .16s ease, border-color .16s ease, color .16s ease;
+}
+
+.app-topbar button:hover,
+.app-topbar a:hover {
+    transform: none !important;
+    border-color: #2a4868;
+}
+
+.app-topbar .gradient-accent {
+    background: #38bdf8;
+    box-shadow: none;
+}
+
+.app-tab-nav {
+    max-width: 1440px;
+    margin: 24px auto 0;
+    padding: 0 32px;
+}
+
+.app-tab-nav > div {
+    width: 100%;
+    padding: 5px;
+    background: #0d192b !important;
+    border: 1px solid #1d2b40 !important;
+    border-radius: 12px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.light .app-tab-nav > div {
+    background: #ffffff !important;
+    border-color: #d9e2ee !important;
+}
+
+.app-tab-nav .tab-btn {
+    color: #8291a8 !important;
+    border-radius: 8px;
+    padding: 10px 14px;
+    transition: background-color .16s ease, color .16s ease;
+}
+
+.app-tab-nav .tab-btn:hover {
+    color: #dce8f6 !important;
+    background: #17263b !important;
+}
+
+.app-tab-nav .tab-btn.bg-accent {
+    color: #7dd3fc !important;
+    background: #17304a !important;
+    box-shadow: inset 0 0 0 1px #285273;
+}
+
+.glass,
+.gradient-card {
+    background: var(--bg-card) !important;
+    border-color: var(--border-color) !important;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .10);
+}
+
+.card-hover:hover {
+    border-color: #31597b !important;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, .18);
+    transform: none;
+}
+
+.gradient-accent {
+    background: #38bdf8;
+    box-shadow: none;
+}
+
+.gradient-accent:hover {
+    background: #7dd3fc;
+    box-shadow: 0 8px 20px rgba(56, 189, 248, .16) !important;
+}
+
+#tab-dashboard,
+#tab-monitors,
+#tab-ssl,
+#tab-incidents,
+#tab-settings,
+#tab-maintenance,
+#tab-notifications {
+    max-width: 1440px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#heroStatsContainer > div {
+    min-height: 124px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border-radius: 14px;
+    box-shadow: none;
+}
+
+#heroStatsContainer > div > div:first-child {
+    line-height: 1;
+}
+
+#tab-dashboard .gauge-card {
+    min-height: 178px;
+    border-radius: 14px;
+    box-shadow: none;
+}
+
+#tab-dashboard .gauge-card h3,
+#tab-dashboard .glass > h3,
+#tab-dashboard .glass > div > h3 {
+    letter-spacing: .06em;
+    font-size: .72rem;
+    font-weight: 650;
+    color: #8291a8;
+}
+
+#tab-dashboard .gauge-card .text-2xl {
+    font-size: 1.35rem;
+}
+
+#tab-dashboard .relative.h-64,
+#tab-dashboard .relative.h-\[100px\] {
+    contain: layout paint;
+}
+
+#tab-dashboard .glass.rounded-2xl,
+#tab-dashboard .glass.rounded-xl,
+#tab-monitors .glass,
+#tab-ssl .glass,
+#tab-incidents .glass,
+#tab-settings .glass,
+#tab-maintenance .glass,
+#tab-notifications .glass {
+    border-radius: 14px;
+}
+
+#monitorsGrid > [data-site-id] {
+    border-left-width: 3px !important;
+    border-radius: 12px;
+    box-shadow: none;
+}
+
+#monitorsGrid > [data-site-id] .grid-cols-4 {
+    border-color: #223149 !important;
+}
+
+#monitorsGrid > [data-site-id] .status-badge {
+    letter-spacing: .04em;
+}
+
+#monitorsGrid > [data-site-id] button,
+#tab-monitors button,
+#tab-ssl button,
+#tab-settings button,
+#tab-maintenance button,
+#tab-notifications button {
+    transition: background-color .16s ease, border-color .16s ease, color .16s ease;
+}
+
+input, select, textarea {
+    border-radius: 9px !important;
+    box-shadow: none !important;
+}
+
+input:focus, select:focus, textarea:focus {
+    outline: 2px solid rgba(56, 189, 248, .22) !important;
+    outline-offset: 1px;
+}
+
+table thead th {
+    color: var(--text-secondary);
+    font-size: .7rem;
+    font-weight: 650;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+@keyframes uiFadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.tab-content:not(.hidden) {
+    animation: uiFadeIn .18s ease-out both;
+}
+
+@media (max-width: 900px) {
+    .app-topbar {
+        padding: 12px 16px;
+    }
+
+    .app-topbar > div:last-child {
+        max-width: 70%;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .app-tab-nav {
+        padding: 0 16px;
+        margin-top: 16px;
+    }
+
+    #tab-dashboard,
+    #tab-monitors,
+    #tab-ssl,
+    #tab-incidents,
+    #tab-settings,
+    #tab-maintenance,
+    #tab-notifications {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* Full operations shell: the existing tab buttons remain the source of
+   truth for navigation; only their placement changes. */
+.app-body {
+    display: grid;
+    grid-template-columns: 224px minmax(0, 1fr);
+    min-height: calc(100vh - 72px);
+}
+
+.app-sidebar {
+    position: sticky;
+    top: 72px;
+    height: calc(100vh - 72px);
+    padding: 26px 14px 20px;
+    background: #0c1728;
+    border-right: 1px solid #1d2b40;
+    display: flex;
+    flex-direction: column;
+}
+
+.light .app-sidebar {
+    background: #ffffff;
+    border-right-color: #d9e2ee;
+}
+
+.app-sidebar-kicker {
+    padding: 0 12px 12px;
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .16em;
+}
+
+.app-sidebar .app-tab-nav {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+}
+
+.app-sidebar .app-tab-nav > div {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0;
+    background: transparent !important;
+    border: 0 !important;
+    overflow: visible;
+}
+
+.app-sidebar .tab-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 11px 12px;
+    text-align: left;
+    white-space: normal;
+    border: 1px solid transparent;
+}
+
+.app-sidebar .tab-btn.bg-accent {
+    background: #17304a !important;
+    border-color: #285273;
+    box-shadow: inset 3px 0 0 #38bdf8;
+}
+
+.app-sidebar-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: auto 10px 0;
+    padding: 12px 2px 0;
+    border-top: 1px solid #1d2b40;
+    color: #64748b;
+    font-size: 11px;
+}
+
+.light .app-sidebar-footer {
+    border-top-color: #d9e2ee;
+}
+
+.app-sidebar-pulse {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: #34d399;
+    box-shadow: 0 0 0 3px rgba(52, 211, 153, .12);
+}
+
+.app-main {
+    min-width: 0;
+    padding-bottom: 40px;
+}
+
+.app-main .tab-content {
+    width: 100%;
+}
+
+@media (max-width: 900px) {
+    .app-body {
+        display: block;
+    }
+
+    .app-sidebar {
+        position: sticky;
+        top: 72px;
+        z-index: 40;
+        height: auto;
+        padding: 10px 12px;
+        border-right: 0;
+        border-bottom: 1px solid #1d2b40;
+    }
+
+    .app-sidebar-kicker,
+    .app-sidebar-footer {
+        display: none;
+    }
+
+    .app-sidebar .app-tab-nav > div {
+        flex-direction: row;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .app-sidebar .app-tab-nav > div::-webkit-scrollbar {
+        display: none;
+    }
+
+    .app-sidebar .tab-btn {
+        width: auto;
+        min-width: max-content;
+        justify-content: center;
+        white-space: nowrap;
+    }
+
+    .app-sidebar .tab-btn.bg-accent {
+        box-shadow: inset 0 -3px 0 #38bdf8;
+    }
+}
+
+/* Final UI polish */
+.app-brand-mark {
+    color: #06111e;
+}
+
+.icon-button,
+.topbar-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+}
+
+.icon-button svg,
+.topbar-link svg {
+    flex: 0 0 auto;
+}
+
+.topbar-link-danger {
+    border-color: rgba(248, 113, 113, .12) !important;
+}
+
+.nav-icon {
+    width: 17px;
+    height: 17px;
+    flex: 0 0 17px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.app-sidebar .nav-icon {
+    opacity: .78;
+}
+
+.app-sidebar .tab-btn.bg-accent .nav-icon {
+    opacity: 1;
+}
+
+/* On wide screens monitor cards become an operational list. The same
+   existing markup collapses back to cards below the mobile breakpoint. */
+#monitorsGrid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+}
+
+#monitorsGrid .monitor-card {
+    display: grid;
+    grid-template-columns: minmax(230px, 1.6fr) minmax(330px, 2fr) minmax(170px, .8fr);
+    align-items: center;
+    gap: 20px;
+    padding: 14px 18px !important;
+}
+
+#monitorsGrid .monitor-card-header,
+#monitorsGrid .monitor-card-metrics,
+#monitorsGrid .monitor-card-actions {
+    margin: 0 !important;
+}
+
+#monitorsGrid .monitor-card-metrics {
+    padding: 0 !important;
+    border-top: 0 !important;
+    border-bottom: 0 !important;
+}
+
+#monitorsGrid .monitor-card-actions {
+    justify-content: flex-end;
+}
+
+#monitorsGrid .monitor-card-actions button {
+    flex: 0 0 auto;
+    padding: 8px 10px !important;
+}
+
+#monitorsGrid .monitor-card-header > div:first-child {
+    min-width: 0;
+}
+
+#monitorsGrid .monitor-card-header > div:first-child > div:first-child {
+    font-size: .95rem;
+}
+
+@media (max-width: 1100px) and (min-width: 901px) {
+    .app-topbar .topbar-link span {
+        display: none;
+    }
+
+    .app-topbar .topbar-link {
+        width: 36px;
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    #monitorsGrid .monitor-card {
+        grid-template-columns: minmax(210px, 1.3fr) minmax(260px, 1.7fr) 150px;
+        gap: 12px;
+    }
+}
+
+@media (max-width: 900px) {
+    #monitorsGrid .monitor-card {
+        display: block;
+        padding: 16px !important;
+    }
+
+    #monitorsGrid .monitor-card-header {
+        margin-bottom: 14px !important;
+    }
+
+    #monitorsGrid .monitor-card-metrics {
+        padding: 12px 0 !important;
+        border-top: 1px solid #223149 !important;
+        border-bottom: 1px solid #223149 !important;
+    }
+
+    #monitorsGrid .monitor-card-actions {
+        justify-content: stretch;
+        margin-top: 14px !important;
+    }
+
+    #monitorsGrid .monitor-card-actions button {
+        flex: 1 1 0;
+    }
+}
+
+/* Keep the dashboard metrics compact while preserving the existing chart
+   canvases and their IDs for the current JavaScript. */
+#tab-dashboard .gauge-card {
+    min-height: 142px;
+    padding: 16px !important;
+}
+
+#tab-dashboard .gauge-card .h-\[100px\] {
+    height: 62px !important;
+}
+
+#tab-dashboard canvas.gauge-chart {
+    max-height: 64px;
+}
+
+/* Give dense operations pages a more useful reading width on large displays
+   without changing their mobile breakpoints or existing component markup. */
+@media (min-width: 1400px) {
+    #tab-dashboard,
+    #tab-monitors,
+    #tab-ssl,
+    #tab-incidents,
+    #tab-settings,
+    #tab-maintenance,
+    #tab-notifications {
+        max-width: 1680px;
+    }
+
+    .app-main .max-w-6xl {
+        max-width: 1560px;
+    }
+
+    .app-main .max-w-4xl {
+        max-width: 1280px;
+    }
+
+    .app-main > #tab-ssl > .glass,
+    .app-main > #tab-incidents > .glass,
+    .app-main > #tab-notifications > .glass {
+        max-width: 1560px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+}
+
+@media (max-width: 640px) {
+    .app-topbar > div:last-child {
+        gap: 5px !important;
+    }
+
+    .app-topbar .topbar-link span,
+    .app-topbar #workerLabel,
+    .app-topbar #lastUpdate {
+        display: none;
+    }
+
+    .app-topbar .topbar-link {
+        width: 34px;
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .app-topbar .icon-button {
+        width: 34px;
+        padding-left: 0;
+        padding-right: 0;
+    }
+}

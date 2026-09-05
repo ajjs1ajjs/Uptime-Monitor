@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Uptime Monitor - Користувачі{% endblock %}
+{% block content %}
+<header class="glass px-4 md:px-8 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+        <div class="app-brand-mark w-10 h-10 gradient-accent rounded-xl flex items-center justify-center text-xl shadow-lg shadow-cyan-500/20" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-9 12h7l-1 8 9-12h-7z"/></svg>
+        </div>
+        <span class="text-lg font-bold" data-i18n="users_title">Керування користувачами</span>
+    </div>
+    <div class="flex items-center gap-3">
+        <button data-action="toggleLang" id="langBtn" class="px-3 py-2 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-400 hover:border-accent hover:text-white transition text-sm">🇺🇦 UA</button>
+        <a href="/" class="text-slate-400 hover:text-white transition text-sm" data-i18n="tab_dashboard">📊 Дашборд</a>
+        <a href="/logout" class="text-red-400 hover:text-red-300 transition text-sm" data-i18n="logout">🚪 Вийти</a>
+    </div>
+</header>
+
+<div class="max-w-5xl mx-auto px-4 md:px-8 py-8">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <h1 class="text-2xl font-bold" data-i18n="users_title">Користувачі</h1>
+        <button data-action="showCreateModal" class="px-5 py-2.5 rounded-xl gradient-accent text-black font-semibold text-sm hover:shadow-lg hover:shadow-cyan-500/30 transition" data-i18n="users_add_btn">+ Додати користувача</button>
+    </div>
+
+    <div class="glass rounded-2xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="border-b border-slate-700/50">
+                        <th class="text-left p-4 text-slate-400 text-xs uppercase tracking-wider font-medium">ID</th>
+                        <th class="text-left p-4 text-slate-400 text-xs uppercase tracking-wider font-medium" data-i18n="users_username">Username</th>
+                        <th class="text-left p-4 text-slate-400 text-xs uppercase tracking-wider font-medium" data-i18n="users_role">Role</th>
+                        <th class="text-left p-4 text-slate-400 text-xs uppercase tracking-wider font-medium hidden md:table-cell">Created</th>
+                        <th class="text-left p-4 text-slate-400 text-xs uppercase tracking-wider font-medium hidden md:table-cell">Last Login</th>
+                        <th class="text-left p-4 text-slate-400 text-xs uppercase tracking-wider font-medium" data-i18n="users_actions">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="usersTableBody">
+                    <tr><td colspan="6" class="text-center p-8 text-slate-500">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Create Modal -->
+<div id="createModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="glass rounded-2xl p-6 md:p-8 max-w-md w-full animate-fade-in">
+        <h3 class="text-xl font-bold mb-6" data-i18n="users_modal_title">Додати користувача</h3>
+        <div class="space-y-4">
+            <div>
+                <label class="text-slate-400 text-sm mb-1.5 block" data-i18n="users_username">Ім'я користувача</label>
+                <input type="text" id="newUsername" placeholder="Введіть ім'я" data-i18n="users_username" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent outline-none transition">
+            </div>
+            <div>
+                <label class="text-slate-400 text-sm mb-1.5 block" data-i18n="users_password">Пароль</label>
+                <input type="password" id="newPassword" placeholder="Мін. 12 символів" data-i18n="users_password" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent outline-none transition">
+            </div>
+            <div>
+                <label class="text-slate-400 text-sm mb-1.5 block" data-i18n="users_role_lbl">Роль</label>
+                <select id="newRole" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent outline-none transition">
+                    <option value="viewer" data-i18n="users_role_viewer">Перегляд (тільки читання)</option>
+                    <option value="admin" data-i18n="users_role_admin">Адміністратор</option>
+                </select>
+            </div>
+        </div>
+        <div class="flex gap-3 mt-8">
+            <button data-action="closeModal" data-modal="createModal" class="flex-1 py-3.5 rounded-xl bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition font-medium" data-i18n="cancel_btn">Скасувати</button>
+            <button data-action="createUser" class="flex-1 py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition" data-i18n="add_btn">Створити</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="editModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="glass rounded-2xl p-6 md:p-8 max-w-md w-full animate-fade-in">
+        <h3 class="text-xl font-bold mb-6">Редагувати користувача</h3>
+        <input type="hidden" id="editUsername">
+        <div class="space-y-4">
+            <div>
+                <label class="text-slate-400 text-sm mb-1.5 block">Роль</label>
+                <select id="editRole" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white focus:border-accent outline-none transition">
+                    <option value="viewer">Перегляд (тільки читання)</option>
+                    <option value="admin">Адміністратор</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-slate-400 text-sm mb-1.5 block">Новий пароль <span class="text-slate-500">(необов'язково)</span></label>
+                <input type="password" id="editPassword" placeholder="Залиште порожнім, щоб не змінювати" class="w-full px-4 py-3 rounded-xl bg-[#0f172a] border border-slate-700/50 text-white placeholder-slate-500 focus:border-accent outline-none transition">
+            </div>
+        </div>
+        <div class="flex gap-3 mt-8">
+            <button data-action="closeModal" data-modal="editModal" class="flex-1 py-3.5 rounded-xl bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition font-medium">Скасувати</button>
+            <button data-action="updateUser" class="flex-1 py-3.5 rounded-xl gradient-accent text-black font-bold hover:shadow-lg hover:shadow-cyan-500/30 transition">Зберегти</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/users.js"></script>
+{% endblock %}

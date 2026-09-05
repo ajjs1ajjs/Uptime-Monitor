@@ -1,0 +1,44 @@
+# Go
+/bin/
+dist/
+/uptime-monitor
+/uptime-monitor.exe
+/um-test.exe
+*.test
+*.out
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backups
+backups/
+*.bak
+*.backup
+
+# Config
+config.json
+master.key
+
+# Secrets
+admin_password.txt
+
+um.exe
