@@ -23,6 +23,8 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/ajjs1ajjs/Uptime-Monitor/ci.yml?label=CI&color=8b5cf6)](https://github.com/ajjs1ajjs/Uptime-Monitor/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
+[**🌐 Live Site**](https://ajjs1ajjs.github.io/Uptime-Monitor/) · [Releases](https://github.com/ajjs1ajjs/Uptime-Monitor/releases) · [Actions](https://github.com/ajjs1ajjs/Uptime-Monitor/actions)
+
 </div>
 ---
 
