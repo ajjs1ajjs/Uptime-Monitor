@@ -62,6 +62,13 @@ curl -sSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/instal
 
 > **Одна команда** і встановлює, і оновлює. При оновленні зберігаються конфіг, БД, користувачі та паролі; замінюється лише бінарник (попередній лишається як `.old`). Бінарники доступні для Linux (amd64/arm64).
 
+**macOS** (sudo; та сама команда встановлює й оновлює):
+```bash
+curl -sSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install_mac.sh | sudo bash
+```
+
+> Встановлює бінарник у `/opt/homebrew/opt/uptime-monitor`, конфіг — у `/etc/uptime-monitor`, дані — у `/var/lib/uptime-monitor`, реєструє `launchd`-сервіс. Перевірка SHA-256 fail-closed проти `checksums.txt`. При оновленні конфіг/БД зберігаються, попередній бінарник лишається як `.old`. Бінарники доступні для macOS (amd64/arm64).
+
 **Windows** (PowerShell від імені адміністратора; та сама команда встановлює й оновлює):
 ```powershell
 irm https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.ps1 | iex
