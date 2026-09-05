@@ -12,7 +12,7 @@ CONFIG_DIR="/etc/uptime-monitor"
 DATA_DIR="/var/lib/uptime-monitor"
 LOG_DIR="/var/log/uptime-monitor"
 SERVICE_NAME="uptime-monitor"
-VERSION="${UPTIME_MONITOR_VERSION:-latest}"
+UM_VERSION="${UPTIME_MONITOR_VERSION:-latest}"
 REPO="ajjs1ajjs/Uptime-Monitor"
 CONFIG_FILE="$CONFIG_DIR/config.json"
 
@@ -72,21 +72,21 @@ case "$(uname -m)" in
 esac
 BINARY_NAME="uptime-monitor-linux-${ARCH}"
 
-if [ "$VERSION" = "latest" ]; then
+if [ "$UM_VERSION" = "latest" ]; then
     DOWNLOAD_URL="https://github.com/${REPO}/releases/latest/download/${BINARY_NAME}"
     VERSION_URL="latest/download/"
 else
-    DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${BINARY_NAME}"
-    VERSION_URL="download/${VERSION}/"
+    DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${UM_VERSION}/${BINARY_NAME}"
+    VERSION_URL="download/${UM_VERSION}/"
 fi
 
 # --- Download ----------------------------------------------------------------
-echo "[1/4] Downloading Uptime Monitor ${VERSION} (${BINARY_NAME})..."
+echo "[1/4] Downloading Uptime Monitor ${UM_VERSION} (${BINARY_NAME})..."
 TMP_BIN="$(mktemp)"
 if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$DOWNLOAD_URL" -o "$TMP_BIN" || { echo "ERROR: download failed. Is release ${VERSION} published?"; rm -f "$TMP_BIN"; exit 1; }
+    curl -fsSL "$DOWNLOAD_URL" -o "$TMP_BIN" || { echo "ERROR: download failed. Is release ${UM_VERSION} published?"; rm -f "$TMP_BIN"; exit 1; }
 elif command -v wget >/dev/null 2>&1; then
-    wget -q -O "$TMP_BIN" "$DOWNLOAD_URL" || { echo "ERROR: download failed. Is release ${VERSION} published?"; rm -f "$TMP_BIN"; exit 1; }
+    wget -q -O "$TMP_BIN" "$DOWNLOAD_URL" || { echo "ERROR: download failed. Is release ${UM_VERSION} published?"; rm -f "$TMP_BIN"; exit 1; }
 else
     echo "ERROR: neither curl nor wget is installed."
     rm -f "$TMP_BIN"
