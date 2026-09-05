@@ -41,6 +41,17 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
     exit 1
 }
 
+# --- OS version check -------------------------------------------------------
+$osVersion = [System.Environment]::OSVersion.Version
+$build = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").CurrentBuild
+$supportedBuilds = @(19044, 19045, 20049, 21313, 21382, 22000, 22336, 22621, 22631, 23466, 23530, 25398)
+if (-not ($build -in $supportedBuilds)) {
+    Write-Host "ERROR: Unsupported Windows version: Build $build." -ForegroundColor Red
+    Write-Host "Supported: Windows 10 21H1/21H2, Windows 11 22H2+, Windows Server 2022/2025."
+    exit 1
+}
+Write-Host "[OK] Detected Windows Build $build — supported." -ForegroundColor Green
+
 # --- Detect existing installation ---------------------------------------------
 $isUpdate = (Get-Service -Name $ServiceName -ErrorAction SilentlyContinue) -or (Test-Path $Binary) -or (Test-Path "$DataDir\sites.db") -or (Test-Path "$DataDir\data\sites.db")
 $mode = if ($isUpdate) { 'Update' } else { 'Install' }

@@ -21,6 +21,29 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+# --- OS version check -------------------------------------------------------
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    if [ "$ID" != "ubuntu" ] && [ "$ID" != "debian" ]; then
+        echo "ERROR: This installer supports Ubuntu and Debian only. Detected: $ID"
+        exit 1
+    fi
+    ver="${VERSION_ID%%.*}"
+    supported="24 25 26"
+    is_supported=0
+    for s in $supported; do
+        if [ "$ver" = "$s" ]; then
+            is_supported=1
+            break
+        fi
+    done
+    if [ "$is_supported" -eq 0 ]; then
+        echo "ERROR: Unsupported $ID version: $VERSION_ID. Supported: Ubuntu/Debian 24, 25, 26 (latest and preview)."
+        exit 1
+    fi
+    echo "[OK] Detected $ID $VERSION_ID ($PRETTY_NAME) — supported."
+fi
+
 # --- Detect existing installation -------------------------------------------
 IS_UPDATE=0
 if [ -f "/etc/systemd/system/$SERVICE_NAME.service" ] || [ -x "$INSTALL_DIR/uptime-monitor" ] || [ -f "$DATA_DIR/sites.db" ]; then
