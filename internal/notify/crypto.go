@@ -30,8 +30,17 @@ func LoadMasterKey() ([]byte, error) {
 	}
 	dir := configDir()
 	path := filepath.Join(dir, "master.key")
+	// Harden the config directory on every load, not just on first creation:
+	// an existing dir (e.g. created by root, installer, or an older version
+	// with 0o755) would otherwise stay world-readable together with master.key.
+	if err := os.MkdirAll(dir, 0o700); err == nil {
+		_ = ensureConfigDirPermissions(dir)
+	}
 	b, err := os.ReadFile(path)
 	if err == nil && len(b) >= 32 {
+		// Best-effort: fix key file perms if they drifted (backup/restore,
+		// umask, manual copy). Failure here must not block startup.
+		_ = os.Chmod(path, 0o600)
 		return b[:32], nil
 	}
 	if err == nil {
@@ -50,6 +59,10 @@ func LoadMasterKey() ([]byte, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, err
 	}
+	// Ensure permissions are correct even if directory already existed.
+	if err := ensureConfigDirPermissions(dir); err != nil {
+		return nil, err
+	}
 	if err := os.WriteFile(path, key, 0o600); err != nil {
 		return nil, fmt.Errorf("write master.key: %w", err)
 	}
@@ -64,6 +77,18 @@ func configDir() string {
 		return filepath.Join(home, "UptimeMonitor")
 	}
 	return "."
+}
+
+// ensureConfigDirPermissions ensures the config directory has 0o700 permissions.
+func ensureConfigDirPermissions(dir string) error {
+	info, err := os.Stat(dir)
+	if err != nil {
+		return err
+	}
+	if info.Mode().Perm() != 0o700 {
+		return os.Chmod(dir, 0o700)
+	}
+	return nil
 }
 
 const encPrefix = "__ENC__"

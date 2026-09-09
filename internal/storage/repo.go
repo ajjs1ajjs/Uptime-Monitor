@@ -736,3 +736,51 @@ func (st *Store) Tags() ([]string, error) {
 	}
 	return out, nil
 }
+
+// --- rate limits (persistent, for login/forgot-password) ---
+
+// CheckRateLimit checks if the rate limit for endpoint+ip is exceeded.
+// Returns (allowed, retryAfterSeconds).
+func (st *Store) CheckRateLimit(endpoint, ip string, maxAttempts int, windowSeconds int) (bool, int) {
+	now := float64(time.Now().Unix())
+
+	// Clean expired entries for this endpoint
+	_, _ = st.DB.Exec(`DELETE FROM rate_limits WHERE endpoint = ? AND reset_at < ?`, endpoint, now)
+
+	var count int
+	var resetAt float64
+	err := st.DB.QueryRow(`SELECT attempt_count, reset_at FROM rate_limits WHERE endpoint = ? AND ip = ?`, endpoint, ip).
+		Scan(&count, &resetAt)
+
+	if err == sql.ErrNoRows {
+		// First attempt
+		_, _ = st.DB.Exec(`INSERT INTO rate_limits (endpoint, ip, attempt_count, reset_at) VALUES (?,?,1,?)`, endpoint, ip, now+float64(windowSeconds))
+		return true, 0
+	}
+	if err != nil {
+		// On error, allow (fail-open) but log
+		return true, 0
+	}
+
+	if now > resetAt {
+		// Window expired, reset
+		_, _ = st.DB.Exec(`UPDATE rate_limits SET attempt_count = 1, reset_at = ? WHERE endpoint = ? AND ip = ?`, now+float64(windowSeconds), endpoint, ip)
+		return true, 0
+	}
+
+	if count >= maxAttempts {
+		retryAfter := int(resetAt - now)
+		if retryAfter < 1 {
+			retryAfter = 1
+		}
+		return false, retryAfter
+	}
+
+	_, _ = st.DB.Exec(`UPDATE rate_limits SET attempt_count = attempt_count + 1 WHERE endpoint = ? AND ip = ?`, endpoint, ip)
+	return true, 0
+}
+
+// ResetRateLimit clears the rate limit for an endpoint+ip (e.g. on successful login).
+func (st *Store) ResetRateLimit(endpoint, ip string) {
+	_, _ = st.DB.Exec(`DELETE FROM rate_limits WHERE endpoint = ? AND ip = ?`, endpoint, ip)
+}

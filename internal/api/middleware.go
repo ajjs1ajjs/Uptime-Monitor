@@ -97,8 +97,21 @@ func (a *App) principal(r *http.Request) *principal {
 	return nil
 }
 
-// withCSRF enforces same-origin for cookie-authenticated state-changing API
-// requests (API-key requests are exempt).
+// csrfCookieName is the double-submit CSRF cookie. It is intentionally NOT
+// HttpOnly so the first-party JS can read it and echo it back in the
+// X-CSRF-Token header; the cookie alone is useless to an attacker because
+// the check requires the *header* value to match (same-origin read).
+const csrfCookieName = "csrf_token"
+
+// withCSRF protects cookie-authenticated state-changing API requests with two
+// independent checks (either one passing is sufficient):
+//  1. Same-origin via Origin/Referer hostname (existing behavior, keeps
+//     programmatic session clients and all current tests working).
+//  2. Double-submit token: X-CSRF-Token header must equal the csrf_token
+//     cookie (SEC-002). This covers environments where Origin/Referer is
+//     stripped (privacy extensions, Referrer-Policy: no-referrer, some
+//     proxies) and hardens against subdomain/Referer edge cases.
+// API-key requests are exempt (not a browser CSRF vector).
 func (a *App) withCSRF(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions {
@@ -110,25 +123,44 @@ func (a *App) withCSRF(next http.HandlerFunc) http.HandlerFunc {
 			next(w, r) // API keys are not a browser CSRF vector
 			return
 		}
-		origin := r.Header.Get("Origin")
-		referer := r.Header.Get("Referer")
-		host := r.Host
-		valid := false
-		if origin != "" {
-			if u, err := url.Parse(origin); err == nil && u.Hostname() == hostnameOnly(host) {
-				valid = true
-			}
-		} else if referer != "" {
-			if u, err := url.Parse(referer); err == nil && u.Hostname() == hostnameOnly(host) {
-				valid = true
-			}
-		}
-		if !valid {
-			writeErr(w, http.StatusForbidden, "CSRF: missing or mismatched Origin/Referer")
+		if validSameOrigin(r) || validDoubleSubmit(r) {
+			next(w, r)
 			return
 		}
-		next(w, r)
+		writeErr(w, http.StatusForbidden, "CSRF: missing or mismatched Origin/Referer")
 	}
+}
+
+func validSameOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	referer := r.Header.Get("Referer")
+	host := r.Host
+	if origin != "" {
+		if u, err := url.Parse(origin); err == nil && u.Hostname() == hostnameOnly(host) {
+			return true
+		}
+		return false
+	}
+	if referer != "" {
+		if u, err := url.Parse(referer); err == nil && u.Hostname() == hostnameOnly(host) {
+			return true
+		}
+	}
+	return false
+}
+
+// validDoubleSubmit compares the X-CSRF-Token header against the csrf_token
+// cookie in constant time. A missing cookie or header fails closed.
+func validDoubleSubmit(r *http.Request) bool {
+	header := r.Header.Get("X-CSRF-Token")
+	if header == "" {
+		return false
+	}
+	cookie, err := r.Cookie(csrfCookieName)
+	if err != nil || cookie.Value == "" {
+		return false
+	}
+	return auth.ConstantTimeEqual(header, cookie.Value)
 }
 
 func hostnameOnly(host string) string {
@@ -149,13 +181,6 @@ type rateBucket struct {
 	count   int
 	resetAt time.Time
 }
-
-// loginFailMax / loginFailWindow bound failed login attempts per IP before a
-// temporary lockout (5 failed attempts per 15 minutes).
-const (
-	loginFailMax    = 5
-	loginFailWindow = 15 * time.Minute
-)
 
 type rateLimitStore struct {
 	mu      sync.Mutex
@@ -193,17 +218,36 @@ func (r *rateLimitStore) allow(key string, max int, window time.Duration) bool {
 // formEndpoints are rate-limited HTML form endpoints. Hitting their limit
 // redirects back to the page (instead of returning a raw JSON 429), so a
 // locked-out user sees a friendly error instead of an empty JSON page.
-// The login endpoint is deliberately absent: it applies its own failed-attempt
-// limiter inside the handler (see handleLoginPost) so successful logins can
-// never lock a user out.
 var formEndpoints = map[string]string{
+	"login_fail":      "/login?error=rate_limited",
 	"change_password": "/change-password?error=rate_limited",
 	"forgot_password": "/forgot-password?error=rate_limited",
+}
+
+// persistentRateLimitEndpoints use the SQLite-backed rate limiter (survives restarts).
+var persistentRateLimitEndpoints = map[string]struct{ max, window int }{
+	"login_fail":      {max: 5, window: 15 * 60},    // 5 attempts per 15 min
+	"forgot_password": {max: 3, window: 30 * 60},    // 3 attempts per 30 min
 }
 
 func (a *App) withRateLimit(endpoint string, max int, window int, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ip := a.clientIP(r)
+		// Use persistent (DB-backed) rate limiter for critical endpoints.
+		if cfg, ok := persistentRateLimitEndpoints[endpoint]; ok {
+			allowed, _ := a.Store.CheckRateLimit(endpoint, ip, cfg.max, cfg.window)
+			if !allowed {
+				if target, ok := formEndpoints[endpoint]; ok {
+					http.Redirect(w, r, target, http.StatusFound)
+					return
+				}
+				writeErr(w, http.StatusTooManyRequests, "Too many requests. Try again later.")
+				return
+			}
+			next(w, r)
+			return
+		}
+		// In-memory limiter for other endpoints.
 		if !a.rateLimiter.allow(endpoint+"|"+ip, max, time.Duration(window)*time.Second) {
 			if target, ok := formEndpoints[endpoint]; ok {
 				http.Redirect(w, r, target, http.StatusFound)
@@ -214,6 +258,11 @@ func (a *App) withRateLimit(endpoint string, max int, window int, next http.Hand
 		}
 		next(w, r)
 	}
+}
+
+// ResetLoginRateLimit clears the persistent rate limit for an IP on successful login.
+func (a *App) ResetLoginRateLimit(ip string) {
+	a.Store.ResetRateLimit("login_fail", ip)
 }
 
 // --- recovery ---
@@ -271,7 +320,7 @@ type reqIDKey struct{}
 
 func (a *App) withLogging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/static/") || r.URL.Path == "/health" || r.URL.Path == "/metrics" || r.URL.Path == "/favicon" {
+		if strings.HasPrefix(r.URL.Path, "/static/") || r.URL.Path == "/health" || strings.HasPrefix(r.URL.Path, "/health/") || r.URL.Path == "/metrics" || r.URL.Path == "/favicon" {
 			next.ServeHTTP(w, r)
 			return
 		}

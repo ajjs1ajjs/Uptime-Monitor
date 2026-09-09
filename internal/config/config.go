@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 )
 
 type Server struct {
@@ -95,6 +96,31 @@ type Config struct {
 	Backup        Backup      `json:"backup"`
 
 	path string `json:"-"`
+	mu   sync.RWMutex `json:"-"`
+}
+
+// GetAlertPolicy returns a snapshot copy of the alert policy. The worker and
+// the API handler run on different goroutines, so the handler must never
+// mutate c.AlertPolicy in place while the worker reads it (data race, plus
+// torn slice headers). All runtime reads go through here; all runtime writes
+// go through SetAlertPolicy.
+func (c *Config) GetAlertPolicy() AlertPolicy {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	out := c.AlertPolicy
+	out.SSLNotificationDays = append([]int(nil), c.AlertPolicy.SSLNotificationDays...)
+	out.RetryDelays = append([]int(nil), c.AlertPolicy.RetryDelays...)
+	return out
+}
+
+// SetAlertPolicy replaces the alert policy atomically (deep-copies slices so
+// the caller cannot mutate the stored policy afterwards).
+func (c *Config) SetAlertPolicy(ap AlertPolicy) {
+	ap.SSLNotificationDays = append([]int(nil), ap.SSLNotificationDays...)
+	ap.RetryDelays = append([]int(nil), ap.RetryDelays...)
+	c.mu.Lock()
+	c.AlertPolicy = ap
+	c.mu.Unlock()
 }
 
 func defaultDataDir() string {
@@ -219,7 +245,11 @@ func (c *Config) Save() error {
 	if path == "" {
 		return fmt.Errorf("config path not set")
 	}
+	// Marshal under a read lock so a concurrent SetAlertPolicy cannot tear
+	// the struct (or its slices) mid-serialization.
+	c.mu.RLock()
 	b, err := json.MarshalIndent(c, "", "  ")
+	c.mu.RUnlock()
 	if err != nil {
 		return err
 	}

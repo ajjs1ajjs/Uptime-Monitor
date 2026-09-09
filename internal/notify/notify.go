@@ -12,15 +12,26 @@ import (
 	"net/smtp"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ajjs1ajjs/Uptime-Monitor/internal/storage"
 )
 
+// settingsCacheTTL bounds how long decrypted notify settings are reused.
+// Decryption (AES-GCM over every secret field) ran on EVERY alert dispatch;
+// with flapping monitors this is pure CPU waste for unchanged settings.
+const settingsCacheTTL = 30 * time.Second
+
 // Service dispatches alerts over configured channels.
 type Service struct {
 	Store *storage.Store
 	HTTP  *http.Client
+
+	mu         sync.RWMutex
+	cachedRaw  string
+	cachedDec  map[string]any
+	cachedAt   time.Time
 }
 
 func New(store *storage.Store) *Service {
@@ -30,17 +41,67 @@ func New(store *storage.Store) *Service {
 	}
 }
 
-// LoadSettings returns the decrypted notify settings map.
+// InvalidateCache drops the cached settings so the next LoadSettings re-reads
+// from the database. Call after every SaveNotifyConfig.
+func (s *Service) InvalidateCache() {
+	s.mu.Lock()
+	s.cachedRaw = ""
+	s.cachedDec = nil
+	s.cachedAt = time.Time{}
+	s.mu.Unlock()
+}
+
+// LoadSettings returns the decrypted notify settings map, reusing a short-TTL
+// cache keyed on the raw stored config (PERF-002). The returned map is always
+// a deep copy: callers (e.g. handleSaveNotify) mutate it, which must never
+// corrupt the shared cache.
 func (s *Service) LoadSettings() map[string]any {
+	if s.Store == nil {
+		return map[string]any{}
+	}
 	raw, err := s.Store.LoadNotifyConfig()
 	if err != nil || raw == "" {
 		return map[string]any{}
 	}
+	s.mu.RLock()
+	if s.cachedDec != nil && s.cachedRaw == raw && time.Since(s.cachedAt) < settingsCacheTTL {
+		cached := s.cachedDec
+		s.mu.RUnlock()
+		return deepCopySettings(cached)
+	}
+	s.mu.RUnlock()
+
 	m := map[string]any{}
 	if json.Unmarshal([]byte(raw), &m) != nil {
 		return map[string]any{}
 	}
-	return DecryptSecrets(m)
+	dec := DecryptSecrets(m)
+
+	s.mu.Lock()
+	s.cachedRaw = raw
+	s.cachedDec = dec
+	s.cachedAt = time.Now()
+	s.mu.Unlock()
+	return deepCopySettings(dec)
+}
+
+func deepCopySettings(m map[string]any) map[string]any {
+	if m == nil {
+		return map[string]any{}
+	}
+	b, err := json.Marshal(m)
+	if err != nil {
+		out := make(map[string]any, len(m))
+		for k, v := range m {
+			out[k] = v
+		}
+		return out
+	}
+	out := map[string]any{}
+	if json.Unmarshal(b, &out) != nil {
+		return map[string]any{}
+	}
+	return out
 }
 
 // channelsFor returns the enabled channels for the given notify_methods list.

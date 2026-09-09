@@ -106,3 +106,48 @@ func TestLoginRateLimitsFailedAttemptsOnly(t *testing.T) {
 		t.Fatalf("6th failed login redirect = %q, want /login?error=rate_limited", loc)
 	}
 }
+
+// TestCSRFDoubleSubmitToken verifies the SEC-002 fix: a state-changing API
+// request with NO Origin/Referer is accepted when the X-CSRF-Token header
+// matches the csrf_token cookie, and rejected when they differ.
+func TestCSRFDoubleSubmitToken(t *testing.T) {
+	_, base, pw := newTestApp(t)
+	jar := map[string]string{}
+	login(base, pw, "NewStrongPass123", jar)
+	postForm(base, "/login", map[string]string{"username": "admin", "password": "NewStrongPass123"}, jar)
+
+	// Forge a double-submit pair (the test client is not a browser, so it can
+	// set both — a real cross-origin attacker cannot read the cookie value).
+	const token = "test-double-submit-token-1234567890"
+	send := func(header string) *http.Response {
+		req, _ := http.NewRequest(http.MethodPost, base+"/api/sites", strings.NewReader(
+			`{"name":"CSRFTest","url":"https://csrf.example.com","monitor_type":"http","check_interval":60}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.AddCookie(&http.Cookie{Name: "session_id", Value: jar["session_id"]})
+		req.AddCookie(&http.Cookie{Name: "csrf_token", Value: token})
+		if header != "" {
+			req.Header.Set("X-CSRF-Token", header)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("req: %v", err)
+		}
+		return resp
+	}
+
+	resp := send(token)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("matching double-submit token = %d, want 200", resp.StatusCode)
+	}
+	resp = send("wrong-token")
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("mismatched double-submit token = %d, want 403", resp.StatusCode)
+	}
+	resp = send("")
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("missing double-submit header = %d, want 403", resp.StatusCode)
+	}
+}

@@ -145,6 +145,16 @@ func TestHealthPagesAndStatic(t *testing.T) {
 	if resp.StatusCode != 200 {
 		t.Fatalf("status page = %d", resp.StatusCode)
 	}
+	resp, _ = http.Get(base + "/health/live")
+	if resp.StatusCode != 200 {
+		t.Fatalf("liveness = %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+	resp, _ = http.Get(base + "/health/ready")
+	if resp.StatusCode != 200 {
+		t.Fatalf("readiness = %d", resp.StatusCode)
+	}
+	resp.Body.Close()
 	// unauthenticated dashboard -> redirect to login
 	req, _ := http.NewRequest(http.MethodGet, base+"/", nil)
 	resp, _ = noRedirectClient.Do(req)

@@ -42,13 +42,15 @@ func (a *App) Handler() http.Handler {
 
 	// health + metrics (public, rate limited)
 	mux.HandleFunc("GET /health", a.withRecovery(a.withRateLimit("health", 30, 60, a.handleHealth)))
+	mux.HandleFunc("GET /health/live", a.withRecovery(a.withRateLimit("health", 30, 60, a.handleLiveness)))
+	mux.HandleFunc("GET /health/ready", a.withRecovery(a.withRateLimit("health", 30, 60, a.handleReadiness)))
 	mux.HandleFunc("GET /metrics", a.withRecovery(a.withRateLimit("metrics", 30, 60, a.handlePrometheus)))
 
 	// auth
 	mux.HandleFunc("GET /login", a.handleLoginPage)
-	// The login POST applies its own rate limit to FAILED attempts only (inside
-	// the handler), so legitimate users are never locked out by successful logins.
-	mux.HandleFunc("POST /login", a.withRecovery(a.handleLoginPost))
+	// Login uses persistent (DB-backed) rate limiting for failed attempts only.
+	// Successful logins reset the counter so legitimate users are never locked out.
+	mux.HandleFunc("POST /login", a.withRecovery(a.withRateLimit("login_fail", 5, 900, a.handleLoginPost)))
 	mux.HandleFunc("GET /logout", a.handleLogout)
 	mux.HandleFunc("GET /change-password", a.handleChangePasswordPage)
 	mux.HandleFunc("POST /change-password", a.withRecovery(a.withRateLimit("change_password", 3, 900, a.handleChangePasswordPost)))

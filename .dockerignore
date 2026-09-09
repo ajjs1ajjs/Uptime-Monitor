@@ -1,0 +1,12 @@
+.git
+.github
+dist
+*.db
+*.db-wal
+*.db-shm
+config.json
+backups/
+docs/
+dashboards/
+*.md
+!README.md

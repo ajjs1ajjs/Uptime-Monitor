@@ -140,7 +140,7 @@ func (w *Worker) backupIfDue() {
 
 func (w *Worker) sslIfDue() {
 	w.mu.Lock()
-	interval := time.Duration(w.Cfg.AlertPolicy.SSLCheckIntervalHours) * time.Hour
+	interval := time.Duration(w.Cfg.GetAlertPolicy().SSLCheckIntervalHours) * time.Hour
 	if interval <= 0 {
 		interval = 6 * time.Hour
 	}
@@ -210,7 +210,10 @@ func (w *Worker) WaitInflight(timeout time.Duration) {
 
 // CheckSite runs one full check (with retries) and persists the result.
 func (w *Worker) CheckSite(ctx context.Context, s *storage.Site) {
-	policy := w.Cfg.AlertPolicy
+	// Snapshot the policy once per check so a concurrent admin save cannot
+	// tear the struct mid-cycle ( ARCH-002: copy-modify-swap on the API side,
+	// atomic snapshot read here).
+	policy := w.Cfg.GetAlertPolicy()
 	if w.isUnderMaintenance(s.ID) {
 		return
 	}
@@ -256,7 +259,7 @@ func (w *Worker) CheckSite(ctx context.Context, s *storage.Site) {
 func (w *Worker) doCheck(ctx context.Context, s *storage.Site) (string, int, float64, string) {
 	timeoutSeconds := s.RequestTimeoutSeconds
 	if timeoutSeconds <= 0 {
-		timeoutSeconds = w.Cfg.AlertPolicy.RequestTimeoutSeconds
+		timeoutSeconds = w.Cfg.GetAlertPolicy().RequestTimeoutSeconds
 	}
 	timeout := time.Duration(timeoutSeconds) * time.Second
 	if timeout <= 0 {
@@ -289,6 +292,7 @@ func (w *Worker) doCheck(ctx context.Context, s *storage.Site) (string, int, flo
 }
 
 func (w *Worker) http(ctx context.Context, s *storage.Site, timeout time.Duration) (string, int, float64, string) {
+	policy := w.Cfg.GetAlertPolicy()
 	start := time.Now()
 	client := &http.Client{
 		Timeout: timeout,
@@ -306,7 +310,7 @@ func (w *Worker) http(ctx context.Context, s *storage.Site, timeout time.Duratio
 			return nil
 		},
 	}
-	if !w.Cfg.AlertPolicy.VerifySSL {
+	if !policy.VerifySSL {
 		client.Transport = &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
@@ -351,7 +355,7 @@ func (w *Worker) http(ctx context.Context, s *storage.Site, timeout time.Duratio
 	}
 
 	code := resp.StatusCode
-	treat4xx := w.Cfg.AlertPolicy.Treat4xxAsDown
+	treat4xx := policy.Treat4xxAsDown
 	if code >= 200 && code < 400 {
 		return "up", code, rt, ""
 	}
@@ -532,6 +536,7 @@ func parseFlexTime(s string) (time.Time, error) {
 func (w *Worker) persist(s *storage.Site, status string, code int, rt float64, errMsg string) {
 	now := storage.Now()
 	prev := s.Status
+	policy := w.Cfg.GetAlertPolicy()
 
 	var codePtr *int
 	if code != 0 {
@@ -558,8 +563,8 @@ func (w *Worker) persist(s *storage.Site, status string, code int, rt float64, e
 			f := now
 			s.FirstFailureAt = &f
 		}
-		grace := time.Duration(w.Cfg.AlertPolicy.GracePeriodSeconds) * time.Second
-		repeat := time.Duration(w.Cfg.AlertPolicy.StillDownRepeatSeconds) * time.Second
+		grace := time.Duration(policy.GracePeriodSeconds) * time.Second
+		repeat := time.Duration(policy.StillDownRepeatSeconds) * time.Second
 		first := parseTime(*s.FirstFailureAt)
 		prevDown := prev == "down"
 		if !w.suppressed(s) {
@@ -588,7 +593,7 @@ func (w *Worker) persist(s *storage.Site, status string, code int, rt float64, e
 		s.SuccessAttempts++
 		threshold := s.UpSuccessThreshold
 		if threshold <= 0 {
-			threshold = w.Cfg.AlertPolicy.UpSuccessThreshold
+			threshold = policy.UpSuccessThreshold
 		}
 		if threshold <= 0 {
 			threshold = 2
@@ -811,7 +816,8 @@ func (w *Worker) checkCert(s *storage.Site) {
 }
 
 func (w *Worker) notifySSLThresholds(s *storage.Site, cert *x509.Certificate, days int) {
-	thresholds := w.Cfg.AlertPolicy.SSLNotificationDays
+	policy := w.Cfg.GetAlertPolicy()
+	thresholds := policy.SSLNotificationDays
 	if len(thresholds) == 0 {
 		return
 	}
@@ -832,7 +838,7 @@ func (w *Worker) notifySSLThresholds(s *storage.Site, cert *x509.Certificate, da
 		notified = nil
 		reset = true
 	}
-	cooldown := time.Duration(w.Cfg.AlertPolicy.SSLNotificationCooldown) * time.Second
+	cooldown := time.Duration(policy.SSLNotificationCooldown) * time.Second
 	if lt := parseTime(lastNotified); !lt.IsZero() && time.Since(lt) < cooldown {
 		return
 	}
@@ -857,8 +863,17 @@ func (w *Worker) notifySSLThresholds(s *storage.Site, cert *x509.Certificate, da
 		w.alert("ssl", s, 0, msg, 0)
 		_ = w.Store.UpdateSSLThresholds(s.ID, notified, storage.Now())
 	} else {
-		// Reset-only: persist the cleared list but do not advance the cooldown,
-		// so a future check past the threshold can still alert.
+		// Reset-only (BUG-002, documented behavior): the certificate was
+		// renewed, so the notified-threshold list is cleared — but the
+		// notification cooldown (last_notified) is deliberately NOT advanced.
+		// Rationale: last_notified throttles repeat alerts for the SAME
+		// expiring certificate; a renewal resets *what* was notified, not
+		// *when* we last alerted. Consequence: if the renewed certificate
+		// already sits below a threshold (e.g. renewed late, 25 days left
+		// with threshold 30), the re-alert fires only after the previous
+		// cooldown elapses. Operators who renew certificates should expect
+		// the next threshold alert no earlier than
+		// last_notified + ssl_notification_cooldown_seconds.
 		b, _ := json.Marshal(notified)
 		_, _ = w.Store.DB.Exec(`UPDATE ssl_certificates SET ssl_notified_thresholds = ? WHERE site_id = ?`, string(b), s.ID)
 	}

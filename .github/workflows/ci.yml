@@ -31,3 +31,23 @@ jobs:
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
           govulncheck ./...
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Build image
+        run: docker build -t uptime-monitor:ci .
+
+      - name: Smoke test (liveness)
+        run: |
+          docker run -d --name um-ci -p 18080:8080 uptime-monitor:ci
+          for i in $(seq 1 15); do
+            if docker exec um-ci wget -qO- http://127.0.0.1:8080/health/live >/dev/null 2>&1; then
+              echo "liveness OK"; break
+            fi
+            if [ "$i" = "15" ]; then echo "liveness FAILED"; docker logs um-ci; exit 1; fi
+            sleep 2
+          done
+          docker stop um-ci && docker rm um-ci

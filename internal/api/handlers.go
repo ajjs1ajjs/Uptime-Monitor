@@ -35,6 +35,39 @@ func (a *App) handleHealth(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleLiveness (OPS-002) is the Kubernetes-style liveness probe: it answers
+// 200 as long as the process serves HTTP. It performs no dependency checks,
+// so a wedged database or full disk does NOT make it fail — that is the
+// readiness probe's job. Restart policy should key off this endpoint.
+func (a *App) handleLiveness(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status":         "alive",
+		"version":        a.Version,
+		"uptime_seconds": int64(time.Since(a.Start).Seconds()),
+		"timestamp":      time.Now().In(storage.KyivLocation()).Format(time.RFC3339),
+	})
+}
+
+// handleReadiness (OPS-002) is the readiness probe: 200 only when the instance
+// can actually serve traffic (database writable-readable). Returns 503 while
+// degraded so load balancers / orchestrators stop routing to this instance
+// without restarting it.
+func (a *App) handleReadiness(w http.ResponseWriter, r *http.Request) {
+	dbStatus := "ok"
+	code := http.StatusOK
+	status := "ready"
+	if _, err := a.Store.DB.Exec(`SELECT 1`); err != nil {
+		dbStatus = "error: " + err.Error()
+		status = "not_ready"
+		code = http.StatusServiceUnavailable
+	}
+	writeJSON(w, code, map[string]any{
+		"status": status, "timestamp": time.Now().In(storage.KyivLocation()).Format(time.RFC3339),
+		"checks":  map[string]any{"database": dbStatus},
+		"version": a.Version,
+	})
+}
+
 func (a *App) handlePrometheus(w http.ResponseWriter, r *http.Request) {
 	var sb strings.Builder
 	sites, _ := a.Store.GetSites()
@@ -549,6 +582,7 @@ func (a *App) handleSaveNotify(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusServiceUnavailable, "Could not save settings (encryption unavailable)")
 		return
 	}
+	a.Notify.InvalidateCache()
 	writeJSON(w, http.StatusOK, map[string]any{"message": "Saved"})
 }
 
@@ -594,7 +628,7 @@ func (a *App) handleSaveAppSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleGetAlertPolicy(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, alertPolicyToMap(a.Cfg.AlertPolicy))
+	writeJSON(w, http.StatusOK, alertPolicyToMap(a.Cfg.GetAlertPolicy()))
 }
 
 func (a *App) handleSaveAlertPolicy(w http.ResponseWriter, r *http.Request) {
@@ -603,7 +637,9 @@ func (a *App) handleSaveAlertPolicy(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-	ap := &a.Cfg.AlertPolicy
+	// Copy-modify-swap: work on a snapshot and publish atomically so the
+	// monitor worker never observes a half-written policy.
+	ap := a.Cfg.GetAlertPolicy()
 	if v, ok := body["request_timeout_seconds"].(float64); ok {
 		ap.RequestTimeoutSeconds = clamp(int(v), 1, 300)
 	}
@@ -650,6 +686,7 @@ func (a *App) handleSaveAlertPolicy(w http.ResponseWriter, r *http.Request) {
 		}
 		ap.RetryDelays = delays
 	}
+	a.Cfg.SetAlertPolicy(ap)
 	if err := a.Cfg.Save(); err != nil {
 		writeErr(w, http.StatusInternalServerError, "Could not persist alert policy: "+err.Error())
 		return

@@ -38,6 +38,25 @@ func (a *App) clearSessionCookie(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// setCSRFCookie mints a fresh double-submit token (SEC-002). Deliberately not
+// HttpOnly: first-party JS must read it to send the X-CSRF-Token header.
+// SameSite=Lax keeps it out of cross-site subrequests while allowing top-level
+// navigation; Secure mirrors the session cookie policy.
+func (a *App) setCSRFCookie(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name: csrfCookieName, Value: auth.RandomToken(32), Path: "/",
+		HttpOnly: false, SameSite: http.SameSiteLaxMode,
+		Secure: a.isHTTPS(r), MaxAge: 7 * 24 * 3600,
+	})
+}
+
+func (a *App) clearCSRFCookie(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name: csrfCookieName, Value: "", Path: "/", MaxAge: -1,
+		Secure: a.isHTTPS(r),
+	})
+}
+
 // --- login ---
 
 func (a *App) handleLoginPage(w http.ResponseWriter, r *http.Request) {
@@ -101,12 +120,7 @@ func (a *App) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 		passwordHash = u.PasswordHash
 	}
 	if err != nil || u == nil || !auth.VerifyPasswordOrDummy(passwordHash, password) {
-		// Brute-force protection counts FAILED attempts only: successful logins
-		// (and invalid-form submissions) can never lock a legitimate user out.
-		if !a.rateLimiter.allow("login_fail|"+a.clientIP(r), loginFailMax, loginFailWindow) {
-			http.Redirect(w, r, "/login?error=rate_limited", http.StatusFound)
-			return
-		}
+		// Rate limiting is now handled by withRateLimit middleware (persistent).
 		http.Redirect(w, r, "/login?error=invalid_credentials", http.StatusFound)
 		return
 	}
@@ -117,7 +131,10 @@ func (a *App) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = a.Store.UpdateUser(u.ID, map[string]any{"last_login": storage.Now()})
+	// Reset persistent rate limit on successful login.
+	a.ResetLoginRateLimit(a.clientIP(r))
 	a.setSessionCookie(w, r, sessionID)
+	a.setCSRFCookie(w, r)
 	if u.MustChangePassword == 1 {
 		http.Redirect(w, r, "/change-password", http.StatusFound)
 		return
@@ -130,6 +147,7 @@ func (a *App) handleLogout(w http.ResponseWriter, r *http.Request) {
 		_ = a.Store.DeleteSession(c.Value)
 	}
 	a.clearSessionCookie(w, r)
+	a.clearCSRFCookie(w, r)
 	http.Redirect(w, r, "/login", http.StatusFound)
 }
 
@@ -208,6 +226,7 @@ func (a *App) handleChangePasswordPost(w http.ResponseWriter, r *http.Request) {
 	newSid := auth.SessionID()
 	_ = a.Store.CreateSession(u.ID, newSid, time.Now().Add(7*24*time.Hour))
 	a.setSessionCookie(w, r, newSid)
+	a.setCSRFCookie(w, r)
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 

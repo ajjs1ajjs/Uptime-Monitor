@@ -41,6 +41,49 @@ func TestDispatchInt64SiteID(t *testing.T) {
 	})
 }
 
+// TestLoadSettingsCacheReturnsIndependentCopies verifies the PERF-002 cache:
+// repeated loads return equal content, but mutating one result must not
+// corrupt the next (handleSaveNotify mutates the loaded map in place).
+func TestLoadSettingsCacheReturnsIndependentCopies(t *testing.T) {
+	db, abs, err := storage.Open(filepath.Join(t.TempDir(), "n.db"))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	store := storage.NewStore(db, abs)
+	if err := store.SaveNotifyConfig(`{"telegram":{"enabled":true,"channels":[{"id":"c1","name":"Main"}]}}`); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	svc := New(store)
+
+	first := svc.LoadSettings()
+	second := svc.LoadSettings()
+	tg, ok := first["telegram"].(map[string]any)
+	if !ok {
+		t.Fatalf("settings = %v, want telegram section", first)
+	}
+	tg["enabled"] = false // mutate the returned copy
+	again := second["telegram"].(map[string]any)
+	if enabled, _ := again["enabled"].(bool); !enabled {
+		t.Fatalf("cache was corrupted by mutating a returned map")
+	}
+	third := svc.LoadSettings()
+	if enabled, _ := third["telegram"].(map[string]any)["enabled"].(bool); !enabled {
+		t.Fatalf("third load shows corrupted cache")
+	}
+
+	// InvalidateCache must force a re-read: change the raw config behind the
+	// cache's back via the store, invalidate, and confirm the new value.
+	if err := store.SaveNotifyConfig(`{"telegram":{"enabled":false,"channels":[]}}`); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	svc.InvalidateCache()
+	after := svc.LoadSettings()
+	if enabled, _ := after["telegram"].(map[string]any)["enabled"].(bool); enabled {
+		t.Fatalf("after invalidate, enabled = true, want false")
+	}
+}
+
 // TestChannelsForParsesStructuredMethods ensures notify_methods given in the
 // structured [{"method":...,"channels":[...]}] form are parsed.
 func TestChannelsForParsesStructuredMethods(t *testing.T) {
