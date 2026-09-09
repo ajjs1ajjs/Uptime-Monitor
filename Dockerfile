@@ -22,7 +22,9 @@ RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/uptime-monitor ./cmd/uptime-
 
 FROM alpine:3.20
 RUN apk add --no-cache ca-certificates tzdata \
-    && addgroup -S uptime && adduser -S uptime -G uptime
+    && addgroup -S uptime && adduser -S uptime -G uptime \
+    && mkdir -p /var/lib/uptime-monitor /etc/uptime-monitor \
+    && chown -R uptime:uptime /var/lib/uptime-monitor /etc/uptime-monitor
 
 COPY --from=builder /out/uptime-monitor /usr/local/bin/uptime-monitor
 
