@@ -73,10 +73,7 @@ func configDir() string {
 	if c := os.Getenv("CONFIG_PATH"); c != "" {
 		return filepath.Dir(c)
 	}
-	if home, err := os.UserHomeDir(); err == nil {
-		return filepath.Join(home, "UptimeMonitor")
-	}
-	return "."
+	return "/etc/uptime-monitor"
 }
 
 // ensureConfigDirPermissions ensures the config directory has 0o700 permissions.
@@ -288,8 +285,6 @@ func isSecretField(k string) bool {
 
 // RedactSecrets blanks secret fields (for viewer-role rendering).
 func RedactSecrets(settings map[string]any) map[string]any {
-	key, _ := LoadMasterKey()
-	_ = key
 	return walkRedact(settings)
 }
 

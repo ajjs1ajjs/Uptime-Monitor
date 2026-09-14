@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sync"
 )
 
@@ -124,16 +123,10 @@ func (c *Config) SetAlertPolicy(ap AlertPolicy) {
 }
 
 func defaultDataDir() string {
-	if runtime.GOOS == "windows" {
-		return filepath.Join(os.Getenv("USERPROFILE"), "UptimeMonitor", "data")
-	}
 	return "/var/lib/uptime-monitor"
 }
 
 func defaultLogDir() string {
-	if runtime.GOOS == "windows" {
-		return filepath.Join(os.Getenv("USERPROFILE"), "UptimeMonitor", "logs")
-	}
 	return "/var/log/uptime-monitor"
 }
 
@@ -186,10 +179,8 @@ func Load(path string) (*Config, error) {
 	if path == "" {
 		if _, err := os.Stat("config.json"); err == nil {
 			path = "config.json"
-		} else if runtime.GOOS != "windows" {
-			if _, err := os.Stat("/etc/uptime-monitor/config.json"); err == nil {
-				path = "/etc/uptime-monitor/config.json"
-			}
+		} else if _, err := os.Stat("/etc/uptime-monitor/config.json"); err == nil {
+			path = "/etc/uptime-monitor/config.json"
 		}
 	}
 	if path == "" {
@@ -292,19 +283,9 @@ func (c *Config) DBPath() string {
 	return filepath.Join(c.DataDir, "sites.db")
 }
 
-func (c *Config) MasterKeyPath() string {
-	if k := os.Getenv("UPTIME_MONITOR_MASTER_KEY"); k != "" {
-		return ""
-	}
-	return filepath.Join(configDir(), "master.key")
-}
-
 func configDir() string {
 	if c := os.Getenv("CONFIG_PATH"); c != "" {
 		return filepath.Dir(c)
-	}
-	if runtime.GOOS == "windows" {
-		return filepath.Join(os.Getenv("USERPROFILE"), "UptimeMonitor")
 	}
 	return "/etc/uptime-monitor"
 }

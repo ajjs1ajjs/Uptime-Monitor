@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 # Uptime Monitor — Source Code
 
@@ -62,20 +62,6 @@ curl -sSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/instal
 
 > **Одна команда** і встановлює, і оновлює. При оновленні зберігаються конфіг, БД, користувачі та паролі; замінюється лише бінарник (попередній лишається як `.old`). Бінарники доступні для Linux (amd64/arm64).
 
-**macOS** (sudo; та сама команда встановлює й оновлює):
-```bash
-curl -sSL https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install_mac.sh | sudo bash
-```
-
-> Встановлює бінарник у `/opt/homebrew/opt/uptime-monitor`, конфіг — у `/etc/uptime-monitor`, дані — у `/var/lib/uptime-monitor`, реєструє `launchd`-сервіс. Перевірка SHA-256 fail-closed проти `checksums.txt`. При оновленні конфіг/БД зберігаються, попередній бінарник лишається як `.old`. Бінарники доступні для macOS (amd64/arm64).
-
-**Windows** (PowerShell від імені адміністратора; та сама команда встановлює й оновлює):
-```powershell
-irm https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.ps1 | iex
-```
-
-> Встановлює бінарник у `%ProgramFiles%\uptime-monitor`, дані/конфіг — у `%ProgramData%\uptime-monitor`, реєструє автоматично перезапускний Windows-сервіс `uptime-monitor`. Перевірка SHA-256 (fail-closed) проти `checksums.txt`, як і в Linux-версії; явний обхід через `$env:UPTIME_MONITOR_SKIP_CHECKSUM=1`. При оновленні конфіг/БД/паролі зберігаються, попередній бінарник лишається як `.old`. Бінарники доступні для Windows (amd64/arm64).
-
 ### 🛠️ З сирців
 
 ```bash
@@ -132,15 +118,6 @@ uptime-monitor server [--port 8080] [--config PATH]
 uptime-monitor reset-admin [--config PATH]
 uptime-monitor has-admin [--config PATH]
 uptime-monitor restore --backup FILENAME
-```
-
-Windows:
-```powershell
-Start-Service|Stop-Service|Restart-Service uptime-monitor
-Get-Service uptime-monitor
-
-# Оновлення = та сама команда встановлення
-irm https://raw.githubusercontent.com/ajjs1ajjs/Uptime-Monitor/main/install.ps1 | iex
 ```
 
 ## ⚙️ Конфігурація

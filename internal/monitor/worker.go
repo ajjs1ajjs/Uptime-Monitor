@@ -14,7 +14,6 @@ import (
 	"net/url"
 	"os/exec"
 	"regexp"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -371,15 +370,7 @@ func (w *Worker) ping(ctx context.Context, rawURL string, timeout time.Duration)
 		return "down", 0, 0, "invalid host"
 	}
 	start := time.Now()
-	args := []string{"-n", "1", "-w", fmt.Sprintf("%d", timeout.Milliseconds())}
-	if runtime.GOOS != "windows" {
-		args = []string{"-c", "1", "-W", fmt.Sprintf("%d", int(timeout.Seconds()))}
-		// "--" marks the end of options on Unix ping; Windows ping has no such
-		// separator (and the host is already rejected if it starts with "-").
-		args = append(args, "--", host)
-	} else {
-		args = append(args, host)
-	}
+	args := []string{"-c", "1", "-W", fmt.Sprintf("%d", int(timeout.Seconds())), "--", host}
 	// Bounded by both the check timeout AND the parent ctx: previously this
 	// ignored the parent (context.Background()), so a worker shutdown
 	// (ctx cancelled) would leave an in-flight ping subprocess running for up
