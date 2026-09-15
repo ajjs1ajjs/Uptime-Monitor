@@ -32,6 +32,7 @@ func (a *App) handleHealth(w http.ResponseWriter, r *http.Request) {
 		"status": status, "timestamp": time.Now().In(storage.KyivLocation()).Format(time.RFC3339),
 		"checks":  map[string]any{"database": "ok", "monitor_thread": "ok"},
 		"version": a.Version,
+		"leader":  a.isLeader(), "node": a.nodeID(),
 	})
 }
 
@@ -65,6 +66,7 @@ func (a *App) handleReadiness(w http.ResponseWriter, r *http.Request) {
 		"status": status, "timestamp": time.Now().In(storage.KyivLocation()).Format(time.RFC3339),
 		"checks":  map[string]any{"database": dbStatus},
 		"version": a.Version,
+		"leader":  a.isLeader(), "node": a.nodeID(),
 	})
 }
 

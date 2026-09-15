@@ -1,3 +1,11 @@
+## [3.7.0] - 2026-09-15
+
+### Enterprise round (HA + KMS + drills)
+
+- **HA active-passive**: `leader_lock` + `internal/ha` elector (heartbeat 15s / TTL 45s); worker idles on standby; mutations return 409 + `X-Leader`; `/health` + `/health/ready` report leader/node.
+- **KMS for master.key**: `UPTIME_MONITOR_KMS=file|env|vault|aws` (`UPTIME_MONITOR_KEK_B64`, `VAULT_*`, `UPTIME_MONITOR_KMS_KEY_ID`); misconfiguration fails closed.
+- **Drills without a datacenter**: `uptime-monitor drill [flood|chaos|failover|all]`, `internal/sim` package, `scripts/simulate.sh`. Proven: 200 sites × 3 cycles in ~200ms with zero slot leaks; chaos fail-closed; HA takeover exactly once, no double-leader.
+
 ## [3.6.1] - 2026-09-15
 
 ### Security (audit round, all findings closed)

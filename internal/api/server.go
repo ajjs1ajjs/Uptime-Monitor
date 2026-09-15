@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ajjs1ajjs/Uptime-Monitor/internal/config"
+	"github.com/ajjs1ajjs/Uptime-Monitor/internal/ha"
 	"github.com/ajjs1ajjs/Uptime-Monitor/internal/monitor"
 	"github.com/ajjs1ajjs/Uptime-Monitor/internal/notify"
 	"github.com/ajjs1ajjs/Uptime-Monitor/internal/storage"
@@ -31,7 +32,24 @@ type App struct {
 	WS          *WSManager
 	Start       time.Time
 	Version     string
+	Leader      *ha.Elector
 	rateLimiter *rateLimitStore
+}
+
+// requireLeader refuses mutations on standby nodes (HA active-passive).
+// Reads stay available everywhere; writers get 409 + X-Leader hint.
+// A nil elector (tests, old call paths) means single-node mode: leader.
+func (a *App) requireLeader(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if a.Leader != nil && !a.Leader.IsLeader() {
+			if owner := a.Leader.Owner(); owner != "" {
+				w.Header().Set("X-Leader", owner)
+			}
+			writeErr(w, http.StatusConflict, "Standby node — writes go to the leader")
+			return
+		}
+		next(w, r)
+	}
 }
 
 func (a *App) Handler() http.Handler {
@@ -74,53 +92,57 @@ func (a *App) Handler() http.Handler {
 	admin := func(h http.HandlerFunc) http.HandlerFunc {
 		return a.withRecovery(a.withCSRF(a.withAuth(a.withAdmin(h))))
 	}
+	// adminWrite additionally requires HA leadership (standbys are read-only).
+	adminWrite := func(h http.HandlerFunc) http.HandlerFunc {
+		return a.withRecovery(a.withCSRF(a.withAuth(a.withAdmin(a.requireLeader(h)))))
+	}
 
 	mux.Handle("GET /api/sites", authed(a.handleListSites))
-	mux.Handle("POST /api/sites", admin(a.handleCreateSite))
-	mux.Handle("PUT /api/sites/{site_id}", admin(a.handleUpdateSite))
-	mux.Handle("DELETE /api/sites/{site_id}", admin(a.handleDeleteSite))
-	mux.Handle("POST /api/sites/{site_id}/check", admin(a.handleManualCheck))
+	mux.Handle("POST /api/sites", adminWrite(a.handleCreateSite))
+	mux.Handle("PUT /api/sites/{site_id}", adminWrite(a.handleUpdateSite))
+	mux.Handle("DELETE /api/sites/{site_id}", adminWrite(a.handleDeleteSite))
+	mux.Handle("POST /api/sites/{site_id}/check", adminWrite(a.handleManualCheck))
 	mux.Handle("GET /api/sites/history-all", authed(a.handleHistoryAll))
 	mux.Handle("GET /api/sites/{site_id}/history", authed(a.handleSiteHistory))
 
 	mux.HandleFunc("GET /api/server-time", a.withRecovery(a.handleServerTime))
 
 	mux.Handle("GET /api/ssl-certificates", authed(a.handleListSSLCerts))
-	mux.Handle("POST /api/ssl-certificates/check", admin(a.handleSSLCheckAll))
+	mux.Handle("POST /api/ssl-certificates/check", adminWrite(a.handleSSLCheckAll))
 	mux.Handle("GET /api/stats/response-time", authed(a.handleResponseTime))
 	mux.Handle("GET /api/incidents", authed(a.handleIncidents))
 
-	mux.Handle("POST /api/notify-settings", admin(a.handleSaveNotify))
+	mux.Handle("POST /api/notify-settings", adminWrite(a.handleSaveNotify))
 	mux.Handle("GET /api/app-settings", authed(a.handleGetAppSettings))
-	mux.Handle("POST /api/app-settings", admin(a.handleSaveAppSettings))
+	mux.Handle("POST /api/app-settings", adminWrite(a.handleSaveAppSettings))
 	mux.Handle("GET /api/alert-policy", authed(a.handleGetAlertPolicy))
-	mux.Handle("POST /api/alert-policy", admin(a.handleSaveAlertPolicy))
+	mux.Handle("POST /api/alert-policy", adminWrite(a.handleSaveAlertPolicy))
 
 	mux.Handle("GET /api/user", authed(a.handleGetUser))
 	mux.Handle("GET /api/users", admin(a.handleListUsersAPI))
-	mux.Handle("POST /api/users", admin(a.handleCreateUserAPI))
-	mux.Handle("PUT /api/users/{username}", admin(a.handleUpdateUserAPI))
-	mux.Handle("DELETE /api/users/{username}", admin(a.handleDeleteUserAPI))
+	mux.Handle("POST /api/users", adminWrite(a.handleCreateUserAPI))
+	mux.Handle("PUT /api/users/{username}", adminWrite(a.handleUpdateUserAPI))
+	mux.Handle("DELETE /api/users/{username}", adminWrite(a.handleDeleteUserAPI))
 
 	mux.Handle("GET /api/maintenance-windows", authed(a.handleListMaintenance))
-	mux.Handle("POST /api/maintenance-windows", admin(a.handleCreateMaintenance))
-	mux.Handle("DELETE /api/maintenance-windows/{window_id}", admin(a.handleDeleteMaintenance))
-	mux.Handle("PUT /api/maintenance-windows/{window_id}/toggle", admin(a.handleToggleMaintenance))
+	mux.Handle("POST /api/maintenance-windows", adminWrite(a.handleCreateMaintenance))
+	mux.Handle("DELETE /api/maintenance-windows/{window_id}", adminWrite(a.handleDeleteMaintenance))
+	mux.Handle("PUT /api/maintenance-windows/{window_id}/toggle", adminWrite(a.handleToggleMaintenance))
 
 	mux.Handle("GET /api/reports/sla", authed(a.handleSLAResponse))
 	mux.Handle("GET /api/reports/sla/export", authed(a.handleSLAExport))
 	mux.Handle("GET /api/reports/sla/pdf", authed(a.handleSLAPDF))
 
-	mux.Handle("POST /api/api-keys", admin(a.handleCreateAPIKey))
+	mux.Handle("POST /api/api-keys", adminWrite(a.handleCreateAPIKey))
 	mux.Handle("GET /api/api-keys", admin(a.handleListAPIKeys))
-	mux.Handle("DELETE /api/api-keys/{key_id}", admin(a.handleRevokeAPIKey))
+	mux.Handle("DELETE /api/api-keys/{key_id}", adminWrite(a.handleRevokeAPIKey))
 
 	mux.Handle("GET /api/audit-log", admin(a.handleAuditLog))
 	mux.Handle("GET /api/notification-history", admin(a.handleNotificationHistory))
-	mux.Handle("POST /api/test-notify", admin(a.handleTestNotify))
-	mux.Handle("POST /api/backup", admin(a.handleBackupCreate))
+	mux.Handle("POST /api/test-notify", adminWrite(a.handleTestNotify))
+	mux.Handle("POST /api/backup", adminWrite(a.handleBackupCreate))
 	mux.Handle("GET /api/backups", admin(a.handleBackupList))
-	mux.Handle("POST /api/backup/restore/{backup_id}", admin(a.handleBackupRestore))
+	mux.Handle("POST /api/backup/restore/{backup_id}", adminWrite(a.handleBackupRestore))
 	mux.Handle("GET /api/tags", authed(a.handleTags))
 
 	// static assets (embedded). The FS is rooted at internal/api/web, so the
@@ -130,6 +152,22 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("GET /static/", staticHandler(web))
 
 	return a.withSecurity(a.withLogging(mux))
+}
+
+// isLeader/nodeID keep handlers nil-safe (tests build App without an
+// elector: single-node mode is always leader).
+func (a *App) isLeader() bool {
+	if a.Leader == nil {
+		return true
+	}
+	return a.Leader.IsLeader()
+}
+
+func (a *App) nodeID() string {
+	if a.Leader == nil {
+		return "single"
+	}
+	return a.Leader.NodeID()
 }
 
 // staticHandler serves the embedded static FS, but forces no-cache on the

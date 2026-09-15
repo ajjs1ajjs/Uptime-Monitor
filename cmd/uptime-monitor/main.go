@@ -17,12 +17,14 @@ import (
 	"github.com/ajjs1ajjs/Uptime-Monitor/internal/api"
 	"github.com/ajjs1ajjs/Uptime-Monitor/internal/auth"
 	"github.com/ajjs1ajjs/Uptime-Monitor/internal/config"
+	"github.com/ajjs1ajjs/Uptime-Monitor/internal/ha"
 	"github.com/ajjs1ajjs/Uptime-Monitor/internal/monitor"
 	"github.com/ajjs1ajjs/Uptime-Monitor/internal/notify"
+	"github.com/ajjs1ajjs/Uptime-Monitor/internal/sim"
 	"github.com/ajjs1ajjs/Uptime-Monitor/internal/storage"
 )
 
-const Version = "3.6.1"
+const Version = "3.7.0"
 
 // fatalf logs an error and exits, mirroring the old log.Fatalf behaviour.
 func fatalf(format string, args ...any) {
@@ -46,6 +48,8 @@ func main() {
 		runHasAdmin(os.Args[2:])
 	case "restore":
 		runRestore(os.Args[2:])
+	case "drill":
+		runDrill(os.Args[2:])
 	default:
 		printUsage()
 	}
@@ -58,6 +62,7 @@ func printUsage() {
 	fmt.Println("  uptime-monitor reset-admin [--config PATH] [--db PATH]")
 	fmt.Println("  uptime-monitor has-admin [--config PATH] [--db PATH]")
 	fmt.Println("  uptime-monitor restore --backup FILENAME [--config PATH] [--db PATH]")
+	fmt.Println("  uptime-monitor drill [flood|chaos|failover|all] [--sites N] [--cycles N]")
 	fmt.Println("  uptime-monitor --version")
 }
 
@@ -104,13 +109,20 @@ func runServer(args []string) {
 	notifySvc := notify.New(store)
 	worker := monitor.New(cfg, store, ws, notifySvc)
 
+	// HA active-passive: leader election over the shared DB. Standbys serve
+	// reads; mutations return 409 and the worker idles (see monitor.IsLeader).
+	elector := ha.New()
+	worker.IsLeader = elector.IsLeader
+
 	app := &api.App{
 		Cfg: cfg, Store: store, Worker: worker, Notify: notifySvc, WS: ws,
 		Set: api.NewTemplateSet(), Start: time.Now(), Version: Version,
+		Leader: elector,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	go elector.Run(ctx, store.DB)
 	worker.Run(ctx)
 
 	// dual-stack bind: ":port" listens on IPv4+IPv6 (a lesson from Monitoring).
@@ -297,8 +309,106 @@ func runRestore(args []string) {
 	fmt.Printf("Restored %s -> %s\n", backup, restored)
 }
 
-func randomToken(n int) string {
-	b := make([]byte, n)
+// --- local simulation drills (no datacenter needed) ---
+
+// cliTB adapts sim.TB to the CLI: failures become log + exit.
+type cliTB struct{ failed bool }
+
+func (c *cliTB) Helper() {}
+func (c *cliTB) Fatalf(format string, args ...any) {
+	c.failed = true
+	slog.Error(fmt.Sprintf(format, args...))
+}
+func (c *cliTB) TempDir() string {
+	d, err := os.MkdirTemp("", "uptime-drill-")
+	if err != nil {
+		c.failed = true
+		return os.TempDir()
+	}
+	return d
+}
+
+func runDrill(args []string) {
+	// Go's flag package stops at the first positional arg, so extract our
+	// flags manually (drill flood --sites 200 --cycles 3 must work).
+	sites, cycles := 60, 2
+	rest := make([]string, 0, len(args))
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--sites":
+			if i+1 < len(args) {
+				fmt.Sscanf(args[i+1], "%d", &sites)
+				i++
+			}
+		case "--cycles":
+			if i+1 < len(args) {
+				fmt.Sscanf(args[i+1], "%d", &cycles)
+				i++
+			}
+		default:
+			if strings.HasPrefix(args[i], "--sites=") {
+				fmt.Sscanf(args[i], "--sites=%d", &sites)
+			} else if strings.HasPrefix(args[i], "--cycles=") {
+				fmt.Sscanf(args[i], "--cycles=%d", &cycles)
+			} else {
+				rest = append(rest, args[i])
+			}
+		}
+	}
+	if sites < 1 {
+		sites = 1
+	}
+	if cycles < 1 {
+		cycles = 1
+	}
+	which := "all"
+	if len(rest) > 0 {
+		which = rest[0]
+	}
+	t := &cliTB{}
+	fail := 0
+	if which == "all" || which == "flood" {
+		r := sim.RunFlood(t, sites, cycles)
+		fmt.Printf("flood: %d sites x %d cycles in %dms, active-left=%d -> %s\n",
+			r.Sites, r.Cycles, r.ElapsedMs, r.ActiveLeft, passFail(t, r.ActiveLeft == 0))
+		if t.failed || r.ActiveLeft != 0 {
+			fail++
+		}
+		t.failed = false
+	}
+	if which == "all" || which == "chaos" {
+		r := sim.RunChaos(t)
+		ok := r.CancelSafe && r.CorruptKept && r.QuotaBounded
+		fmt.Printf("chaos: cancel-safe=%v corrupt-kept-down=%v quota-bounded=%v -> %s\n",
+			r.CancelSafe, r.CorruptKept, r.QuotaBounded, passFail(t, ok))
+		if t.failed || !ok {
+			fail++
+		}
+		t.failed = false
+	}
+	if which == "all" || which == "failover" {
+		r := sim.RunFailover(t)
+		ok := r.Takeovers == 1 && !r.Double && r.Owner != ""
+		fmt.Printf("failover: takeovers=%d double-leader=%v owner=%s -> %s\n",
+			r.Takeovers, r.Double, r.Owner, passFail(t, ok))
+		if t.failed || !ok {
+			fail++
+		}
+	}
+	if fail > 0 {
+		os.Exit(1)
+	}
+	fmt.Println("drill: ALL PASS")
+}
+
+func passFail(t *cliTB, ok bool) string {
+	if t.failed || !ok {
+		return "FAIL"
+	}
+	return "PASS"
+}
+
+func randomToken(n int) string {	b := make([]byte, n)
 	if _, err := rand.Read(b); err != nil {
 		return fmt.Sprintf("tmp%d", time.Now().UnixNano())
 	}

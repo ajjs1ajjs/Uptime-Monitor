@@ -15,6 +15,19 @@ import (
 // Master key handling. The key lives in the config directory (NOT the working
 // directory) so it survives systemd services that run with CWD="/".
 func LoadMasterKey() ([]byte, error) {
+	// Enterprise KMS providers take precedence when configured; failures
+	// fail closed (never silently fall back to the file key, which would
+	// fork the encryption identity).
+	if k, ok, err := resolveKMSKey(); err != nil {
+		return nil, fmt.Errorf("kms: %w", err)
+	} else if ok {
+		switch len(k) {
+		case 16, 24, 32:
+			return k, nil
+		default:
+			return nil, fmt.Errorf("kms key must be exactly 16, 24, or 32 bytes (got %d)", len(k))
+		}
+	}
 	if env := os.Getenv("UPTIME_MONITOR_MASTER_KEY"); env != "" {
 		// AES-256-GCM requires an exact 16/24/32-byte key. Any other length
 		// must fail loudly here: silently accepting it means every later

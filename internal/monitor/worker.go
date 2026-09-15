@@ -57,6 +57,9 @@ type Worker struct {
 	dropped  uint64 // alerts dropped when alertSem is full (visible in logs)
 	// AlertSync forces synchronous dispatch (tests). Production stays async.
 	AlertSync bool
+	// IsLeader gates check cycles in HA active-passive setups: standbys skip
+	// checks (reads/mutations served by HTTP layer rules). Nil = leader.
+	IsLeader func() bool
 	regexMu  sync.Mutex
 	regexes  map[string]*regexp.Regexp
 }
@@ -86,12 +89,20 @@ func (w *Worker) loop(ctx context.Context) {
 			return
 		default:
 		}
-		if err := w.CheckDue(ctx, lastChecked); err != nil {
-			slog.Error("monitor check cycle failed", "error", err)
+		// HA active-passive: only the leader runs checks and maintenance
+		// jobs (cleanup/backup/SSL). Standbys keep serving reads via HTTP.
+		leader := true
+		if w.IsLeader != nil {
+			leader = w.IsLeader()
 		}
-		w.cleanupIfDue()
-		w.backupIfDue()
-		w.sslIfDue()
+		if leader {
+			if err := w.CheckDue(ctx, lastChecked); err != nil {
+				slog.Error("monitor check cycle failed", "error", err)
+			}
+			w.cleanupIfDue()
+			w.backupIfDue()
+			w.sslIfDue()
+		}
 		select {
 		case <-ctx.Done():
 			return
@@ -225,6 +236,14 @@ func (w *Worker) CheckDue(ctx context.Context, lastChecked map[int64]time.Time) 
 	}
 	wg.Wait()
 	return nil
+}
+
+// InspectActive reports the number of sites currently marked active
+// (test/sim hook: proves no check leaked its slot after a flood).
+func (w *Worker) InspectActive(f func(n int)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	f(len(w.active))
 }
 
 // WaitInflight blocks until in-flight checks finish or the timeout elapses.

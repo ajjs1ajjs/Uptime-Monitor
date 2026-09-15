@@ -95,6 +95,10 @@ CREATE TABLE IF NOT EXISTS api_keys (
   key_hash TEXT NOT NULL, created_at TEXT, last_used_at TEXT,
   is_active INTEGER DEFAULT 1
 );
+CREATE TABLE IF NOT EXISTS leader_lock (
+  id TEXT PRIMARY KEY CHECK (id = 'leader'),
+  owner TEXT NOT NULL, heartbeat INTEGER NOT NULL
+);
 `
 
 func Open(path string) (*sql.DB, string, error) {
