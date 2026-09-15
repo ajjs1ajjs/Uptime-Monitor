@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -48,6 +49,16 @@ type Worker struct {
 	maintCache  []storage.MaintenanceWindow
 	maintCached time.Time
 	inflight    sync.WaitGroup
+	// Bounded concurrency (self-DoS guard): max 50 concurrent site checks
+	// and max 10 concurrent alert deliveries. Without these, N due sites
+	// (5s interval) spawn N goroutines that wedge wg.Wait + SQLite pool.
+	checkSem chan struct{}
+	alertSem chan struct{}
+	dropped  uint64 // alerts dropped when alertSem is full (visible in logs)
+	// AlertSync forces synchronous dispatch (tests). Production stays async.
+	AlertSync bool
+	regexMu  sync.Mutex
+	regexes  map[string]*regexp.Regexp
 }
 
 func New(cfg *config.Config, store *storage.Store, ws Broadcaster, alert AlertSink) *Worker {
@@ -56,6 +67,9 @@ func New(cfg *config.Config, store *storage.Store, ws Broadcaster, alert AlertSi
 		HTTP:     &http.Client{Timeout: 30 * time.Second},
 		active:   map[int64]bool{},
 		lastSeen: map[int64]time.Time{},
+		checkSem: make(chan struct{}, 50),
+		alertSem: make(chan struct{}, 10),
+		regexes:  map[string]*regexp.Regexp{},
 	}
 }
 
@@ -116,7 +130,9 @@ func (w *Worker) backupIfDue() {
 	if max <= 0 {
 		return
 	}
-	all, err := w.Store.Backups(100000)
+	// Bounded list (rotation needs only the newest max+1 rows, not the whole
+	// table): Backups(100000) loaded everything into memory every day.
+	all, err := w.Store.Backups(max + 1)
 	if err != nil || len(all) <= max {
 		return
 	}
@@ -177,9 +193,26 @@ func (w *Worker) CheckDue(ctx context.Context, lastChecked map[int64]time.Time) 
 		w.mu.Unlock()
 
 		lastChecked[s.ID] = now
+		// Bounded fan-out: skip (leave for next tick) instead of
+		// spawning unbounded goroutines when the pool is saturated.
+		select {
+		case w.checkSem <- struct{}{}:
+		case <-ctx.Done():
+			w.mu.Lock()
+			delete(w.active, s.ID)
+			w.mu.Unlock()
+			continue
+		default:
+			w.mu.Lock()
+			delete(w.active, s.ID)
+			w.mu.Unlock()
+			slog.Warn("monitor pool saturated, site deferred", "site_id", s.ID)
+			continue
+		}
 		wg.Add(1)
 		w.inflight.Add(1)
 		go func(site *storage.Site) {
+			defer func() { <-w.checkSem }()
 			defer wg.Done()
 			defer w.inflight.Done()
 			defer func() {
@@ -293,8 +326,25 @@ func (w *Worker) doCheck(ctx context.Context, s *storage.Site) (string, int, flo
 func (w *Worker) http(ctx context.Context, s *storage.Site, timeout time.Duration) (string, int, float64, string) {
 	policy := w.Cfg.GetAlertPolicy()
 	start := time.Now()
+	// Pinned dial: resolve once through the guard and connect to the vetted
+	// IP instead of letting the transport re-resolve (DNS-rebinding TOCTOU).
+	allowLocal, allowPrivate := w.Cfg.Server.AllowLocalhost, w.Cfg.Server.AllowPrivateNetworks
 	client := &http.Client{
 		Timeout: timeout,
+		Transport: &http.Transport{
+			DialContext: func(dctx context.Context, network, addr string) (net.Conn, error) {
+				h, p, err := net.SplitHostPort(addr)
+				if err != nil {
+					h, p = addr, "80"
+				}
+				ips, rerr := netguard.ResolveAllowed(dctx, h, allowLocal, allowPrivate)
+				if rerr != nil {
+					return nil, rerr
+				}
+				d := net.Dialer{Timeout: timeout}
+				return d.DialContext(dctx, network, net.JoinHostPort(ips[0].String(), p))
+			},
+		},
 		// A target allowed at creation/re-check time can still redirect to an
 		// internal address or the cloud metadata endpoint; validate every hop,
 		// not just the initial URL, so redirects can't be used to route around
@@ -342,7 +392,7 @@ func (w *Worker) http(ctx context.Context, s *storage.Site, timeout time.Duratio
 		kw := *s.Keyword
 		if strings.HasPrefix(kw, "regex:") {
 			pattern := strings.TrimPrefix(kw, "regex:")
-			if re, err := regexp.Compile(pattern); err == nil {
+			if re := w.cachedRegexp(pattern); re != nil {
 				match = re.Match(content)
 			}
 		} else {
@@ -370,7 +420,25 @@ func (w *Worker) ping(ctx context.Context, rawURL string, timeout time.Duration)
 		return "down", 0, 0, "invalid host"
 	}
 	start := time.Now()
-	args := []string{"-c", "1", "-W", fmt.Sprintf("%d", int(timeout.Seconds())), "--", host}
+	// Absolute binary path (no PATH hijack); Unix-only by design.
+	pingBin, err := exec.LookPath("ping")
+	if err != nil {
+		for _, p := range []string{"/bin/ping", "/usr/bin/ping", "/sbin/ping"} {
+			if _, se := os.Stat(p); se == nil {
+				pingBin = p
+				err = nil
+				break
+			}
+		}
+	}
+	if err != nil {
+		return "down", 0, 0, "ping unavailable"
+	}
+	secs := int(timeout.Seconds())
+	if secs < 1 {
+		secs = 1
+	}
+	args := []string{"-c", "1", "-W", fmt.Sprintf("%d", secs), "--", host}
 	// Bounded by both the check timeout AND the parent ctx: previously this
 	// ignored the parent (context.Background()), so a worker shutdown
 	// (ctx cancelled) would leave an in-flight ping subprocess running for up
@@ -378,8 +446,8 @@ func (w *Worker) ping(ctx context.Context, rawURL string, timeout time.Duration)
 	// else WaitInflight is supposed to be waiting on.
 	ctx, cancel := context.WithTimeout(ctx, timeout+5*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "ping", args...)
-	err := cmd.Run()
+	pingCmd := exec.CommandContext(ctx, pingBin, args...)
+	err = pingCmd.Run()
 	rt := float64(time.Since(start).Milliseconds())
 	if err != nil {
 		return "down", 0, rt, "ping failed"
@@ -407,8 +475,13 @@ func (w *Worker) tcp(ctx context.Context, rawURL string, timeout time.Duration) 
 
 func (w *Worker) tcpHost(ctx context.Context, host string, port int, timeout time.Duration) (string, int, float64, string) {
 	start := time.Now()
+	// Pinned dial through the guard (see http()).
+	ips, err := netguard.ResolveAllowed(ctx, host, w.Cfg.Server.AllowLocalhost, w.Cfg.Server.AllowPrivateNetworks)
+	if err != nil {
+		return "down", 0, 0, "target host not allowed"
+	}
 	d := net.Dialer{Timeout: timeout}
-	conn, err := d.DialContext(ctx, "tcp", net.JoinHostPort(host, fmt.Sprintf("%d", port)))
+	conn, err := d.DialContext(ctx, "tcp", net.JoinHostPort(ips[0].String(), fmt.Sprintf("%d", port)))
 	rt := float64(time.Since(start).Milliseconds())
 	if err != nil {
 		return "down", 0, rt, "connection failed"
@@ -556,6 +629,11 @@ func (w *Worker) persist(s *storage.Site, status string, code int, rt float64, e
 		}
 		grace := time.Duration(policy.GracePeriodSeconds) * time.Second
 		repeat := time.Duration(policy.StillDownRepeatSeconds) * time.Second
+		// Clamp the repeat floor so repeat=0 can't alert-flood every cycle
+		// (each due tick would re-fire still_down + fan out to all channels).
+		if repeat < 60*time.Second {
+			repeat = 60 * time.Second
+		}
 		first := parseTime(*s.FirstFailureAt)
 		prevDown := prev == "down"
 		if !w.suppressed(s) {
@@ -638,6 +716,33 @@ func (w *Worker) alert(alertType string, s *storage.Site, code int, errMsg strin
 	if w.Alert == nil {
 		return
 	}
+	// Async delivery: the blocking fan-out (SMTP 30s, HTTP 20s × channels)
+	// previously stalled the check goroutine, holding wg.Wait + active[] and
+	// shifting every other site's schedule. Alerts now queue behind a bounded
+	// semaphore; when full the alert is counted and dropped (logged) instead
+	// of stalling checks. State transitions in persist() already applied.
+	if w.AlertSync {
+		w.dispatchAlert(alertType, s, code, errMsg, rt)
+		return
+	}
+	select {
+	case w.alertSem <- struct{}{}:
+	default:
+		w.mu.Lock()
+		w.dropped++
+		n := w.dropped
+		w.mu.Unlock()
+		slog.Warn("alert queue full, alert dropped", "site_id", s.ID, "type", alertType, "dropped_total", n)
+		return
+	}
+	go func(site storage.Site) {
+		defer func() { <-w.alertSem }()
+		w.dispatchAlert(alertType, &site, code, errMsg, rt)
+	}(*s)
+}
+
+// dispatchAlert builds the payload and fans out (runs off the check path).
+func (w *Worker) dispatchAlert(alertType string, s *storage.Site, code int, errMsg string, rt float64) {
 	var methods []any
 	_ = json.Unmarshal([]byte(s.NotifyMethods), &methods)
 	checkedAt := storage.Now()
@@ -743,6 +848,30 @@ func (w *Worker) alert(alertType string, s *storage.Site, code int, errMsg strin
 	w.Alert.Dispatch(alertType, message, payload)
 }
 
+// cachedRegexp compiles once and reuses (ReDoS/CPU guard: patterns are
+// owner-controlled; cap length 500 and cache so every 5s check doesn't
+// recompile. Go RE2 has no backtracking, but huge classes on 512KiB bodies
+// still burn CPU without a cache).
+func (w *Worker) cachedRegexp(pattern string) *regexp.Regexp {
+	if len(pattern) == 0 || len(pattern) > 500 {
+		return nil
+	}
+	w.regexMu.Lock()
+	defer w.regexMu.Unlock()
+	if re, ok := w.regexes[pattern]; ok {
+		return re
+	}
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil
+	}
+	if len(w.regexes) > 200 {
+		clear(w.regexes)
+	}
+	w.regexes[pattern] = re
+	return re
+}
+
 func parseTime(s string) time.Time {
 	t, err := time.Parse("2006-01-02T15:04:05.999999-07:00", s)
 	if err == nil {
@@ -776,8 +905,20 @@ func (w *Worker) CheckAllCertificates() {
 
 func (w *Worker) checkCert(s *storage.Site) {
 	host, port := extractHostPort(s.URL, 443)
+	// F1: the certificate prober dialed without the SSRF guard — an internal
+	// host blocked for http/tcp/ping was still reachable every
+	// SSLCheckIntervalHours. Guard + pin like the other dial paths.
+	if netguard.HostBlocked(host, w.Cfg.Server.AllowLocalhost, w.Cfg.Server.AllowPrivateNetworks) {
+		return
+	}
+	dialCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	ips, err := netguard.ResolveAllowed(dialCtx, host, w.Cfg.Server.AllowLocalhost, w.Cfg.Server.AllowPrivateNetworks)
+	if err != nil {
+		return
+	}
 	conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 10 * time.Second}, "tcp",
-		net.JoinHostPort(host, fmt.Sprintf("%d", port)),
+		net.JoinHostPort(ips[0].String(), fmt.Sprintf("%d", port)),
 		&tls.Config{InsecureSkipVerify: true, ServerName: host})
 	if err != nil {
 		_ = w.Store.SaveSSLCertificate(s.ID, map[string]any{

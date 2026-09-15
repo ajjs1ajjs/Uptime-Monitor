@@ -86,6 +86,11 @@ func (st *Store) CreateUser(username, hash, role string) (int64, error) {
 	return res.LastInsertId()
 }
 
+var userUpdatableColumns = map[string]struct{}{
+	"username": {}, "password_hash": {}, "role": {},
+	"must_change_password": {}, "last_login": {}, "password_encrypted": {},
+}
+
 func (st *Store) UpdateUser(id int64, fields map[string]any) error {
 	if len(fields) == 0 {
 		return nil
@@ -93,8 +98,16 @@ func (st *Store) UpdateUser(id int64, fields map[string]any) error {
 	var sets []string
 	var args []any
 	for k, v := range fields {
+		// Column allowlist: dynamic SET keys can never come from raw
+		// request JSON — unknown keys are dropped, not interpolated.
+		if _, ok := userUpdatableColumns[k]; !ok {
+			continue
+		}
 		sets = append(sets, k+" = ?")
 		args = append(args, v)
+	}
+	if len(sets) == 0 {
+		return nil
 	}
 	args = append(args, id)
 	_, err := st.DB.Exec(`UPDATE users SET `+strings.Join(sets, ", ")+` WHERE id = ?`, args...)

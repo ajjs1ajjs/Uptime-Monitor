@@ -1,3 +1,29 @@
+## [3.6.1] - 2026-09-15
+
+### Security (audit round, all findings closed)
+
+- **Logout CSRF**: `GET /logout` requires `?csrf=` double-submit token (403 otherwise); primary path is CSRF-protected `POST /logout`; dashboard/users links converted to POST forms; must-change gate exempts `/logout`.
+- **Mass assignment closed**: notify-settings top-level whitelist (10 channels + `notify_methods`); `UpdateUser`/`UpdateSite` column allowlists matching the DB schema exactly.
+- **Account lockout**: 10 failures per username / 30 min (`login_user` bucket, case-insensitive) on top of the per-IP 5/15 min limit; both reset on success.
+- **SSRF**: certificate prober now guarded + pinned (`HostBlocked` + `ResolveAllowed`); HTTP transport dials the vetted IP (no re-resolve); redirects re-validated every hop.
+- **DNS**: `ResolveAllowed` fail-closes at dial time (creation-time check stays fail-open so transient outages don't brick site creation).
+- **Keyword regex**: compiled once, cached (cap 200), pattern cap 500 chars.
+- **Alert flood**: `still_down_repeat` clamped to a 60s floor.
+- **Delivery**: alerts dispatch async behind a 10-slot semaphore (dropped counter + log instead of stalling checks); checks bounded by a 50-slot semaphore.
+- **Secrets**: encrypted fields extended (`user_key`, `account_sid`, `chat_id`, `api_key`, `access_token`, ...); SMTP refuses plaintext auth without STARTTLS on 587.
+- **Hygiene**: backup rotation lists `max+1` rows (was 100000); ping via absolute path (`LookPath` + `/bin|/usr/bin|/sbin` fallback, min 1s).
+- **Sessions**: one-time `admin_password.txt` deleted on first successful login; WebSocket handshake requires the CSRF double-submit token for browser origins (JS appends `?csrf=`); `Secure`/`HSTS` stay consistent via trusted-proxy check.
+
+### Infra / supply chain
+
+- CI least-privilege (`contents: read`); `pages.yml` actions SHA-pinned; `dependabot.yml` (gomod + actions, weekly).
+- systemd hardening: `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, kernel tunables/modules/control-groups protection, `RestrictSUIDSGID`, empty `CapabilityBoundingSet`.
+- `.dockerignore` now excludes `master.key`, `admin_password.txt`, `.env`.
+
+### Tests
+
+- New: `netguard` pinning/blocking, storage column-whitelist, logout-CSRF, account-lockout bucket, `still_down` clamp, regex cache bounds. `go vet` + full `go test ./...` green.
+
 ## [3.4.0] - 2026-09-01
 
 ### Fixed

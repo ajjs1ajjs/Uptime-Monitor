@@ -3,8 +3,11 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -110,6 +113,15 @@ func (a *App) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 	}
 	username := strings.TrimSpace(r.FormValue("username"))
 	password := r.FormValue("password")
+	// Account lockout (defense in depth over the per-IP rate limit):
+	// 10 failures for one username in 30 min locks the account for 30 min,
+	// which stops password-spray across rotating IPs. The counter key is
+	// the lowercased username so case variants share the bucket.
+	lockKey := "u:" + strings.ToLower(username)
+	if ok, _ := a.Store.CheckRateLimit("login_user", lockKey, 10, 1800); !ok {
+		http.Redirect(w, r, "/login?error=rate_limited", http.StatusFound)
+		return
+	}
 	u, err := a.Store.GetUserByUsername(username)
 	// VerifyPasswordOrDummy always runs a bcrypt comparison, even for a
 	// nonexistent username (hash == ""), so this branch takes the same time
@@ -131,8 +143,17 @@ func (a *App) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = a.Store.UpdateUser(u.ID, map[string]any{"last_login": storage.Now()})
-	// Reset persistent rate limit on successful login.
+	// Reset persistent rate limit on successful login (both IP and account buckets).
 	a.ResetLoginRateLimit(a.clientIP(r))
+	a.Store.ResetRateLimit("login_user", "u:"+strings.ToLower(username))
+	// One-time bootstrap secret: remove admin_password.txt after the first
+	// successful login so the printed password can't linger on disk.
+	// Best-effort (logs only); the installer already defaults to removing it.
+	if a.Cfg != nil && a.Cfg.DataDir != "" {
+		if err := os.Remove(filepath.Join(a.Cfg.DataDir, "admin_password.txt")); err == nil {
+			slog.Info("removed one-time admin_password.txt after first login")
+		}
+	}
 	a.setSessionCookie(w, r, sessionID)
 	a.setCSRFCookie(w, r)
 	if u.MustChangePassword == 1 {
@@ -143,6 +164,18 @@ func (a *App) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) handleLogout(w http.ResponseWriter, r *http.Request) {
+	// POST is the primary path (CSRF-protected via withCSRF in server.go).
+	// GET is kept for compatibility but requires the double-submit token as
+	// a query param (?csrf=<csrf_token cookie>), otherwise a cross-site
+	// <img src="/logout"> could log the victim out (logout CSRF).
+	if r.Method == http.MethodGet {
+		q := r.URL.Query().Get("csrf")
+		c, err := r.Cookie(csrfCookieName)
+		if err != nil || q == "" || c.Value == "" || !auth.ConstantTimeEqual(q, c.Value) {
+			http.Error(w, "Logout requires POST (or GET with ?csrf token)", http.StatusForbidden)
+			return
+		}
+	}
 	if c, err := r.Cookie(sessionCookie); err == nil {
 		_ = a.Store.DeleteSession(c.Value)
 	}

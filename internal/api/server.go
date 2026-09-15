@@ -52,6 +52,7 @@ func (a *App) Handler() http.Handler {
 	// Successful logins reset the counter so legitimate users are never locked out.
 	mux.HandleFunc("POST /login", a.withRecovery(a.withRateLimit("login_fail", 5, 900, a.handleLoginPost)))
 	mux.HandleFunc("GET /logout", a.handleLogout)
+	mux.Handle("POST /logout", a.withRecovery(a.withCSRF(a.withAuth(a.handleLogout))))
 	mux.HandleFunc("GET /change-password", a.handleChangePasswordPage)
 	mux.HandleFunc("POST /change-password", a.withRecovery(a.withRateLimit("change_password", 3, 900, a.handleChangePasswordPost)))
 	mux.HandleFunc("GET /forgot-password", a.handleForgotPage)

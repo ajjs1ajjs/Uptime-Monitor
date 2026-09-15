@@ -1127,7 +1127,15 @@ function updateWorkerDot(connected) {
 function connectWebSocket() {
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const url = `${protocol}//${location.host}/ws`;
+    // CSWSH: attach the double-submit CSRF token so the server can tell our
+    // first-party handshake apart from a cross-site one (server also checks
+    // Origin; both must pass).
+    let csrf = '';
+    try {
+        const m = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
+        if (m) csrf = decodeURIComponent(m[1]);
+    } catch(e) {}
+    const url = `${protocol}//${location.host}/ws` + (csrf ? `?csrf=${encodeURIComponent(csrf)}` : '');
     try {
         ws = new WebSocket(url);
         ws.onopen = function() { updateWorkerDot(true); wsRetries = 0; };

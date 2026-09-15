@@ -97,6 +97,21 @@ func (a *App) handleWS(w http.ResponseWriter, r *http.Request) {
 		closeWS(w, 4001, "Invalid session")
 		return
 	}
+	// CSWSH hardening: browser handshakes (Origin present) must also present
+	// the double-submit CSRF token (header or ?csrf= query). Non-browser
+	// clients without Origin keep working (API-key/cookie scripts).
+	if r.Header.Get("Origin") != "" {
+		header := r.Header.Get("X-CSRF-Token")
+		if header == "" {
+			header = r.URL.Query().Get("csrf")
+		}
+		cc, cerr := r.Cookie(csrfCookieName)
+		if header == "" || cerr != nil || cc.Value == "" ||
+			!validDoubleSubmitToken(header, cc.Value) {
+			closeWS(w, 4002, "CSRF token required")
+			return
+		}
+	}
 	conn, err := wsUpgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return

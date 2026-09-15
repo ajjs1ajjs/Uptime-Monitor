@@ -215,6 +215,16 @@ func (st *Store) CreateSite(name, url string, interval int, active bool, notifyM
 	return res.LastInsertId()
 }
 
+var siteUpdatableColumns = map[string]struct{}{
+	"name": {}, "url": {}, "check_interval": {}, "is_active": {},
+	"request_timeout_seconds": {}, "retry_interval_seconds": {},
+	"max_retries": {}, "up_success_threshold": {}, "last_notification": {},
+	"notify_methods": {}, "status": {}, "status_code": {}, "response_time": {},
+	"error_message": {}, "monitor_type": {}, "failed_attempts": {},
+	"success_attempts": {}, "last_down_alert": {}, "first_failure_at": {},
+	"keyword": {}, "tags": {}, "silenced_until": {}, "acknowledged": {},
+}
+
 func (st *Store) UpdateSite(id int64, fields map[string]any) error {
 	if len(fields) == 0 {
 		return nil
@@ -222,8 +232,15 @@ func (st *Store) UpdateSite(id int64, fields map[string]any) error {
 	var sets []string
 	var args []any
 	for k, v := range fields {
+		// Column allowlist — see UpdateUser.
+		if _, ok := siteUpdatableColumns[k]; !ok {
+			continue
+		}
 		sets = append(sets, k+" = ?")
 		args = append(args, v)
+	}
+	if len(sets) == 0 {
+		return nil
 	}
 	args = append(args, id)
 	_, err := st.DB.Exec(`UPDATE sites SET `+strings.Join(sets, ", ")+` WHERE id = ?`, args...)

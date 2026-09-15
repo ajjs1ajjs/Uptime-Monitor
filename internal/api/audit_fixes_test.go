@@ -107,6 +107,61 @@ func TestLoginRateLimitsFailedAttemptsOnly(t *testing.T) {
 	}
 }
 
+// TestLogoutRequiresCSRF verifies the logout-CSRF fix: GET /logout without the
+// double-submit token is rejected (403), POST with a valid session succeeds.
+func TestLogoutRequiresCSRF(t *testing.T) {
+	_, base, pw := newTestApp(t)
+	jar := map[string]string{}
+	login(base, pw, "NewStrongPass123", jar)
+
+	get := func(query string) *http.Response {
+		req, _ := http.NewRequest(http.MethodGet, base+"/logout"+query, nil)
+		if c, ok := jar["session_id"]; ok {
+			req.AddCookie(&http.Cookie{Name: "session_id", Value: c})
+		}
+		resp, err := noRedirectClient.Do(req)
+		if err != nil {
+			t.Fatalf("req: %v", err)
+		}
+		return resp
+	}
+	resp := get("")
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("GET /logout without token = %d, want 403", resp.StatusCode)
+	}
+	// POST with a same-origin Referer (what a real first-party form sends)
+	// succeeds and lands on /login.
+	req, _ := http.NewRequest(http.MethodPost, base+"/logout", strings.NewReader(""))
+	if c, ok := jar["session_id"]; ok {
+		req.AddCookie(&http.Cookie{Name: "session_id", Value: c})
+	}
+	req.Header.Set("Referer", base+"/")
+	resp2, err := noRedirectClient.Do(req)
+	if err != nil {
+		t.Fatalf("post logout: %v", err)
+	}
+	resp2.Body.Close()
+	if resp2.StatusCode != http.StatusFound || resp2.Header.Get("Location") != "/login" {
+		t.Fatalf("POST /logout = %d %q, want 302 /login", resp2.StatusCode, resp2.Header.Get("Location"))
+	}
+}
+
+// TestLoginAccountLockout verifies the per-username bucket: 10 failures for
+// one username within 30 min lock the account even before the IP bucket math.
+func TestLoginAccountLockout(t *testing.T) {
+	app, _, _ := newTestApp(t)
+	for i := 0; i < 10; i++ {
+		ok, _ := app.Store.CheckRateLimit("login_user", "u:spray-target", 10, 1800)
+		if !ok && i < 10 {
+			t.Fatalf("attempt %d unexpectedly locked", i)
+		}
+	}
+	if ok, _ := app.Store.CheckRateLimit("login_user", "u:spray-target", 10, 1800); ok {
+		t.Fatalf("11th attempt for same username must lock")
+	}
+}
+
 // TestCSRFDoubleSubmitToken verifies the SEC-002 fix: a state-changing API
 // request with NO Origin/Referer is accepted when the X-CSRF-Token header
 // matches the csrf_token cookie, and rejected when they differ.

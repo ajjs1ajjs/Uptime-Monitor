@@ -10,3 +10,10 @@ docs/
 dashboards/
 *.md
 !README.md
+# Secrets must never enter the build context, even if present in the tree.
+master.key
+**/master.key
+admin_password.txt
+**/admin_password.txt
+.env
+*.env

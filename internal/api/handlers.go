@@ -566,6 +566,17 @@ func (a *App) handleSaveNotify(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
+	// Whitelist top-level method sections — arbitrary keys are dropped so a
+	// compromised admin session (or future caller) cannot persist unexpected
+	// blobs that later render through the |safe notification cards path.
+	for k := range body {
+		switch k {
+		case "telegram", "discord", "teams", "slack", "email", "sms",
+			"webhook", "pushover", "gotify", "ntfy", "notify_methods":
+		default:
+			delete(body, k)
+		}
+	}
 	existing := a.Notify.LoadSettings()
 	for k, v := range body {
 		if v != nil {

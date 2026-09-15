@@ -11,7 +11,7 @@
     <div class="flex items-center gap-3">
         <button data-action="toggleLang" id="langBtn" class="px-3 py-2 rounded-xl bg-slate-800/50 border border-slate-700/50 text-slate-400 hover:border-accent hover:text-white transition text-sm">🇺🇦 UA</button>
         <a href="/" class="text-slate-400 hover:text-white transition text-sm" data-i18n="tab_dashboard">📊 Дашборд</a>
-        <a href="/logout" class="text-red-400 hover:text-red-300 transition text-sm" data-i18n="logout">🚪 Вийти</a>
+        <form method="POST" action="/logout" style="display:inline"><button type="submit" class="text-red-400 hover:text-red-300 transition text-sm" data-i18n="logout">🚪 Вийти</button></form>
     </div>
 </header>
 

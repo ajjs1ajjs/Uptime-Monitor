@@ -179,6 +179,14 @@ var secretFields = map[string]string{
 	"webhook_url": "webhook_url",
 	"password":    "password",
 	"auth_token":  "auth_token",
+	// Extended coverage (previously plaintext in notify_config.config):
+	// push/identity secrets that are sensitive even though they look like IDs.
+	"user_key":          "user_key",           // Pushover user key
+	"account_sid":       "account_sid",        // Twilio SID
+	"auth_token_twilio": "auth_token_twilio",
+	"chat_id":           "chat_id",            // Telegram chat id
+	"api_key":           "api_key",
+	"access_token":      "access_token",
 }
 
 // EncryptSecrets walks the settings map and encrypts known secret fields. It

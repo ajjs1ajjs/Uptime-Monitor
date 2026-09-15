@@ -220,6 +220,17 @@ Environment=CONFIG_PATH=$CONFIG_FILE
 Environment=DATA_DIR=$DATA_DIR
 Environment=LOG_DIR=$LOG_DIR
 Environment=DB_PATH=$DATA_DIR/sites.db
+# Hardening: no privilege escalation, read-only system, private /tmp.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+CapabilityBoundingSet=
+ReadWritePaths=$DATA_DIR $LOG_DIR $CONFIG_DIR
 
 [Install]
 WantedBy=multi-user.target

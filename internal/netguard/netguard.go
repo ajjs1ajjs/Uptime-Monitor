@@ -5,6 +5,7 @@ package netguard
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"strings"
 	"time"
@@ -27,10 +28,12 @@ func HostBlocked(host string, allowLocalhost, allowPrivate bool) bool {
 	defer cancel()
 	addrs, err := net.DefaultResolver.LookupHost(ctx, host)
 	if err != nil {
-		// Unresolvable now; the caller's own dial will fail on its own. Treating
-		// this as "not blocked" avoids turning transient DNS errors into a
-		// guard bypass discussion - the actual connection attempt still can't
-		// reach anything if the name doesn't resolve.
+		// Fail OPEN here by design: this is the creation-time/early UX check.
+		// The fail-closed enforcement happens at dial time (ResolveAllowed
+		// errors -> no connection is opened, and every dial re-validates the
+		// freshly resolved IPs). Rejecting unresolvable names here would turn
+		// transient DNS outages into undeletable-site UX bugs, while adding
+		// no security once dials are pinned.
 		return false
 	}
 	for _, addr := range addrs {
@@ -39,6 +42,42 @@ func HostBlocked(host string, allowLocalhost, allowPrivate bool) bool {
 		}
 	}
 	return false
+}
+
+// ResolveAllowed resolves host and returns only the IPs that pass the guard.
+// Fail-closed like HostBlocked: DNS errors or zero allowed IPs yield an error.
+// Callers must dial one of the returned IPs (pinning) instead of re-resolving
+// the hostname at dial time — otherwise a second resolution can return a
+// different (attacker-controlled) address (DNS-rebinding TOCTOU).
+func ResolveAllowed(ctx context.Context, host string, allowLocalhost, allowPrivate bool) ([]net.IP, error) {
+	if strings.EqualFold(host, "localhost") {
+		if !allowLocalhost {
+			return nil, fmt.Errorf("localhost not allowed")
+		}
+		return []net.IP{net.ParseIP("127.0.0.1")}, nil
+	}
+	if ip := net.ParseIP(strings.Trim(host, "[]")); ip != nil {
+		if ipBlocked(ip, allowPrivate) {
+			return nil, fmt.Errorf("IP not allowed: %s", host)
+		}
+		return []net.IP{ip}, nil
+	}
+	resCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	addrs, err := net.DefaultResolver.LookupHost(resCtx, host)
+	if err != nil {
+		return nil, fmt.Errorf("DNS lookup failed for %s", host)
+	}
+	var out []net.IP
+	for _, addr := range addrs {
+		if ip := net.ParseIP(addr); ip != nil && !ipBlocked(ip, allowPrivate) {
+			out = append(out, ip)
+		}
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("no allowed addresses for %s", host)
+	}
+	return out, nil
 }
 
 func ipBlocked(ip net.IP, allowPrivate bool) bool {

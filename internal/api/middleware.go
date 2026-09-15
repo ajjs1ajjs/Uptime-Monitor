@@ -66,10 +66,11 @@ func (a *App) withAuth(next http.HandlerFunc) http.HandlerFunc {
 			writeErr(w, http.StatusUnauthorized, "Not authenticated")
 			return
 		}
-		if p.MustChange &&
-			r.URL.Path != "/api/user" &&
-			r.URL.Path != "/api/alert-policy" &&
-			!strings.HasSuffix(r.URL.Path, "/change-password") {
+	if p.MustChange &&
+		r.URL.Path != "/api/user" &&
+		r.URL.Path != "/api/alert-policy" &&
+		r.URL.Path != "/logout" &&
+		!strings.HasSuffix(r.URL.Path, "/change-password") {
 			writeJSON(w, http.StatusForbidden, map[string]any{
 				"detail": "You must change your password before continuing",
 			})
@@ -160,7 +161,16 @@ func validDoubleSubmit(r *http.Request) bool {
 	if err != nil || cookie.Value == "" {
 		return false
 	}
-	return auth.ConstantTimeEqual(header, cookie.Value)
+	return validDoubleSubmitToken(header, cookie.Value)
+}
+
+// validDoubleSubmitToken is the WS-safe core of validDoubleSubmit (the WS
+// handshake also accepts the token via ?csrf= query).
+func validDoubleSubmitToken(header, cookie string) bool {
+	if header == "" || cookie == "" {
+		return false
+	}
+	return auth.ConstantTimeEqual(header, cookie)
 }
 
 func hostnameOnly(host string) string {

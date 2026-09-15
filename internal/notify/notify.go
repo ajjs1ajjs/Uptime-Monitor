@@ -373,6 +373,12 @@ func (s *Service) email(alertType, siteName, message string, cfg map[string]any)
 				slog.Warn("notify: email starttls failed", "server", addr, "error", err)
 				return false
 			}
+		} else if pass != "" {
+			// Fail closed: never send SMTP auth over a plaintext connection.
+			// Operators with STARTTLS-less relays must use port 25 without
+			// auth or port 465 (implicit TLS).
+			slog.Warn("notify: email refusing plaintext auth without STARTTLS", "server", addr)
+			return false
 		}
 	}
 	if pass != "" {

@@ -103,6 +103,38 @@ func TestOpenMigratesOldSchema(t *testing.T) {
 	}
 }
 
+// TestUpdateWhitelistsDropUnknownColumns verifies the mass-assignment guard:
+// dynamic SET keys outside the column allowlist are dropped, valid keys apply.
+func TestUpdateWhitelistsDropUnknownColumns(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "sites.db")
+	db, abs, err := Open(path)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	st := NewStore(db, abs)
+
+	sid, err := st.CreateSite("s", "https://example.com", 60, true, `[]`, "http", "", "")
+	if err != nil {
+		t.Fatalf("create site: %v", err)
+	}
+	if err := st.UpdateSite(sid, map[string]any{"name": "renamed", "bogus_col": "x", "id": 999}); err != nil {
+		t.Fatalf("update site: %v", err)
+	}
+	s, err := st.GetSite(sid)
+	if err != nil || s == nil || s.Name != "renamed" {
+		t.Fatalf("site = %+v, %v; want renamed", s, err)
+	}
+
+	uid, err := st.CreateUser("u1", "hash", "viewer")
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	if err := st.UpdateUser(uid, map[string]any{"role": "admin", "password_hash": "x", "nope": 1}); err != nil {
+		t.Fatalf("update user: %v", err)
+	}
+}
+// no FK, so orphan rows (a site_id/user_id pointing at nothing) can exist.
 // preFKSchema mimics tables as created before REFERENCES clauses were added:
 // no FK, so orphan rows (a site_id/user_id pointing at nothing) can exist.
 const preFKSchema = `

@@ -3,6 +3,7 @@ package monitor
 import (
 	"crypto/x509"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -37,6 +38,7 @@ func newTestWorker(t *testing.T, grace int) (*Worker, *storage.Store, *fakeAlert
 	cfg.AlertPolicy.StillDownRepeatSeconds = 600
 	fake := &fakeAlert{}
 	w := New(cfg, store, fakeWS{}, fake)
+	w.AlertSync = true // deterministic assertions (production stays async)
 	return w, store, fake
 }
 
@@ -107,6 +109,46 @@ func TestGraceZeroAlertsImmediately(t *testing.T) {
 	}
 	if fake.alerts[0]["alert_type"] != "down" {
 		t.Fatalf("alert type = %v, want down", fake.alerts[0]["alert_type"])
+	}
+}
+
+// TestStillDownRepeatClampedToMinute verifies the anti-flood fix: with
+// still_down_repeat_seconds=0 the second consecutive down check must NOT
+// re-alert (clamped to a 60s floor instead of firing every 5s cycle).
+func TestStillDownRepeatClampedToMinute(t *testing.T) {
+	w, store, fake := newTestWorker(t, 0)
+
+	id, err := store.CreateSite("srv", "https://example.com", 60, true, `["telegram"]`, "http", "", "")
+	if err != nil {
+		t.Fatalf("add: %v", err)
+	}
+	s, _ := store.GetSite(id)
+	w.persist(s, "down", 500, 100, "HTTP 500")
+	if len(fake.alerts) != 1 {
+		t.Fatalf("expected 1 down alert, got %d", len(fake.alerts))
+	}
+	s, _ = store.GetSite(id)
+	w.persist(s, "down", 500, 100, "HTTP 500")
+	if len(fake.alerts) != 1 {
+		t.Fatalf("repeat=0 must be clamped: got %d alerts, want 1", len(fake.alerts))
+	}
+}
+
+// TestCachedRegexpBounds verifies the ReDoS guard: over-long patterns are
+// rejected and compiled patterns are cached (same pointer).
+func TestCachedRegexpBounds(t *testing.T) {
+	w, _, _ := newTestWorker(t, 0)
+	if w.cachedRegexp("a+") == nil {
+		t.Fatalf("valid pattern must compile")
+	}
+	if w.cachedRegexp("a+") != w.cachedRegexp("a+") {
+		t.Fatalf("pattern must be served from cache")
+	}
+	if w.cachedRegexp(strings.Repeat("a", 501)) != nil {
+		t.Fatalf("pattern >500 chars must be rejected")
+	}
+	if w.cachedRegexp("[unclosed") != nil {
+		t.Fatalf("invalid pattern must return nil")
 	}
 }
 
