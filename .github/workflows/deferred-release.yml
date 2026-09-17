@@ -10,7 +10,14 @@ name: Deferred release (quota queue)
 
 on:
   schedule:
+    # A scheduled run is SKIPPED, not queued, if the Actions quota is still
+    # exhausted at that moment - and GitHub may also drop a schedule under
+    # load. So there are retries: the job is idempotent (it exits as a no-op
+    # once the release exists), and each no-op run costs seconds.
     - cron: "0 7 1 10 *"
+    - cron: "0 13 1 10 *"
+    - cron: "0 7 2 10 *"
+    - cron: "0 7 3 10 *"
   workflow_dispatch:
     inputs:
       tag:
