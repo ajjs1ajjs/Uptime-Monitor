@@ -55,6 +55,17 @@
   on DNS errors by design. `ping` now resolves once through
   `netguard.ResolveAllowed` (fail-closed) and pings the vetted address, like
   `http()` and `tcpHost()` already did.
+- **`install.sh` reported a failed update as a success**: the health check
+  printed " FAILED" and then fell through to "Uptime Monitor updated
+  successfully" with exit code 0, so a service that never came up looked like
+  a clean install. It now distinguishes the two cases the HTTP probe cannot:
+  an inactive unit is a hard failure (status + journal + rollback commands,
+  exit 1), while a running unit that simply did not answer the probe is a
+  warning - the port is read from config.json and the bind host may not be
+  localhost at all, so a probe failure alone does not prove the service is
+  down. The window is 60s instead of 15s because the first boot after this
+  upgrade runs the timestamp migration before the port opens (~4s for 30 days
+  of history across 20 monitors; ~0.2s on every later restart).
 - `Cleanup()` passed one shared argument to statements with no placeholder
   (tolerated by the current driver, not a contract); each statement now
   carries its own.
