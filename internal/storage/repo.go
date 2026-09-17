@@ -135,7 +135,7 @@ func (st *Store) attachStatus(sites []Site) {
 	// to the sites.status column the worker already maintains.
 	lastRows, err := st.DB.Query(`SELECT site_id, status FROM (
 	  SELECT site_id, status, ROW_NUMBER() OVER (PARTITION BY site_id ORDER BY checked_at DESC) rn
-	  FROM status_history WHERE checked_at >= datetime('now','-7 days')) WHERE rn = 1`)
+	  FROM status_history WHERE checked_at >= ?) WHERE rn = 1`, Since(7*day))
 	if err == nil {
 		defer lastRows.Close()
 		lastMap := map[int64]string{}
@@ -153,7 +153,7 @@ func (st *Store) attachStatus(sites []Site) {
 		}
 	}
 	statsRows, err := st.DB.Query(`SELECT site_id, COUNT(*), SUM(CASE WHEN status='up' THEN 1 ELSE 0 END)
-	  FROM status_history WHERE checked_at >= datetime('now','-30 days') GROUP BY site_id`)
+	  FROM status_history WHERE checked_at >= ? GROUP BY site_id`, Since(30*day))
 	if err == nil {
 		defer statsRows.Close()
 		statsMap := map[int64][2]float64{}
@@ -299,7 +299,8 @@ func (st *Store) SiteHistory(siteID int64, limit int) ([]map[string]any, error) 
 }
 
 func (st *Store) HistoryAll() (map[int64][]map[string]any, error) {
-	rows, err := st.DB.Query(`SELECT site_id, status, checked_at FROM status_history WHERE checked_at >= datetime('now','-24 hours') ORDER BY checked_at ASC`)
+	rows, err := st.DB.Query(`SELECT site_id, status, checked_at FROM status_history
+	  WHERE checked_at >= ? ORDER BY checked_at ASC`, Since(24*time.Hour))
 	if err != nil {
 		return nil, err
 	}

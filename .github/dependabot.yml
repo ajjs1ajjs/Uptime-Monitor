@@ -10,3 +10,11 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+  # The Dockerfile's base images were pinned by tag and drifted four Alpine
+  # releases behind while the workflow actions were kept SHA-pinned by
+  # Dependabot. Let it watch the images too.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5

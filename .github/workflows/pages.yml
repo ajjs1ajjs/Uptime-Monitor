@@ -24,10 +24,22 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@41d8f096a32819b8d2e185c1dbb0d911d8999831 # v5
 
+      # Stage only the landing page. Uploading the repository root published
+      # everything in the tree - workflows, installer, and (with .nojekyll,
+      # which disables Jekyll's dotfile filtering) dot-directories too. The
+      # page's screenshots are served from raw.githubusercontent.com, so
+      # index.html plus .nojekyll is the whole site.
+      - name: Stage site
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+          cp .nojekyll _site/
+          ls -la _site
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@56afc609e7420261def2710fa7f190f023f6a721 # v3
         with:
-          path: .
+          path: _site
 
       - name: Deploy to GitHub Pages
         id: deployment

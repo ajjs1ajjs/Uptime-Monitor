@@ -6,9 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"fmt"
 	"strings"
-	"time"
 
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/pbkdf2"
@@ -157,10 +155,3 @@ func PBKDF2Key(raw string) string { return HashAPIKey(raw) }
 func NormalizeUsername(u string) string {
 	return strings.TrimSpace(u)
 }
-
-func NowISO() string {
-	loc, _ := time.LoadLocation("Europe/Kyiv")
-	return time.Now().In(loc).Format("2006-01-02T15:04:05.000000-07:00")
-}
-
-var _ = fmt.Sprintf

@@ -1,3 +1,91 @@
+## [3.7.1] - 2026-09-17
+
+### Audit round: correctness fixes found by re-reading the 3.6.1/3.7.0 code
+
+> Release note: v3.6.1 and v3.7.0 were committed but never published (the last
+> published release is v3.6.0, because the Actions quota ran out). This release
+> therefore carries everything from 3.6.1, 3.7.0 and 3.7.1 in one binary.
+
+### Fixed
+
+- **WebSocket handshake panicked on every unauthenticated request**: `closeWS`
+  called gorilla's `Upgrade(w, nil, nil)`, and `Upgrade` dereferences
+  `r.Header`/`r.Method`. `/ws` authenticates itself, so it is reachable without
+  credentials and was registered without `withRecovery` and without a rate
+  limit: any client could flood the log with stack traces, and browsers never
+  received the intended 4001/4002 close frame. Now passes the request, falls
+  back to a plain 401 when the request is not an upgrade at all, and `/ws` has
+  recovery + a 60/min limit. HTML page handlers got `withRecovery` too.
+- **Sessions outlived their own `expires_at` by up to ~24h**: timestamps were
+  written as Kyiv local time with an offset but compared against SQLite's
+  `datetime('now')` (UTC, space separator). These are TEXT columns, so the
+  comparison is lexicographic: `'T'` (0x54) beats `' '` (0x20) at index 10, so
+  `expires_at > datetime('now')` was true for *any* time on the same UTC day -
+  and `Cleanup()` would not delete the row either. Everything now uses one
+  canonical UTC format (`storage.TimeLayout`) on both sides of every
+  comparison, and a migration rewrites existing rows.
+- **Retention, SLA and report windows were skewed** by the same mismatch:
+  30/90/365-day retention, the SLA window, the incident list, the
+  response-time stats and the 7/30-day dashboard rollups.
+- **`/api/incidents` hid older outages**: `LIMIT 200` was applied to raw
+  down/slow rows *before* the "start of an outage" filter ran in Go, so one
+  long outage (200 consecutive checks is 17 min at a 5s interval) consumed the
+  whole budget and the endpoint returned a single incident. The filter now
+  runs in SQL, before `LIMIT`.
+- **HA: a database blip could mint a leader**: `Beat()` set `leader = true` on
+  *any* error, so `SQLITE_BUSY`, a lock timeout or an I/O error promoted
+  whoever asked - including a standby, and including both nodes at once. Also,
+  `New()` started every node as leader, so two freshly booted nodes both acted
+  as leader until their first heartbeat. Leadership is now a lease that only a
+  successful database round trip extends; only "no such table" (a pre-HA
+  database) means single-node mode; `Start()` does the first heartbeat
+  synchronously before traffic is served.
+- **`withCSRF` ran outside `withAuth`**, so the principal it reads to exempt
+  API-key requests was always nil and the exemption was dead code.
+- **`config.Load` leaked half-applied values**: on a malformed section it
+  retried into the same struct that the failed `json.Unmarshal` had already
+  partially written. Each attempt now starts from a fresh default.
+- **`Config.DBPath()`** assigned `c.DataDir` as an unsynchronized side effect
+  while the worker read the same struct.
+- **Flag typos were swallowed**: `server --prot 9090` started on the
+  configured port instead of reporting the bad flag.
+- **`ping` monitors resolved their target twice**: `doCheck` re-runs
+  `HostBlocked` every cycle (which resolves the name), then `ping` resolved it
+  again - a rebinding race between the two answers, on a check that fails open
+  on DNS errors by design. `ping` now resolves once through
+  `netguard.ResolveAllowed` (fail-closed) and pings the vetted address, like
+  `http()` and `tcpHost()` already did.
+- `Cleanup()` passed one shared argument to statements with no placeholder
+  (tolerated by the current driver, not a contract); each statement now
+  carries its own.
+
+### Changed
+
+- Dropped `X-XSS-Protection` (removed from every current browser; the CSP
+  covers it) and the dead `var _ = ...` import placeholders and unused
+  `auth.NowISO`, `adminUsername(cfg)` parameter, `CreateAPIKey` first argument.
+- `pages.yml` publishes only `index.html` + `.nojekyll` instead of the whole
+  repository tree (`.nojekyll` also disables Jekyll's dotfile filtering).
+- Docker base images moved from `alpine:3.20` to `alpine:3.24` /
+  `golang:1.26-alpine3.24`, and Dependabot now watches them.
+- `golang.org/x/crypto` 0.54.0 -> 0.57.0, `modernc.org/sqlite` 1.56.0 -> 1.58.0
+  (govulncheck clean: 0 called vulnerabilities).
+- README documents high availability for the first time, including the
+  constraint that "shared database" with the bundled SQLite means one host,
+  not a file on NFS/CIFS.
+
+### Tests
+
+- Coverage: `internal/ha` 0% -> 82%, `internal/config` 37% -> 53%,
+  `internal/storage` 25% -> 30%, `internal/monitor` 36% -> 39%.
+- `internal/ha` from 0% to 82% coverage: takeover only after TTL, no double
+  leader, transient errors never promote, lease expiry stands down, pre-HA
+  database stays leader, `Start` settles synchronously.
+- New regression tests for session expiry (both sides of the boundary),
+  retention boundaries, the timestamp migration, timestamp parsing, the
+  incident grouping, config section fallback, `DBPath` purity, and the
+  WebSocket handshake. `go vet` + `go test -race ./...` green.
+
 ## [3.7.0] - 2026-09-15
 
 ### Enterprise round (HA + KMS + drills)
@@ -31,6 +119,26 @@
 ### Tests
 
 - New: `netguard` pinning/blocking, storage column-whitelist, logout-CSRF, account-lockout bucket, `still_down` clamp, regex cache bounds. `go vet` + full `go test ./...` green.
+
+## [3.6.0] - 2026-09-09
+
+### Security
+
+- Audit hardening batch (SEC-002/003/004, ARCH-002, PERF-002, OPS-002).
+
+### Added
+
+- Multi-stage Dockerfile + CI docker smoke test (liveness).
+- GitHub Pages presentation site (`index.html`) and its deploy workflow.
+
+## [3.5.0] - 2026-09-05
+
+### Added
+
+- OS version checks in the installer.
+- Windows (`install.ps1`) and macOS (`install_mac.sh`) installers - **removed
+  again in the Linux-only cleanup that followed**, so they exist only in the
+  3.5.0/3.6.0 releases.
 
 ## [3.4.0] - 2026-09-01
 

@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"net/http"
 	"path"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -65,36 +64,43 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("GET /metrics", a.withRecovery(a.withRateLimit("metrics", 30, 60, a.handlePrometheus)))
 
 	// auth
-	mux.HandleFunc("GET /login", a.handleLoginPage)
+	mux.HandleFunc("GET /login", a.withRecovery(a.handleLoginPage))
 	// Login uses persistent (DB-backed) rate limiting for failed attempts only.
 	// Successful logins reset the counter so legitimate users are never locked out.
 	mux.HandleFunc("POST /login", a.withRecovery(a.withRateLimit("login_fail", 5, 900, a.handleLoginPost)))
-	mux.HandleFunc("GET /logout", a.handleLogout)
-	mux.Handle("POST /logout", a.withRecovery(a.withCSRF(a.withAuth(a.handleLogout))))
-	mux.HandleFunc("GET /change-password", a.handleChangePasswordPage)
+	mux.HandleFunc("GET /logout", a.withRecovery(a.handleLogout))
+	mux.Handle("POST /logout", a.withRecovery(a.withAuth(a.withCSRF(a.handleLogout))))
+	mux.HandleFunc("GET /change-password", a.withRecovery(a.handleChangePasswordPage))
 	mux.HandleFunc("POST /change-password", a.withRecovery(a.withRateLimit("change_password", 3, 900, a.handleChangePasswordPost)))
-	mux.HandleFunc("GET /forgot-password", a.handleForgotPage)
+	mux.HandleFunc("GET /forgot-password", a.withRecovery(a.handleForgotPage))
 	mux.HandleFunc("POST /forgot-password", a.withRecovery(a.withRateLimit("forgot_password", 3, 1800, a.handleForgotPost)))
 
 	// pages
-	mux.HandleFunc("GET /", a.handleDashboard)
-	mux.HandleFunc("GET /users", a.handleUsersPage)
+	mux.HandleFunc("GET /", a.withRecovery(a.handleDashboard))
+	mux.HandleFunc("GET /users", a.withRecovery(a.handleUsersPage))
 	mux.HandleFunc("GET /status", a.withRecovery(a.withRateLimit("public_status", 30, 60, a.handlePublicStatus)))
 	mux.HandleFunc("GET /public-status", a.withRecovery(a.withRateLimit("public_status", 30, 60, a.handlePublicStatus)))
-	mux.HandleFunc("GET /api/htmx/hero-stats", a.withAuth(a.handleHtmxHeroStats))
-	mux.HandleFunc("GET /api/htmx/monitors", a.withAuth(a.handleHtmxMonitors))
-	mux.HandleFunc("GET /ws", a.handleWS)
+	mux.HandleFunc("GET /api/htmx/hero-stats", a.withRecovery(a.withAuth(a.handleHtmxHeroStats)))
+	mux.HandleFunc("GET /api/htmx/monitors", a.withRecovery(a.withAuth(a.handleHtmxMonitors)))
+	// /ws is reachable unauthenticated (it authenticates itself), so it gets
+	// the same recovery + rate limit treatment as the other public endpoints.
+	mux.HandleFunc("GET /ws", a.withRecovery(a.withRateLimit("ws", 60, 60, a.handleWS)))
 
 	// --- JSON API ---
+	//
+	// Order matters: withAuth must run before withCSRF, because withCSRF
+	// reads the principal to exempt API-key requests (not a browser CSRF
+	// vector). With the wrappers the other way round the principal was always
+	// nil at that point and the exemption was dead code.
 	authed := func(h http.HandlerFunc) http.HandlerFunc {
-		return a.withRecovery(a.withCSRF(a.withAuth(h)))
+		return a.withRecovery(a.withAuth(a.withCSRF(h)))
 	}
 	admin := func(h http.HandlerFunc) http.HandlerFunc {
-		return a.withRecovery(a.withCSRF(a.withAuth(a.withAdmin(h))))
+		return a.withRecovery(a.withAuth(a.withCSRF(a.withAdmin(h))))
 	}
 	// adminWrite additionally requires HA leadership (standbys are read-only).
 	adminWrite := func(h http.HandlerFunc) http.HandlerFunc {
-		return a.withRecovery(a.withCSRF(a.withAuth(a.withAdmin(a.requireLeader(h)))))
+		return a.withRecovery(a.withAuth(a.withCSRF(a.withAdmin(a.requireLeader(h)))))
 	}
 
 	mux.Handle("GET /api/sites", authed(a.handleListSites))
@@ -249,6 +255,3 @@ func (a *App) renderPage(w http.ResponseWriter, name string, ctx map[string]any,
 	w.WriteHeader(status)
 	_, _ = w.Write([]byte(html))
 }
-
-var _ = json.Marshal
-var _ = filepath.Join

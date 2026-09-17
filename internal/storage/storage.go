@@ -127,6 +127,11 @@ func Open(path string) (*sql.DB, string, error) {
 	if err := ensureForeignKeys(db); err != nil {
 		return nil, abs, fmt.Errorf("migrate foreign keys: %w", err)
 	}
+	// Must run after the column/FK migrations: it touches columns those steps
+	// may have just added or rebuilt.
+	if err := migrateTimestamps(db); err != nil {
+		return nil, abs, fmt.Errorf("migrate timestamps: %w", err)
+	}
 	return db, abs, nil
 }
 
@@ -150,22 +155,7 @@ func migrateSchema(db *sql.DB) error {
 		{"ssl_certificates", "ssl_notified_thresholds", "ssl_notified_thresholds TEXT DEFAULT '[]'"},
 	}
 	for _, s := range steps {
-		rows, err := db.Query(`PRAGMA table_info(` + s.table + `)`)
-		if err != nil {
-			return err
-		}
-		found := false
-		for rows.Next() {
-			var cid, name, ctype string
-			var notnull, pk int
-			var dflt any
-			if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err == nil && name == s.name {
-				found = true
-				break
-			}
-		}
-		rows.Close()
-		if found {
+		if tableHasColumn(db, s.table, s.name) {
 			continue
 		}
 		if _, err := db.Exec(`ALTER TABLE ` + s.table + ` ADD COLUMN ` + s.ddl); err != nil {
@@ -344,10 +334,6 @@ var kyivLoc = func() *time.Location {
 
 func KyivLocation() *time.Location { return kyivLoc }
 
-func Now() string {
-	return time.Now().In(kyivLoc).Format("2006-01-02T15:04:05.000000-07:00")
-}
-
 type Store struct {
 	DB     *sql.DB
 	DBPath string
@@ -358,19 +344,31 @@ func NewStore(db *sql.DB, path string) *Store {
 	return &Store{DB: db, DBPath: path, mu: make(chan struct{}, 1)}
 }
 
-// cleanOldData applies retention rules.
+// Cleanup applies retention rules.
+//
+// Every timestamp column here (except csrf_tokens.created_at, which SQLite
+// fills itself) is written by Now(), so the cutoff has to be a canonical
+// timestamp too - see TimeLayout for why mixing formats silently breaks these
+// comparisons. Each query carries exactly its own arguments; passing one
+// shared argument to statements that have no placeholder happened to work with
+// the current driver, but that is not something to rely on.
+const day = 24 * time.Hour
+
 func (st *Store) Cleanup() error {
-	queries := []string{
-		`DELETE FROM status_history WHERE checked_at < datetime('now', '-30 days')`,
-		`DELETE FROM notification_history WHERE sent_at < datetime('now', '-90 days')`,
-		`DELETE FROM rate_limits WHERE reset_at < ?`,
-		`DELETE FROM csrf_tokens WHERE created_at < datetime('now', '-1 day')`,
-		`DELETE FROM sessions WHERE expires_at < datetime('now')`,
-		`DELETE FROM audit_log WHERE created_at < datetime('now', '-365 days')`,
-		`DELETE FROM backups WHERE created_at < datetime('now', '-180 days')`,
+	queries := []struct {
+		sql  string
+		args []any
+	}{
+		{`DELETE FROM status_history WHERE checked_at < ?`, []any{Since(30 * day)}},
+		{`DELETE FROM notification_history WHERE sent_at < ?`, []any{Since(90 * day)}},
+		{`DELETE FROM rate_limits WHERE reset_at < ?`, []any{float64(time.Now().Add(-7 * day).Unix())}},
+		{`DELETE FROM csrf_tokens WHERE created_at < datetime('now', '-1 day')`, nil},
+		{`DELETE FROM sessions WHERE expires_at < ?`, []any{Now()}},
+		{`DELETE FROM audit_log WHERE created_at < ?`, []any{Since(365 * day)}},
+		{`DELETE FROM backups WHERE created_at < ?`, []any{Since(180 * day)}},
 	}
 	for _, q := range queries {
-		if _, err := st.DB.Exec(q, float64(time.Now().Add(-7*24*time.Hour).Unix())); err != nil {
+		if _, err := st.DB.Exec(q.sql, q.args...); err != nil {
 			return err
 		}
 	}

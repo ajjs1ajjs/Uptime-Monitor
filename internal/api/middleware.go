@@ -184,8 +184,15 @@ func hostnameOnly(host string) string {
 //
 // A process-local limiter is used instead of the DB-backed one: SQLite
 // serializes writes, so a DB write on every request becomes a bottleneck and a
-// DoS vector under load. The single-instance deployment means the in-memory
-// state is authoritative; expired entries are pruned lazily to bound memory.
+// DoS vector under load. Expired entries are pruned lazily to bound memory.
+//
+// This state is per process, so in an active-passive HA pair each node counts
+// separately and the effective limit for these endpoints is (nodes x max).
+// That is deliberate for cheap endpoints, where the limiter exists to stop
+// accidental hammering rather than to be an exact quota. The endpoints where
+// the count has to be authoritative - failed logins and password reset - use
+// the DB-backed limiter instead (see persistentRateLimitEndpoints), so an
+// attacker cannot get extra attempts by spreading them across nodes.
 
 type rateBucket struct {
 	count   int
@@ -309,7 +316,6 @@ func (a *App) withSecurity(next http.Handler) http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "no-referrer")
-		w.Header().Set("X-XSS-Protection", "1; mode=block")
 		w.Header().Set("Content-Security-Policy", securityCSP)
 		// Only advertise HSTS over a connection that is actually HTTPS (direct
 		// TLS or a trusted proxy terminating it) - the same check used for the
@@ -392,5 +398,3 @@ func (w *statusWriter) ReadFrom(r io.Reader) (int64, error) {
 	}
 	return io.Copy(w.ResponseWriter, r)
 }
-
-var _ = sync.Mutex{}
