@@ -49,6 +49,12 @@
   while the worker read the same struct.
 - **Flag typos were swallowed**: `server --prot 9090` started on the
   configured port instead of reporting the bad flag.
+- **`ping` monitors resolved their target twice**: `doCheck` re-runs
+  `HostBlocked` every cycle (which resolves the name), then `ping` resolved it
+  again - a rebinding race between the two answers, on a check that fails open
+  on DNS errors by design. `ping` now resolves once through
+  `netguard.ResolveAllowed` (fail-closed) and pings the vetted address, like
+  `http()` and `tcpHost()` already did.
 - `Cleanup()` passed one shared argument to statements with no placeholder
   (tolerated by the current driver, not a contract); each statement now
   carries its own.
@@ -70,6 +76,8 @@
 
 ### Tests
 
+- Coverage: `internal/ha` 0% -> 82%, `internal/config` 37% -> 53%,
+  `internal/storage` 25% -> 30%, `internal/monitor` 36% -> 39%.
 - `internal/ha` from 0% to 82% coverage: takeover only after TTL, no double
   leader, transient errors never promote, lease expiry stands down, pre-HA
   database stays leader, `Start` settles synchronously.

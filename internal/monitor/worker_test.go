@@ -1,7 +1,9 @@
 package monitor
 
 import (
+	"context"
 	"crypto/x509"
+	"net"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -297,5 +299,35 @@ func TestStillDownRepeat(t *testing.T) {
 	}
 	if fake.alerts[0]["alert_type"] != "still_down" {
 		t.Fatalf("alert type = %v, want still_down", fake.alerts[0]["alert_type"])
+	}
+}
+
+// ping() now resolves through the SSRF guard itself and pings the vetted
+// address. doCheck's per-cycle HostBlocked call resolves the name too, and
+// ping used to resolve it a second time - a rebinding race between the two
+// answers, on a check that fails open on DNS errors by design.
+func TestPingRefusesGuardedTargets(t *testing.T) {
+	cfg := config.Default()
+	w := New(cfg, nil, nil, nil)
+	for _, target := range []string{
+		"http://127.0.0.1",   // loopback: always blocked
+		"http://10.1.2.3",    // private: blocked unless allow_private_networks
+		"http://[::1]",       // IPv6 loopback
+		"http://169.254.169.254", // cloud metadata
+	} {
+		status, _, _, msg := w.ping(context.Background(), target, time.Second)
+		if status != "down" || msg != "target host not allowed" {
+			t.Errorf("ping(%q) = %q/%q, want down/\"target host not allowed\"", target, status, msg)
+		}
+	}
+}
+
+func TestPreferIPv4(t *testing.T) {
+	v6, v4 := net.ParseIP("2001:db8::1"), net.ParseIP("93.184.216.34")
+	if got := preferIPv4([]net.IP{v6, v4}); !got.Equal(v4) {
+		t.Errorf("preferIPv4 = %v, want the IPv4 address %v", got, v4)
+	}
+	if got := preferIPv4([]net.IP{v6}); !got.Equal(v6) {
+		t.Errorf("preferIPv4 with no IPv4 = %v, want %v", got, v6)
 	}
 }

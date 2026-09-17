@@ -438,6 +438,17 @@ func (w *Worker) ping(ctx context.Context, rawURL string, timeout time.Duration)
 	if host == "" || strings.HasPrefix(host, "-") {
 		return "down", 0, 0, "invalid host"
 	}
+	// Pin the target like http() and tcpHost() do. doCheck already re-runs
+	// HostBlocked every cycle, but that check resolves the name and then ping
+	// resolved it a second time - a rebinding race between the two answers,
+	// and HostBlocked fails open on a DNS error by design (it is also the
+	// creation-time UX check). Resolving once here, fail-closed, and pinging
+	// the vetted address closes both gaps and drops a redundant lookup.
+	ips, err := netguard.ResolveAllowed(ctx, host, w.Cfg.Server.AllowLocalhost, w.Cfg.Server.AllowPrivateNetworks)
+	if err != nil {
+		return "down", 0, 0, "target host not allowed"
+	}
+	target := preferIPv4(ips)
 	start := time.Now()
 	// Absolute binary path (no PATH hijack); Unix-only by design.
 	pingBin, err := exec.LookPath("ping")
@@ -457,7 +468,7 @@ func (w *Worker) ping(ctx context.Context, rawURL string, timeout time.Duration)
 	if secs < 1 {
 		secs = 1
 	}
-	args := []string{"-c", "1", "-W", fmt.Sprintf("%d", secs), "--", host}
+	args := []string{"-c", "1", "-W", fmt.Sprintf("%d", secs), "--", target.String()}
 	// Bounded by both the check timeout AND the parent ctx: previously this
 	// ignored the parent (context.Background()), so a worker shutdown
 	// (ctx cancelled) would leave an in-flight ping subprocess running for up
@@ -1027,6 +1038,18 @@ func (w *Worker) notifySSLThresholds(s *storage.Site, cert *x509.Certificate, da
 		b, _ := json.Marshal(notified)
 		_, _ = w.Store.DB.Exec(`UPDATE ssl_certificates SET ssl_notified_thresholds = ? WHERE site_id = ?`, string(b), s.ID)
 	}
+}
+
+// preferIPv4 picks an IPv4 address when the guard returned one: iputils ping
+// handles both families, but an IPv4 literal is the safer argument on older
+// builds. The list is never empty (ResolveAllowed errors instead).
+func preferIPv4(ips []net.IP) net.IP {
+	for _, ip := range ips {
+		if ip.To4() != nil {
+			return ip
+		}
+	}
+	return ips[0]
 }
 
 func contains(list []int, v int) bool {
