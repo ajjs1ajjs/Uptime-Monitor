@@ -89,12 +89,12 @@ func (a *App) handleWS(w http.ResponseWriter, r *http.Request) {
 	// Authenticate via session cookie.
 	cookie, err := r.Cookie(sessionCookie)
 	if err != nil {
-		closeWS(w, 4001, "Authentication required")
+		closeWS(w, r, 4001, "Authentication required")
 		return
 	}
 	u, err := a.Store.GetSession(cookie.Value)
 	if err != nil || u == nil {
-		closeWS(w, 4001, "Invalid session")
+		closeWS(w, r, 4001, "Invalid session")
 		return
 	}
 	// CSWSH hardening: browser handshakes (Origin present) must also present
@@ -108,7 +108,7 @@ func (a *App) handleWS(w http.ResponseWriter, r *http.Request) {
 		cc, cerr := r.Cookie(csrfCookieName)
 		if header == "" || cerr != nil || cc.Value == "" ||
 			!validDoubleSubmitToken(header, cc.Value) {
-			closeWS(w, 4002, "CSRF token required")
+			closeWS(w, r, 4002, "CSRF token required")
 			return
 		}
 	}
@@ -139,8 +139,19 @@ func (a *App) handleWS(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func closeWS(w http.ResponseWriter, code int, reason string) {
-	conn, err := wsUpgrader.Upgrade(w, nil, nil)
+// closeWS completes the handshake and then sends an application close frame
+// so the browser gets a meaningful code (4001/4002) instead of a dropped
+// connection. The request MUST be passed through: gorilla dereferences
+// r.Header/r.Method inside Upgrade, so a nil request panics on every
+// unauthenticated handshake (and /ws is unauthenticated by definition).
+// If the handshake itself cannot be completed (not a WebSocket request at
+// all), fall back to a plain HTTP status.
+func closeWS(w http.ResponseWriter, r *http.Request, code int, reason string) {
+	if !websocket.IsWebSocketUpgrade(r) {
+		http.Error(w, reason, http.StatusUnauthorized)
+		return
+	}
+	conn, err := wsUpgrader.Upgrade(w, r, nil)
 	if err == nil {
 		_ = conn.WriteControl(websocket.CloseMessage,
 			websocket.FormatCloseMessage(code, reason), time.Now().Add(time.Second))

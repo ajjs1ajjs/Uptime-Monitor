@@ -309,7 +309,6 @@ func (a *App) withSecurity(next http.Handler) http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "no-referrer")
-		w.Header().Set("X-XSS-Protection", "1; mode=block")
 		w.Header().Set("Content-Security-Policy", securityCSP)
 		// Only advertise HSTS over a connection that is actually HTTPS (direct
 		// TLS or a trusted proxy terminating it) - the same check used for the
@@ -392,5 +391,3 @@ func (w *statusWriter) ReadFrom(r io.Reader) (int64, error) {
 	}
 	return io.Copy(w.ResponseWriter, r)
 }
-
-var _ = sync.Mutex{}
