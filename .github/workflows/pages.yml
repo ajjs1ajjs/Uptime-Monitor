@@ -22,7 +22,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Pages
-        uses: actions/configure-pages@41d8f096a32819b8d2e185c1dbb0d911d8999831 # v5
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
       # Stage only the landing page. Uploading the repository root published
       # everything in the tree - workflows, installer, and (with .nojekyll,
@@ -37,10 +37,10 @@ jobs:
           ls -la _site
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@56afc609e7420261def2710fa7f190f023f6a721 # v3
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: _site
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@d6db90164acdf7d05f8babe7a2375892830f487d # v4
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
