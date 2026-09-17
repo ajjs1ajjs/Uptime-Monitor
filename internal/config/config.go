@@ -208,29 +208,51 @@ func Load(path string) (*Config, error) {
 	base, _ := json.Marshal(cfg)
 	var baseMap map[string]any
 	_ = json.Unmarshal(base, &baseMap)
-	merged := deepMerge(baseMap, raw)
-	b, _ := json.Marshal(merged)
-	if err := json.Unmarshal(b, cfg); err != nil {
-		// Tolerant: a malformed section (e.g. alert_policy written by an older
-		// version) must not prevent the server from starting. Drop the bad
-		// top-level sections and keep the rest.
-		fmt.Fprintf(os.Stderr, "config: ERROR: %s has an invalid section (%v) - that section falls back to defaults; the rest of the file was applied.\n", path, err)
-		for k := range raw {
-			merged2 := deepMerge(baseMap, raw)
-			delete(merged2, k)
-			b2, _ := json.Marshal(merged2)
-			if err2 := json.Unmarshal(b2, cfg); err2 == nil {
-				return cfg, nil
-			}
+
+	// Every attempt decodes into a FRESH default config. json.Unmarshal applies
+	// fields until it hits the error, so reusing one struct across attempts
+	// leaves half-applied values from the failed decode behind - exactly the
+	// kind of surprise an operator can never explain from the file.
+	attempt := func(m map[string]any) (*Config, error) {
+		candidate := Default()
+		candidate.path = path
+		b, err := json.Marshal(m)
+		if err != nil {
+			return nil, err
 		}
-		return cfg, nil
+		if err := json.Unmarshal(b, candidate); err != nil {
+			return nil, err
+		}
+		return candidate, nil
 	}
-	return cfg, nil
+
+	applied, err := attempt(deepMerge(baseMap, raw))
+	if err == nil {
+		return applied, nil
+	}
+	// Tolerant: a malformed section (e.g. alert_policy written by an older
+	// version) must not prevent the server from starting. Drop one bad
+	// top-level section and keep the rest.
+	fmt.Fprintf(os.Stderr, "config: ERROR: %s has an invalid section (%v) - that section falls back to defaults; the rest of the file was applied.\n", path, err)
+	for k := range raw {
+		reduced := deepMerge(baseMap, raw)
+		delete(reduced, k)
+		if applied, err := attempt(reduced); err == nil {
+			fmt.Fprintf(os.Stderr, "config: section %q was ignored; it falls back to defaults.\n", k)
+			return applied, nil
+		}
+	}
+	// More than one section is unusable: built-in defaults only, loudly.
+	fmt.Fprintf(os.Stderr, "config: ERROR: %s could not be applied at all - using built-in defaults.\n", path)
+	fallback := Default()
+	fallback.path = path
+	return fallback, nil
 }
 
-// Save persists the config back to the file it was loaded from, preserving
-// only the fields written by the app (alert policy). The path falls back to
-// CONFIG_PATH so API-driven changes survive restarts.
+// Save persists the whole config back to the file it was loaded from. The
+// alert policy is the only section the app itself edits, but the file is
+// rewritten in full, so hand-written key order and unknown keys are lost.
+// The path falls back to CONFIG_PATH so API-driven changes survive restarts.
 func (c *Config) Save() error {
 	path := c.Path()
 	if path == "" {
@@ -277,10 +299,13 @@ func (c *Config) DBPath() string {
 	if p := os.Getenv("DB_PATH"); p != "" {
 		return p
 	}
-	if c.DataDir == "" {
-		c.DataDir = defaultDataDir()
+	// Read-only: this used to assign c.DataDir as a side effect, unsynchronized,
+	// while the worker reads the same struct from another goroutine.
+	dir := c.DataDir
+	if dir == "" {
+		dir = defaultDataDir()
 	}
-	return filepath.Join(c.DataDir, "sites.db")
+	return filepath.Join(dir, "sites.db")
 }
 
 func configDir() string {

@@ -68,11 +68,17 @@ func printUsage() {
 
 func parseFlags(args []string) (host string, port int, cfgPath, dbPath string) {
 	fs := flag.NewFlagSet("server", flag.ContinueOnError)
-	fs.StringVar(&host, "host", "", "")
-	fs.IntVar(&port, "port", 0, "")
-	fs.StringVar(&cfgPath, "config", "", "")
-	fs.StringVar(&dbPath, "db", "", "")
-	_ = fs.Parse(args)
+	fs.StringVar(&host, "host", "", "listen address (empty/auto = dual-stack)")
+	fs.IntVar(&port, "port", 0, "listen port (0 = from config)")
+	fs.StringVar(&cfgPath, "config", "", "path to config.json")
+	fs.StringVar(&dbPath, "db", "", "path to the SQLite database")
+	if err := fs.Parse(args); err != nil {
+		// A typo in a flag name must not be swallowed: starting on the
+		// configured port while the operator believes they overrode it is
+		// worse than refusing to start.
+		printUsage()
+		fatalf("invalid arguments: %v", err)
+	}
 	return
 }
 
@@ -163,7 +169,7 @@ func runServer(args []string) {
 
 // --- admin user management (same principle as the Monitoring port) ---
 
-func adminUsername(cfg *config.Config) string {
+func adminUsername() string {
 	if u := os.Getenv("UPTIME_MONITOR_ADMIN_USERNAME"); u != "" {
 		return u
 	}
@@ -219,7 +225,7 @@ func createAdmin(store *storage.Store, cfg *config.Config, username string) {
 }
 
 func ensureAdmin(store *storage.Store, cfg *config.Config, dbDir string) {
-	username := adminUsername(cfg)
+	username := adminUsername()
 	u, err := store.GetUserByUsername(username)
 	if err == nil && u != nil {
 		return
@@ -228,7 +234,7 @@ func ensureAdmin(store *storage.Store, cfg *config.Config, dbDir string) {
 }
 
 func resetAdmin(store *storage.Store, cfg *config.Config) {
-	username := adminUsername(cfg)
+	username := adminUsername()
 	if u, err := store.GetUserByUsername(username); err == nil && u != nil {
 		_ = store.DeleteUser(u.ID)
 		_ = store.DeleteUserSessions(u.ID)
@@ -270,7 +276,7 @@ func runHasAdmin(args []string) {
 	}
 	defer db.Close()
 	store := storage.NewStore(db, abs)
-	u, err := store.GetUserByUsername(adminUsername(cfg))
+	u, err := store.GetUserByUsername(adminUsername())
 	if err == nil && u != nil {
 		fmt.Println("yes")
 		return

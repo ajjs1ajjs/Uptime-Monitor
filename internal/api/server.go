@@ -69,7 +69,7 @@ func (a *App) Handler() http.Handler {
 	// Successful logins reset the counter so legitimate users are never locked out.
 	mux.HandleFunc("POST /login", a.withRecovery(a.withRateLimit("login_fail", 5, 900, a.handleLoginPost)))
 	mux.HandleFunc("GET /logout", a.withRecovery(a.handleLogout))
-	mux.Handle("POST /logout", a.withRecovery(a.withCSRF(a.withAuth(a.handleLogout))))
+	mux.Handle("POST /logout", a.withRecovery(a.withAuth(a.withCSRF(a.handleLogout))))
 	mux.HandleFunc("GET /change-password", a.withRecovery(a.handleChangePasswordPage))
 	mux.HandleFunc("POST /change-password", a.withRecovery(a.withRateLimit("change_password", 3, 900, a.handleChangePasswordPost)))
 	mux.HandleFunc("GET /forgot-password", a.withRecovery(a.handleForgotPage))
@@ -87,15 +87,20 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("GET /ws", a.withRecovery(a.withRateLimit("ws", 60, 60, a.handleWS)))
 
 	// --- JSON API ---
+	//
+	// Order matters: withAuth must run before withCSRF, because withCSRF
+	// reads the principal to exempt API-key requests (not a browser CSRF
+	// vector). With the wrappers the other way round the principal was always
+	// nil at that point and the exemption was dead code.
 	authed := func(h http.HandlerFunc) http.HandlerFunc {
-		return a.withRecovery(a.withCSRF(a.withAuth(h)))
+		return a.withRecovery(a.withAuth(a.withCSRF(h)))
 	}
 	admin := func(h http.HandlerFunc) http.HandlerFunc {
-		return a.withRecovery(a.withCSRF(a.withAuth(a.withAdmin(h))))
+		return a.withRecovery(a.withAuth(a.withCSRF(a.withAdmin(h))))
 	}
 	// adminWrite additionally requires HA leadership (standbys are read-only).
 	adminWrite := func(h http.HandlerFunc) http.HandlerFunc {
-		return a.withRecovery(a.withCSRF(a.withAuth(a.withAdmin(a.requireLeader(h)))))
+		return a.withRecovery(a.withAuth(a.withCSRF(a.withAdmin(a.requireLeader(h)))))
 	}
 
 	mux.Handle("GET /api/sites", authed(a.handleListSites))
