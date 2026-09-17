@@ -139,14 +139,14 @@ func (st *Store) CountAdmins() (int, error) {
 
 func (st *Store) CreateSession(userID int64, sessionID string, expiresAt time.Time) error {
 	_, err := st.DB.Exec(`INSERT INTO sessions (user_id, session_id, created_at, expires_at)
-	  VALUES (?,?,?,?)`, userID, sessionID, Now(), expiresAt.UTC().Format("2006-01-02T15:04:05.000000+00:00"))
+	  VALUES (?,?,?,?)`, userID, sessionID, Now(), TimeString(expiresAt))
 	return err
 }
 
 func (st *Store) GetSession(sessionID string) (*User, error) {
 	row := st.DB.QueryRow(`SELECT u.id, u.username, u.password_hash, u.role, u.must_change_password, u.created_at, u.last_login
 	  FROM sessions s JOIN users u ON s.user_id = u.id
-	  WHERE s.session_id = ? AND s.expires_at > datetime('now')`, sessionID)
+	  WHERE s.session_id = ? AND s.expires_at > ?`, sessionID, Now())
 	return scanUser(row)
 }
 
@@ -172,9 +172,9 @@ type APIKey struct {
 	IsActive   bool    `json:"is_active"`
 }
 
-func (st *Store) CreateAPIKey(keyID, userID int64, name, keyIDStr, hash string) error {
+func (st *Store) CreateAPIKey(userID int64, name, keyID, hash string) error {
 	_, err := st.DB.Exec(`INSERT INTO api_keys (key_id, user_id, name, key_hash, created_at, is_active)
-	  VALUES (?,?,?,?,?,1)`, keyIDStr, userID, name, hash, Now())
+	  VALUES (?,?,?,?,?,1)`, keyID, userID, name, hash, Now())
 	return err
 }
 
@@ -234,7 +234,7 @@ func (st *Store) TouchAPIKey(keyID string) {
 	now := Now()
 	// throttle to once per 60s
 	if last.Valid && last.String != "" {
-		if t, err := time.Parse("2006-01-02T15:04:05.999999-07:00", last.String); err == nil {
+		if t, err := ParseTime(last.String); err == nil {
 			if time.Since(t) < 60*time.Second {
 				return
 			}

@@ -411,8 +411,8 @@ func (a *App) handleSSLCheckAll(w http.ResponseWriter, r *http.Request) {
 func (a *App) handleResponseTime(w http.ResponseWriter, r *http.Request) {
 	rows, err := a.Store.DB.Query(`SELECT site_id, s.name, AVG(sh.response_time), MIN(sh.response_time), MAX(sh.response_time), COUNT(*)
 	  FROM status_history sh JOIN sites s ON sh.site_id = s.id
-	  WHERE sh.checked_at >= datetime('now','-24 hours') AND sh.response_time IS NOT NULL
-	  GROUP BY site_id ORDER BY 3 ASC`)
+	  WHERE sh.checked_at >= ? AND sh.response_time IS NOT NULL
+	  GROUP BY site_id ORDER BY 3 ASC`, storage.Since(24*time.Hour))
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "Database error")
 		return
@@ -466,21 +466,28 @@ func round1(f float64) float64 { return float64(int(f*10+0.5)) / 10 }
 func (a *App) handleIncidents(w http.ResponseWriter, r *http.Request) {
 	// Group consecutive down/slow checks into one incident per outage:
 	// an incident starts when a check differs from the previous check's status
-	// and ends when the status returns to up. Rows are compared in time order.
+	// and ends when the status returns to up.
+	//
+	// The "is this the start of an outage" filter has to run inside SQL,
+	// before LIMIT. It used to LIMIT 200 raw down/slow rows and then drop the
+	// continuation rows in Go, so a single long outage (200 consecutive down
+	// checks is 17 minutes at a 5s interval) filled the whole budget and the
+	// endpoint returned one incident while hiding every older one.
 	rows, err := a.Store.DB.Query(`
 	  WITH seq AS (
 	    SELECT sh.id, sh.site_id, s.name, s.url, sh.status, sh.status_code,
 	           sh.response_time, sh.error_message, sh.checked_at,
 	           LAG(sh.status) OVER (PARTITION BY sh.site_id ORDER BY sh.checked_at, sh.id) AS prev_status
 	    FROM status_history sh JOIN sites s ON sh.site_id = s.id
-	    WHERE sh.checked_at >= datetime('now','-7 days')
+	    WHERE sh.checked_at >= ?
 	  )
 	  SELECT id, site_id, name, url, status, status_code, response_time,
 	         error_message, checked_at, prev_status
 	  FROM seq
 	  WHERE status IN ('down','slow')
+	    AND (prev_status IS NULL OR prev_status <> status)
 	  ORDER BY checked_at DESC, id DESC
-	  LIMIT 200`)
+	  LIMIT 100`, storage.Since(7*24*time.Hour))
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "Database error")
 		return
@@ -498,19 +505,12 @@ func (a *App) handleIncidents(w http.ResponseWriter, r *http.Request) {
 		if err := rows.Scan(&id, &sid, &name, &siteURL, &status, &code, &rt, &errMsg, &checkedAt, &prev); err != nil {
 			continue
 		}
-		// only the first check of an outage is a new incident
-		if prev.s == status {
-			continue
-		}
 		out = append(out, map[string]any{
 			"id": id, "site_id": sid, "site_name": name, "site_url": siteURL,
 			"status": status, "status_code": code.v, "response_time": rt.f,
 			"error_message": errMsg.s, "checked_at": checkedAt,
 			"prev_status": prev.s, "duration": nil,
 		})
-		if len(out) >= 100 {
-			break
-		}
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -987,10 +987,10 @@ func (a *App) slaReport(days int) ([]map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	mod := fmt.Sprintf("-%d days", days)
 	rows, err := a.Store.DB.Query(`SELECT site_id, COUNT(*), SUM(CASE WHEN status='up' THEN 1 ELSE 0 END),
 	  SUM(CASE WHEN status IN ('down','slow') THEN 1 ELSE 0 END), AVG(response_time)
-	  FROM status_history WHERE checked_at >= datetime('now', ?) GROUP BY site_id`, mod)
+	  FROM status_history WHERE checked_at >= ? GROUP BY site_id`,
+		storage.Since(time.Duration(days)*24*time.Hour))
 	if err != nil {
 		return nil, err
 	}
@@ -1113,7 +1113,7 @@ func (a *App) handleCreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	p := a.principal(r)
 	keyID, raw := auth.NewAPIKey()
 	hash := auth.HashAPIKey(raw)
-	if err := a.Store.CreateAPIKey(0, p.UserID, name, keyID, hash); err != nil {
+	if err := a.Store.CreateAPIKey(p.UserID, name, keyID, hash); err != nil {
 		writeErr(w, http.StatusInternalServerError, "Database error")
 		return
 	}

@@ -530,9 +530,9 @@ func (a *App) recentIncidents(perSite, totalLimit int) []map[string]any {
 	  SELECT site_id, status, checked_at,
 	         LAG(status) OVER (PARTITION BY site_id ORDER BY checked_at, id) AS prev_status
 	  FROM status_history
-	  WHERE status IN ('down','slow') AND checked_at >= datetime('now','-30 days')
+	  WHERE status IN ('down','slow') AND checked_at >= ?
 	) WHERE status IN ('down','slow') AND (prev_status IS NULL OR prev_status <> status)
-	  ORDER BY checked_at DESC`)
+	  ORDER BY checked_at DESC`, storage.Since(30*24*time.Hour))
 	if err != nil {
 		return []map[string]any{}
 	}

@@ -891,16 +891,15 @@ func (w *Worker) cachedRegexp(pattern string) *regexp.Regexp {
 	return re
 }
 
+// parseTime reads a timestamp written by storage.Now() (or by an older
+// version, or supplied by a client via silenced_until). A zero time means
+// unparseable, which every caller treats as "no timestamp".
 func parseTime(s string) time.Time {
-	t, err := time.Parse("2006-01-02T15:04:05.999999-07:00", s)
-	if err == nil {
-		return t
+	t, err := storage.ParseTime(s)
+	if err != nil {
+		return time.Time{}
 	}
-	t, err = time.Parse("2006-01-02T15:04:05", s)
-	if err == nil {
-		return t
-	}
-	return time.Time{}
+	return t
 }
 
 // --- SSL certificate checking ---
