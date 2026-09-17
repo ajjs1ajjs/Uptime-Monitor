@@ -9,7 +9,7 @@
 # The binary is fully static (modernc.org/sqlite is pure Go, CGO disabled),
 # so the runtime image is a minimal Alpine with only CA certs + tzdata.
 
-FROM golang:1.26-alpine3.24 AS builder
+FROM golang:1.27-alpine3.24 AS builder
 WORKDIR /src
 
 # Leverage layer caching: dependencies first.
