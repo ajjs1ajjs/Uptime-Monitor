@@ -122,7 +122,9 @@ func runServer(args []string) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go elector.Run(ctx, store.DB)
+	// First heartbeat runs synchronously: a node must not answer as leader
+	// (or start checking sites) before the database has confirmed the lease.
+	elector.Start(ctx, store.DB)
 	worker.Run(ctx)
 
 	// dual-stack bind: ":port" listens on IPv4+IPv6 (a lesson from Monitoring).
