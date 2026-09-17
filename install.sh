@@ -272,11 +272,75 @@ fi
 systemctl restart $SERVICE_NAME
 
 # --- Health check -------------------------------------------------------------
-echo -n "Waiting for the service to become healthy..."
-for i in $(seq 1 15); do
-    if curl -fsS "http://localhost:8080/health" >/dev/null 2>&1; then echo " OK"; break; fi
-    if [ "$i" = "15" ]; then echo " FAILED"; else echo -n "."; sleep 1; fi
+# A service that never came up must NOT be reported as a successful update.
+# This used to print " FAILED" and then fall straight through to "updated
+# successfully" with exit code 0, so the operator only found out later, from
+# the dashboard.
+#
+# Two distinct outcomes, because the HTTP probe is not authoritative: the port
+# comes from config.json (and the bind host may not be localhost at all), so a
+# probe failure does not prove the service is down.
+#   - unit not active        -> hard failure, logs + rollback instructions
+#   - unit active, no answer -> warning only, the update itself is fine
+#
+# The window is 60s rather than 15s because startup is not instant on a large
+# database: schema and timestamp migrations run before the port opens
+# (measured at ~4s for 30 days of history across 20 monitors, and only on the
+# first boot after an upgrade).
+UM_PORT=8080
+if [ -f "$CONFIG_FILE" ]; then
+    CFG_PORT="$(grep -o '"port"[[:space:]]*:[[:space:]]*[0-9]\+' "$CONFIG_FILE" 2>/dev/null | head -1 | grep -o '[0-9]\+$')"
+    [ -n "$CFG_PORT" ] && UM_PORT="$CFG_PORT"
+fi
+
+echo -n "Waiting for the service to become healthy (port ${UM_PORT})..."
+HEALTHY=0
+for i in $(seq 1 30); do
+    if curl -fsS "http://localhost:${UM_PORT}/health" >/dev/null 2>&1; then
+        HEALTHY=1
+        echo " OK"
+        break
+    fi
+    if ! systemctl is-active --quiet $SERVICE_NAME; then
+        break   # dead unit: no point waiting out the full window
+    fi
+    echo -n "."
+    sleep 2
 done
+
+if [ "$HEALTHY" != "1" ]; then
+    echo " FAILED"
+    echo ""
+    if systemctl is-active --quiet $SERVICE_NAME; then
+        # Running, but the probe could not reach it. Most likely a non-default
+        # bind host, or a port this installer could not read out of config.json.
+        echo "WARNING: $SERVICE_NAME is running, but http://localhost:${UM_PORT}/health did not answer."
+        echo "If the service listens on another address or port, this is expected - check manually:"
+        echo "  curl -fsS http://<host>:<port>/health"
+        echo "  systemctl status $SERVICE_NAME --no-pager"
+        echo ""
+    else
+        echo "ERROR: $SERVICE_NAME is not running after the update."
+        echo ""
+        echo "--- systemctl status ---"
+        systemctl status $SERVICE_NAME --no-pager -l 2>&1 | head -20 || true
+        echo ""
+        echo "--- last log lines ---"
+        journalctl -u $SERVICE_NAME -n 30 --no-pager 2>&1 || true
+        echo ""
+        if [ "$IS_UPDATE" = "1" ] && [ -f "$INSTALL_DIR/uptime-monitor.old" ]; then
+            echo "The previous binary is still in place, so this is reversible:"
+            echo ""
+            echo "  sudo systemctl stop $SERVICE_NAME"
+            echo "  sudo mv $INSTALL_DIR/uptime-monitor.old $INSTALL_DIR/uptime-monitor"
+            echo "  sudo systemctl start $SERVICE_NAME"
+            echo ""
+            echo "Config, database and users were not modified by this installer."
+        fi
+        echo "Refusing to report a successful update."
+        exit 1
+    fi
+fi
 
 # --- Summary ------------------------------------------------------------------
 echo "[4/4] Done."
@@ -292,7 +356,7 @@ else
     echo "  Database: $DATA_DIR/sites.db"
 fi
 echo ""
-echo "Dashboard: http://localhost:8080/"
+echo "Dashboard: http://localhost:${UM_PORT}/"
 echo ""
 if [ "$ADMIN_SET" = "1" ]; then
     echo "===================================="
